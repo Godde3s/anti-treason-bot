@@ -47,7 +47,7 @@ Prefer the terminal? `CLOUDFLARE_API_TOKEN=xxx bash scripts/deploy.sh` does ever
 
 ## 🧪 Tests
 
-A full Telegram + KV simulator runs **352 assertions** (`node scripts/test-bot.mjs`): locks, escalation ladder, ACL scoping, batch promotion, anonymous-post lock, backups, schedules, stats rotation and more.
+A full Telegram + KV simulator runs **414 assertions** (`node scripts/test-bot.mjs`): locks, escalation ladder, ACL scoping, batch promotion, anonymous-post lock, backups, schedules, stats rotation and more.
 
 ## 🔐 Security notes
 
@@ -55,6 +55,7 @@ A full Telegram + KV simulator runs **352 assertions** (`node scripts/test-bot.m
 - Every bot action is permission-checked server-side (owner / scoped admin / viewer), not just hidden in the UI.
 - `wrangler.toml` in the repo ships with placeholders — the deploy flow fills them in.
 - 🌐 **Fully bilingual (v2.3)** — every user picks fa/en with one tap; the owner sets the reports default with `/setlang`.
+- 🧩 **Up to date with the latest Telegram (v2.4)** — whole-album/slideshow deletion, coverage for rich messages, checklists, live photos and paid media, instant channel-ownership alerts, colored (danger/success/primary) buttons and a 🔥 welcome effect.
 
 ## 📄 License
 

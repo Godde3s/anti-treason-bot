@@ -1626,6 +1626,81 @@ await section('v1.8 — پاک‌سازی: وضعیت خاموش + undoهای ب
   ok(undoLeft !== null, 'undo تستی 4455 هنوز در KV است (انقضای ۲۴h خودکار)');
 });
 
+/* ───────────────────────── v2.4: آخرین تلگرام — آلبوم، تایپ‌های جدید، مالکیت، استایل ───────────────────────── */
+
+await section('v2.4 — هشدار تغییر مالکیت کانال', async () => {
+  clearCalls();
+  await post(upd({ channel_post: { message_id: 910, chat: { id: Number(CID), type: 'channel', title: 'تست کانال' }, date: Math.floor(realNow() / 1000), chat_owner_changed: { new_owner_user: { id: 555, first_name: 'نوآر', username: 'newowner' } } } }));
+  const sends = calls('sendMessage');
+  ok(sends.some((c) => String(c.payload.chat_id) === String(OWNER) && /مالکیت کانال تغییر کرد/.test(c.payload.text || '')), 'هشدار تغییر مالکیت به مالک رفت');
+  const own = sends.find((c) => /مالکیت کانال تغییر کرد/.test(c.payload.text || ''));
+  ok(own && /@newowner/.test(own.payload.text) && /555/.test(own.payload.text), 'یوزرنیم و شناسهٔ مالک جدید در هشدار هست');
+  ok(delCalls().length === 0, 'پیام سیستمی حذف نشد');
+  await post(upd({ channel_post: { message_id: 911, chat: { id: Number(CID), type: 'channel', title: 'تست کانال' }, date: Math.floor(realNow() / 1000), chat_owner_left: {} } }));
+  ok(calls('sendMessage').some((c) => /مالک قبلی کانال را ترک کرد/.test(c.payload.text || '')), 'هشدار ترک مالکیت هم کار می‌کند');
+});
+
+await section('v2.4 — پیام‌های سیستمی تایپ‌های جدید + آپدیت ناشناخته', async () => {
+  clearCalls();
+  await post(upd({ channel_post: { message_id: 912, chat: { id: Number(CID), type: 'channel', title: 'تست کانال' }, date: Math.floor(realNow() / 1000), poll_option_added: {} } }));
+  ok(delCalls().length === 0 && calls('sendMessage').length === 0, 'poll_option_added بی‌صدا نادیده شد');
+  const r = await post(upd({ subscription: { star_count: 5 } }));
+  ok(r.status === 200, 'آپدیت subscription → 200 بدون کرش');
+  ok(calls('sendMessage').length === 0 && calls('editMessageText').length === 0, 'آپدیت ناشناخته هیچ کاری نکرد (fast-path)');
+  const r2 = await post(upd({ stopped_message_generation: {} }));
+  ok(r2.status === 200, 'stopped_message_generation → 200');
+});
+
+await section('v2.4 — چک‌لیست/پیام ریچ زیر قفل ناشناس + عکس زنده زیر قفل عکس', async () => {
+  await setLock('lock_anon', true);
+  clearCalls();
+  await post(chan({ message_id: 913, checklist: { title: 'کارهای هفته' } }));
+  ok(delCalls().some((c) => c.payload.message_id === 913), 'چک‌لیست ناشناس حذف شد');
+  await post(chan({ message_id: 914, rich_message: { blocks: [] } }));
+  ok(delCalls().some((c) => c.payload.message_id === 914), 'پیام ریچ ناشناس حذف شد');
+  const lastDel = calls('sendMessage').filter((c) => /تخلف حذف شد/.test(c.payload.text || ''));
+  ok(lastDel.length && /چک\u200cلیست|Rich|rich/.test(lastDel[lastDel.length - 1].payload.text), 'گزارش شامل برچسب تایپ جدید است');
+  await setLock('lock_anon', false);
+  await setLock('send_photo', true);
+  clearCalls();
+  await post(chan({ message_id: 915, live_photo: { file_id: 'lp1' } }));
+  ok(delCalls().some((c) => c.payload.message_id === 915), 'عکس زنده با قفل ارسال عکس حذف شد');
+  await setLock('send_photo', false);
+});
+
+await section('v2.4 — آلبوم/اسلایدشو: حذف کل آلبوم', async () => {
+  await setLock('send_photo', true);
+  clearCalls();
+  await post(chan({ message_id: 921, media_group_id: 'albumX', photo: [{ file_id: 'p1' }] }));
+  await post(chan({ message_id: 922, media_group_id: 'albumX', photo: [{ file_id: 'p2' }] }));
+  await post(chan({ message_id: 923, media_group_id: 'albumX', photo: [{ file_id: 'p3' }] }));
+  const mids = new Set(delCalls().map((c) => c.payload.message_id));
+  ok([921, 922, 923].every((m) => mids.has(m)), 'هر ۳ قسمت آلبوم حذف شد');
+  clearCalls();
+  await post(chan({ message_id: 930, media_group_id: 'albumY', photo: [{ file_id: 'q1' }] }));
+  ok(delCalls().some((c) => c.payload.message_id === 930), 'آلبوم بعدی هم به‌درستی قفل خورد');
+  await setLock('send_photo', false);
+});
+
+await section('v2.4 — استایل رنگی دکمه‌ها + افکت /start', async () => {
+  clearCalls();
+  await post(upd({ my_chat_member: { chat: { id: -1008888, type: 'channel', title: 'کانال نو' }, new_chat_member: { status: 'administrator' } } }));
+  const mk = JSON.stringify(calls('sendMessage').slice(-1)[0].payload.reply_markup || {});
+  ok(mk.includes('"style":"success"'), 'دکمهٔ فعال‌سازی سبز است (success)');
+  ok(mk.includes('"style":"danger"'), 'دکمهٔ رد کردن قرمز است (danger)');
+  await env.KV.delete('chat:-1008888');
+  await env.KV.delete('stat:-1008888');
+  await env.KV.delete('vlog:-1008888');
+  clearCalls();
+  await post(cbQuery(`chat:${CID}`, OWNER));
+  const ck = JSON.stringify(lastEditedKB());
+  ok(ck.includes('"style":"danger"'), 'دکمهٔ قفل آنی (بستن) در پنل کانال قرمز است');
+  clearCalls();
+  await post(priv('/start', OWNER));
+  const st = calls('sendMessage').slice(-1)[0];
+  ok(st && st.payload.message_effect_id === '5104841245755180586', 'پیام /start با افکت 🔥 ارسال شد');
+});
+
 /* ---------------------------- جمع‌بندی ---------------------------- */
 
 unfreeze();
