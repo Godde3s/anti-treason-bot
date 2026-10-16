@@ -54,6 +54,7 @@ A full Telegram + KV simulator runs **352 assertions** (`node scripts/test-bot.m
 - No tokens, credentials or personal IDs are committed. `BOT_TOKEN` / `OWNER_ID` live as Worker secrets; `WEBHOOK_SECRET` is generated at deploy time.
 - Every bot action is permission-checked server-side (owner / scoped admin / viewer), not just hidden in the UI.
 - `wrangler.toml` in the repo ships with placeholders — the deploy flow fills them in.
+- 🌐 **Fully bilingual (v2.3)** — every user picks fa/en with one tap; the owner sets the reports default with `/setlang`.
 
 ## 📄 License
 
