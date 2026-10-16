@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ضد خیانت کانال — نگهبان تلگرامی کانال‌های شما | Anti-Treason Bot</title>
+<meta name="description" content="ربات نگهبان کانال تلگرام روی Cloudflare Workers: ۲۰ قفل هوشمند، چندکاناله، دوزبانه، رایگان. Telegram channel guard bot — 20 smart locks, multi-channel, bilingual, free.">
+<meta property="og:title" content="🛡️ Anti-Treason Bot — ضد خیانت کانال">
+<meta property="og:description" content="Delete violations the second they happen — even days-old edits. Free, bilingual, multi-channel.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;600;800;900&family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+<style>
+:root{
+  --bg:#07080f; --bg2:#0b0d1a; --card:rgba(255,255,255,.04); --card-br:rgba(255,255,255,.09);
+  --tx:#eef0ff; --tx2:#a3a8c3; --tx3:#6b7090;
+  --v1:#8b5cf6; --v2:#6366f1; --cy:#22d3ee; --pk:#f472b6; --am:#fbbf24; --gr:#34d399; --rd:#f87171;
+  --grad:linear-gradient(135deg,#8b5cf6 0%,#6366f1 45%,#22d3ee 100%);
+  --r:18px; --font-fa:'Vazirmatn',system-ui,sans-serif; --font-en:'Inter',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--tx);font-family:var(--font-fa);line-height:1.9;overflow-x:hidden;
+  background-image:radial-gradient(900px 500px at 85% -10%,rgba(139,92,246,.16),transparent 60%),
+  radial-gradient(800px 500px at 5% 15%,rgba(34,211,238,.10),transparent 60%),
+  radial-gradient(700px 600px at 50% 110%,rgba(99,102,241,.12),transparent 60%)}
+html[lang="en"] body{font-family:var(--font-en)}
+::selection{background:rgba(139,92,246,.4)}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1140px;margin-inline:auto;padding-inline:24px}
+
+/* ── ناوبری ── */
+nav{position:fixed;inset-inline:0;top:0;z-index:50;backdrop-filter:blur(18px);
+  background:rgba(7,8,15,.72);border-bottom:1px solid var(--card-br)}
+.nav-in{display:flex;align-items:center;gap:18px;height:66px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:900;font-size:1.12rem}
+.logo .sh{width:38px;height:38px;border-radius:12px;background:var(--grad);display:grid;place-items:center;font-size:1.15rem;box-shadow:0 6px 24px rgba(139,92,246,.45)}
+.nav-links{display:flex;gap:26px;margin-inline-start:auto;font-size:.92rem;color:var(--tx2)}
+.nav-links a:hover{color:var(--tx)}
+.lang-btn{cursor:pointer;border:1px solid var(--card-br);background:var(--card);color:var(--tx);
+  border-radius:999px;padding:7px 16px;font-family:inherit;font-size:.88rem;font-weight:700;transition:.25s}
+.lang-btn:hover{border-color:var(--v1);box-shadow:0 0 20px rgba(139,92,246,.35)}
+@media(max-width:760px){.nav-links{display:none}}
+
+/* ── هیرو ── */
+.hero{padding:150px 0 90px;text-align:center;position:relative}
+.hero .orbit{position:absolute;inset-inline:50%;top:120px;width:520px;height:520px;transform:translateX(50%);
+  background:conic-gradient(from 90deg,rgba(139,92,246,.25),rgba(34,211,238,.18),rgba(244,114,182,.2),rgba(139,92,246,.25));
+  filter:blur(90px);border-radius:50%;animation:pulse 9s ease-in-out infinite;pointer-events:none}
+@keyframes pulse{50%{opacity:.55;transform:translateX(50%) scale(1.08)}}
+.badge{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--card-br);background:var(--card);
+  border-radius:999px;padding:8px 18px;font-size:.85rem;color:var(--tx2);margin-bottom:26px}
+.badge .dot{width:8px;height:8px;border-radius:50%;background:var(--gr);box-shadow:0 0 12px var(--gr);animation:blink 2s infinite}
+@keyframes blink{50%{opacity:.35}}
+h1{font-size:clamp(2.3rem,6vw,4.2rem);font-weight:900;line-height:1.35;letter-spacing:-.5px}
+h1 .g{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{max-width:720px;margin:22px auto 0;color:var(--tx2);font-size:clamp(1rem,2vw,1.18rem)}
+.cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:38px}
+.btn{display:inline-flex;align-items:center;gap:9px;padding:14px 30px;border-radius:14px;font-weight:800;font-size:1rem;transition:.25s;cursor:pointer;border:0}
+.btn.primary{background:var(--grad);color:#fff;box-shadow:0 10px 34px rgba(109,90,246,.45)}
+.btn.primary:hover{transform:translateY(-3px);box-shadow:0 16px 44px rgba(109,90,246,.6)}
+.btn.ghost{border:1px solid var(--card-br);background:var(--card);color:var(--tx)}
+.btn.ghost:hover{border-color:var(--cy);transform:translateY(-3px)}
+.trust{margin-top:46px;display:flex;gap:34px;justify-content:center;flex-wrap:wrap;color:var(--tx3);font-size:.88rem}
+.trust b{display:block;font-size:1.45rem;color:var(--tx);font-weight:900;font-family:var(--font-en)}
+
+/* ── سکشن‌ها ── */
+section{padding:84px 0}
+.sec-head{text-align:center;margin-bottom:54px}
+.kicker{display:inline-block;color:var(--cy);font-weight:800;font-size:.85rem;letter-spacing:1px;margin-bottom:10px}
+h2{font-size:clamp(1.7rem,4vw,2.6rem);font-weight:900}
+.sec-head p{color:var(--tx2);max-width:640px;margin:14px auto 0}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:18px}
+.card{background:var(--card);border:1px solid var(--card-br);border-radius:var(--r);padding:26px;transition:.3s;position:relative;overflow:hidden}
+.card:hover{transform:translateY(-6px);border-color:rgba(139,92,246,.5);box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.card .ic{width:52px;height:52px;border-radius:14px;display:grid;place-items:center;font-size:1.5rem;margin-bottom:16px;background:rgba(139,92,246,.14);border:1px solid rgba(139,92,246,.3)}
+.card h3{font-size:1.08rem;font-weight:800;margin-bottom:8px}
+.card p{color:var(--tx2);font-size:.92rem}
+
+/* مراحل */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;counter-reset:st}
+.step{background:var(--card);border:1px solid var(--card-br);border-radius:var(--r);padding:30px 26px;position:relative}
+.step::before{counter-increment:st;content:counter(st);position:absolute;top:-18px;inset-inline-start:24px;width:44px;height:44px;
+  border-radius:13px;background:var(--grad);display:grid;place-items:center;font-weight:900;font-size:1.2rem;color:#fff;box-shadow:0 8px 24px rgba(139,92,246,.5)}
+.step h3{margin:16px 0 8px;font-size:1.05rem}
+.step p{color:var(--tx2);font-size:.92rem}
+
+/* نردبان وضعیت */
+.ladder{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px}
+.mode{border-radius:var(--r);padding:28px;border:1px solid var(--card-br);background:var(--card)}
+.mode h3{font-size:1.15rem;margin-bottom:10px}
+.mode p{color:var(--tx2);font-size:.92rem}
+.mode.yellow{border-color:rgba(251,191,36,.4);box-shadow:inset 0 0 60px rgba(251,191,36,.06)}
+.mode.red{border-color:rgba(248,113,113,.45);box-shadow:inset 0 0 60px rgba(248,113,113,.07)}
+.mode.off b{color:var(--tx2)}
+
+/* آموزش */
+.acc{max-width:820px;margin-inline:auto}
+.q{border:1px solid var(--card-br);border-radius:16px;background:var(--card);margin-bottom:12px;overflow:hidden;transition:.3s}
+.q summary{cursor:pointer;padding:20px 24px;font-weight:700;list-style:none;display:flex;align-items:center;gap:12px}
+.q summary::-webkit-details-marker{display:none}
+.q summary .n{color:var(--cy);font-family:var(--font-en);font-weight:900;min-width:30px}
+.q summary::after{content:'＋';margin-inline-start:auto;color:var(--tx3);transition:.3s;font-family:var(--font-en)}
+.q[open] summary::after{transform:rotate(45deg);color:var(--cy)}
+.q .a{padding:0 24px 22px;color:var(--tx2);font-size:.95rem}
+.q .a code{background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);border-radius:8px;padding:2px 9px;font-size:.85em;direction:ltr;unicode-bidi:embed;font-family:ui-monospace,monospace}
+.q .a ol{padding-inline-start:22px;margin-top:8px}
+.q .a li{margin-bottom:6px}
+
+/* دیپلوی */
+.deploy-box{border:1px solid rgba(139,92,246,.4);border-radius:24px;padding:clamp(28px,5vw,60px);text-align:center;
+  background:linear-gradient(135deg,rgba(139,92,246,.12),rgba(34,211,238,.08));position:relative;overflow:hidden}
+.deploy-box h2{margin-bottom:12px}
+.deploy-box p{color:var(--tx2);max-width:560px;margin:0 auto 28px}
+.big-btn{display:inline-flex;align-items:center;gap:12px;background:var(--grad);color:#fff;font-weight:900;font-size:1.12rem;
+  padding:17px 42px;border-radius:16px;box-shadow:0 12px 44px rgba(109,90,246,.55);transition:.25s}
+.big-btn:hover{transform:translateY(-3px) scale(1.02)}
+.note{margin-top:20px;font-size:.85rem;color:var(--tx3)}
+
+/* فوتر */
+footer{border-top:1px solid var(--card-br);padding:40px 0;color:var(--tx3);font-size:.88rem;text-align:center}
+footer .fl{display:flex;gap:22px;justify-content:center;margin-bottom:14px;flex-wrap:wrap}
+footer a:hover{color:var(--cy)}
+
+/* انیمیشن ورود */
+.rv{opacity:0;transform:translateY(26px);transition:opacity .7s ease,transform .7s ease}
+.rv.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}.hero .orbit{animation:none}}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-in">
+    <a class="logo" href="#top"><span class="sh">🛡️</span><span data-i="brand">ضد خیانت کانال</span></a>
+    <div class="nav-links">
+      <a href="#features" data-i="navF">قابلیت‌ها</a>
+      <a href="#how" data-i="navH">راه‌اندازی</a>
+      <a href="#ladder" data-i="navL">نردبان وضعیت</a>
+      <a href="#learn" data-i="navE">آموزش</a>
+      <a href="#deploy" data-i="navD">استقرار</a>
+    </div>
+    <button class="lang-btn" id="langBtn" onclick="setLang(document.documentElement.lang==='fa'?'en':'fa')">🌐 English</button>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="orbit"></div>
+  <div class="wrap">
+    <span class="badge"><span class="dot"></span><span data-i="badge">متن‌باز · رایگان · روی Cloudflare Workers</span></span>
+    <h1><span data-i="h1a">خیانت را همان</span> <span class="g" data-i="h1b">ثانیهٔ وقوع</span> <span data-i="h1c">پاک کن</span></h1>
+    <p class="sub" data-i="sub">ربات نگهبان کانال تلگرام: هر ادیت یا ارسالِ غیرمجاز را لحظه‌ای پیدا می‌کند و حذف می‌کند — حتی اگر پیام چند روز پیش باشد و همین حالا ادیت شده باشد. پنل دوزبانه، ۲۰ قفل هوشمند، بدون سرور و کاملاً رایگان.</p>
+    <div class="cta">
+      <a class="btn primary" href="#deploy" data-i="cta1">🚀 استقرار یک‌کلیکی</a>
+      <a class="btn ghost" href="https://github.com/Godde3s/anti-treason-bot" target="_blank" rel="noopener">⭐ GitHub</a>
+      <a class="btn ghost" href="#learn" data-i="cta2">📘 آموزش گام‌به‌گام</a>
+    </div>
+    <div class="trust">
+      <div><b>396</b><span data-i="t1">تست خودکار سبز</span></div>
+      <div><b>20</b><span data-i="t2">قفل مستقل</span></div>
+      <div><b>∞</b><span data-i="t3">کانال همزمان</span></div>
+      <div><b>0.3%</b><span data-i="t4">مصرف از سهمیهٔ پلن رایگان</span></div>
+    </div>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="kicker" data-i="kf">FEATURES</span>
+      <h2 data-i="fH">هر چیزی که یک کانال تمیز می‌خواهد</h2>
+      <p data-i="fP">از قفل‌های ریز تا نردبان مجازات — همه‌چیز از یک پنل سادهٔ دوزبانه در پیوی ربات مدیریت می‌شود.</p>
+    </div>
+    <div class="grid">
+      <div class="card rv"><div class="ic">🔒</div><h3 data-i="f1h">۲۰ قفل مستقل</h3><p data-i="f1p">ادیت متن و مدیا، لینک در ادیت، ارسال متن/عکس/ویدیو/گیف/استیکر/ویس/موزیک/فایل/نظرسنجی/مخاطب/لوکیشن/بازی، فوروارد، لینک، پست ناشناس و قفل کامل.</p></div>
+      <div class="card rv"><div class="ic">📡</div><h3 data-i="f2h">چندکاناله واقعی</h3><p data-i="f2p">هر تعداد کانال، همزمان فعال؛ آمار، قفل‌ها و گزارش هر کانال کاملاً جداست و هر کانال جداگانه فعال می‌شود.</p></div>
+      <div class="card rv"><div class="ic">🛡️</div><h3 data-i="f3h">دسترسی کانالی (RBAC)</h3><p data-i="f3p">مالک دقیقاً تعیین می‌کند هر ادمین یا ناظر فقط به کدام کانال‌ها دسترسی داشته باشد؛ ادمینِ بدون کانال هیچی نمی‌بیند.</p></div>
+      <div class="card rv"><div class="ic">⏰</div><h3 data-i="f4h">قفل زمان‌دار + آنی</h3><p data-i="f4p">بازهٔ دلخواه به وقت تهران (مثل ۴ تا ۸ بامداد) با سه حالت؛ یا با یک دکمه کل کانال را همین حالا کامل ببند.</p></div>
+      <div class="card rv"><div class="ic">🟡</div><h3 data-i="f5h">نردبان زرد و قرمز</h3><p data-i="f5p">ادیت پستِ مدیادار ⇒ حذف فوری + عزل خودکار متخلف (زرد) یا حذف + عزل + بن مدت‌دار (قرمز) — با دکمهٔ لغو بن و بازگردانی دسترسی‌ها.</p></div>
+      <div class="card rv"><div class="ic">👑</div><h3 data-i="f6h">ادمین‌سازی داخل ربات</h3><p data-i="f6p">تک‌نفره یا گروهی (تا ۵۰ شناسه)، با پریست‌های یک‌ضربه‌ای، فهرست ادمین‌ها با دکمهٔ عزل و ویرایش دسترسی — بدون خروج از ربات.</p></div>
+      <div class="card rv"><div class="ic">👤</div><h3 data-i="f7h">نام و منشن کنار شناسه</h3><p data-i="f7p">در همهٔ لیست‌ها و گزارش‌های گروهی نام و منشن هر نفر کنار شناسه‌اش می‌آید تا هیچ‌وقت لازم نباشد آیدی‌ها را تک‌تک چک کنید.</p></div>
+      <div class="card rv"><div class="ic">📊</div><h3 data-i="f8h">آمار و «آخرین تخلف‌ها»</h3><p data-i="f8p">شمارندهٔ امروز به وقت تهران، پرتکرارترین دلایل، ۱۵ تخلف آخر با لینک مستقیم پیام و ساعت شمسی.</p></div>
+      <div class="card rv"><div class="ic">🤖</div><h3 data-i="f9h">حذف پیام‌های +۴۸ ساعت</h3><p data-i="f9p">محدودیت تلگرام را با یوزرباتِ همراه دور بزن: پیام‌های قدیمی به صف می‌روند و با اکانت انسانی حذف می‌شوند (اختیاری).</p></div>
+      <div class="card rv"><div class="ic">💾</div><h3 data-i="f10h">بکاپ و بازگردانی</h3><p data-i="f10p">کل تنظیمات هر کانال در یک متن قابل‌ذخیره؛ با یک ارسال دقیقاً همان وضعیت برمی‌گردد — انتقال آسان بین کانال‌ها.</p></div>
+      <div class="card rv"><div class="ic">⚡</div><h3 data-i="f11h">سوپر بهینه</h3><p data-i="f11p">کش دولایه، فلاش گروهی آمار، گزارش‌های ادغام‌شده در موج تخلف — ۰٫۳٪ از سهمیهٔ پلن رایگان Cloudflare.</p></div>
+      <div class="card rv"><div class="ic">🌐</div><h3 data-i="f12h">دوزبانهٔ کامل (v2.3)</h3><p data-i="f12p">هر کاربر زبان خودش را با دکمهٔ 🌐 انتخاب می‌کند؛ مالک زبان پیش‌فرض گزارش‌ها را با /setlang تعیین می‌کند.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how" style="background:var(--bg2)">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="kicker" data-i="kh">SETUP</span>
+      <h2 data-i="hH">۳ دقیقه تا کانال امن</h2>
+      <p data-i="hP">بدون سرور، بدون دیتابیس، بدون پرداخت — فقط Cloudflare و یک توکن ربات.</p>
+    </div>
+    <div class="steps">
+      <div class="step rv"><h3 data-i="s1h">استقرار در Cloudflare</h3><p data-i="s1p">دکمهٔ Deploy را بزن یا با wrangler دیپلوی کن؛ BOT_TOKEN و OWNER_ID را به‌عنوان Secret ثبت کن و آدرس <code>?setup=</code> را باز کن تا وب‌هوک خودکار وصل شود.</p></div>
+      <div class="step rv"><h3 data-i="s2h">ربات را ادمین کن</h3><p data-i="s2p">ربات را با دسترسی «حذف پیام» به کانال اضافه کن؛ خودکار ثبت می‌شود و پیام فعال‌سازی به پیوی مالک می‌آید.</p></div>
+      <div class="step rv"><h3 data-i="s3h">قفل‌ها را بچین</h3><p data-i="s3p">از پنل، قفل‌های دلخواه را روشن کن، وضعیت زرد/قرمز را تنظیم کن و ادمین‌هایت را با دسترسی کانالی وارد کن — تمام!</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="ladder">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="kicker" data-i="kl">PUNISH LADDER</span>
+      <h2 data-i="lH">نردبان وضعیت — از هشدار تا مجازات</h2>
+      <p data-i="lP">برای ادیتِ پست‌های مدیادار، خودت انتخاب می‌کنی ربات چقدر سخت‌گیر باشد.</p>
+    </div>
+    <div class="ladder">
+      <div class="mode off rv"><h3>⬜ <span data-i="m0">خاموش</span></h3><p data-i="m0p">فقط قفل‌های معمول اجرا می‌شوند؛ ادیت مدیا طبق قفل «ادیت مدیا» پاک می‌شود و کسی عزل نمی‌شود.</p></div>
+      <div class="mode yellow rv"><h3>🟡 <span data-i="m1">زرد — عزل خودکار</span></h3><p data-i="m1p">هر کسی پست مدیادار را ادیت کند: پیام فوراً پاک می‌شود، متخلف از ادمینی عزل می‌شود و گزارش فوری با جزئیات می‌آید.</p></div>
+      <div class="mode red rv"><h3>🔴 <span data-i="m2">قرمز — عزل + بن</span></h3><p data-i="m2p">همان زرد + بن از کانال با مدت دلخواه (۱ ساعت تا همیشگی). گزارش قرمز دکمهٔ «لغو بن» و «بازگردانی دسترسی‌های قبلی» دارد.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="learn" style="background:var(--bg2)">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="kicker" data-i="ke">GUIDE</span>
+      <h2 data-i="eH">آموزش و پرسش‌های رایج</h2>
+      <p data-i="eP">هر چه باید بدانی — از دسترسی‌ها تا محدودیت‌های واقعی تلگرام.</p>
+    </div>
+    <div class="acc">
+      <details class="q rv"><summary><span class="n">01</span><span data-i="q1">ربات دقیقاً چه دسترسی‌هایی لازم دارد؟</span></summary><div class="a" data-i="a1">تنها دسترسی <b>الزامی</b> «حذف پیام» (Delete messages) است. برای ادمین‌سازی از داخل ربات، دسترسی «Add New Admins» هم لازم می‌شود. بقیه اختیاری‌اند. از منوی هر کانال، «🩺 سلامت» وضعیت لحظه‌ای دسترسی‌ها را نشان می‌دهد.</div></details>
+      <details class="q rv"><summary><span class="n">02</span><span data-i="q2">ادمین جدید چطور اضافه کنم؟</span></summary><div class="a" data-i="a2">ادمینِ ربات فقط از سوی مالک تعیین می‌شود: «👥 ادمین‌های ربات» → «➕ افزودن ادمین» → شناسهٔ عددی را بفرست (خود کاربر با <code>/id</code> از ربات می‌گیرد) یا لیست تا ۵۰ شناسه را یکجا بده. بعد در ویرایشگرِ بازشده، کانال‌های مجاز همان نفر را تیک بزن. برای ادمین کانال هم از منوی هر کانال: «👑 ادمین‌های کانال».</div></details>
+      <details class="q rv"><summary><span class="n">03</span><span data-i="q3">چرا بعضی پیام‌های قدیمی حذف نمی‌شوند؟</span></summary><div class="a" data-i="a3">این محدودیت خود تلگرام است: <b>هیچ رباتی</b> نمی‌تواند پیام‌های قدیمی‌تر از ۴۸ ساعت را حذف کند. ربات ادیتِ چنین پیام‌هایی را شناسایی و گزارش می‌کند و لینک پیام را می‌دهد تا خودت دستی حذف کنی. اگر «یوزرباتِ همراه» را وصل کنی، حذفِ آن‌ها هم خودکار می‌شود.</div></details>
+      <details class="q rv"><summary><span class="n">04</span><span data-i="q4">قفل پست ناشناس چطور کار می‌کند؟</span></summary><div class="a" data-i="a4">وقتی روشن باشد، هر پستی که «بدون امضای ادمین» (از طرف خودِ کانال) ارسال شود فوراً حذف می‌شود — هیچ‌کس نمی‌تواند بدون هویت واقعی خودش پست بدهد. برای اینکه امضا زیر پست بیاید، در دسترسی هر ادمین گزینهٔ «Sign messages» را روشن کن.</div></details>
+      <details class="q rv"><summary><span class="n">05</span><span data-i="q5">امنیت و حریم خصوصی چطور است؟</span></summary><div class="a" data-i="a5">هیچ‌کس جز مالک نمی‌تواند دسترسی تعیین یا تنظیمات را تغییر دهد. توکن‌ها فقط به‌عنوان Secret روی Cloudflare نگهداری می‌شوند و هرگز در کد یا ریپو نیستند. وب‌هوک با secret token تلگرام اعتبارسنجی می‌شود و کد کاملاً متن‌باز (MIT) است — خودت می‌توانی بخوانی و دیپلوی کنی.</div></details>
+      <details class="q rv"><summary><span class="n">06</span><span data-i="q6">پلن رایگان Cloudflare کافی است؟</span></summary><div class="a" data-i="a6">بله، با فاصله. ربات در مصرف واقعی حدود <b>۰٫۳٪</b> از سهمیهٔ روزانهٔ ۱۰۰ هزار ریکوئست پلن رایگان را استفاده می‌کند؛ فلاش گروهی آمار سهمیهٔ نوشتن KV را هم در موج تخلف زیر سقف نگه می‌دارد. برای ۳ کانال (و خیلی بیشتر) پلن رایگان کاملاً کافی است.</div></details>
+    </div>
+  </div>
+</section>
+
+<section id="deploy">
+  <div class="wrap">
+    <div class="deploy-box rv">
+      <h2 data-i="dH">آماده‌ای کانالت را امن کنی؟</h2>
+      <p data-i="dP">دیپلوی در Cloudflare حدود یک دقیقه طول می‌کشد — بدون سرور، رایگان و متن‌باز.</p>
+      <a class="big-btn" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot" target="_blank" rel="noopener">⚡ <span data-i="dBtn">استقرار روی Cloudflare</span></a>
+      <p class="note" data-i="dNote">ترجیح می‌دهی دستی دیپلوی کنی؟ راهنمای کامل فارسی در ریپو هست — <code>README-FA.md</code></p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="fl">
+      <a href="https://github.com/Godde3s/anti-treason-bot" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/Godde3s" target="_blank" rel="noopener" data-i="fA">سازنده</a>
+      <a href="https://developers.cloudflare.com/workers/" target="_blank" rel="noopener">Cloudflare Workers</a>
+    </div>
+    <span data-i="fT">🛡️ ضد خیانت کانال — متن‌باز تحت مجوز MIT · ساخته‌شده برای کانال‌های تمیز</span>
+  </div>
+</footer>
+
+<script>
+/* ── 🌐 دوزبانه — دیکشنری کامل FA/EN + جهت RTL/LTR ── */
+const I18N = {
+  fa:{dir:'rtl',htmlLang:'fa',btn:'🌐 English',brand:'ضد خیانت کانال',
+    navF:'قابلیت‌ها',navH:'راه‌اندازی',navL:'نردبان وضعیت',navE:'آموزش',navD:'استقرار',
+    badge:'متن‌باز · رایگان · روی Cloudflare Workers',
+    h1a:'خیانت را همان',h1b:'ثانیهٔ وقوع',h1c:'پاک کن',
+    sub:'ربات نگهبان کانال تلگرام: هر ادیت یا ارسالِ غیرمجاز را لحظه‌ای پیدا می‌کند و حذف می‌کند — حتی اگر پیام چند روز پیش باشد و همین حالا ادیت شده باشد. پنل دوزبانه، ۲۰ قفل هوشمند، بدون سرور و کاملاً رایگان.',
+    cta1:'🚀 استقرار یک‌کلیکی',cta2:'📘 آموزش گام‌به‌گام',
+    t1:'تست خودکار سبز',t2:'قفل مستقل',t3:'کانال همزمان',t4:'مصرف از سهمیهٔ پلن رایگان',
+    kf:'FEATURES',fH:'هر چیزی که یک کانال تمیز می‌خواهد',fP:'از قفل‌های ریز تا نردبان مجازات — همه‌چیز از یک پنل سادهٔ دوزبانه در پیوی ربات مدیریت می‌شود.',
+    f1h:'۲۰ قفل مستقل',f1p:'ادیت متن و مدیا، لینک در ادیت، ارسال متن/عکس/ویدیو/گیف/استیکر/ویس/موزیک/فایل/نظرسنجی/مخاطب/لوکیشن/بازی، فوروارد، لینک، پست ناشناس و قفل کامل.',
+    f2h:'چندکاناله واقعی',f2p:'هر تعداد کانال، همزمان فعال؛ آمار، قفل‌ها و گزارش هر کانال کاملاً جداست و هر کانال جداگانه فعال می‌شود.',
+    f3h:'دسترسی کانالی (RBAC)',f3p:'مالک دقیقاً تعیین می‌کند هر ادمین یا ناظر فقط به کدام کانال‌ها دسترسی داشته باشد؛ ادمینِ بدون کانال هیچی نمی‌بیند.',
+    f4h:'قفل زمان‌دار + آنی',f4p:'بازهٔ دلخواه به وقت تهران (مثل ۴ تا ۸ بامداد) با سه حالت؛ یا با یک دکمه کل کانال را همین حالا کامل ببند.',
+    f5h:'نردبان زرد و قرمز',f5p:'ادیت پستِ مدیادار ⇒ حذف فوری + عزل خودکار متخلف (زرد) یا حذف + عزل + بن مدت‌دار (قرمز) — با دکمهٔ لغو بن و بازگردانی دسترسی‌ها.',
+    f6h:'ادمین‌سازی داخل ربات',f6p:'تک‌نفره یا گروهی (تا ۵۰ شناسه)، با پریست‌های یک‌ضربه‌ای، فهرست ادمین‌ها با دکمهٔ عزل و ویرایش دسترسی — بدون خروج از ربات.',
+    f7h:'نام و منشن کنار شناسه',f7p:'در همهٔ لیست‌ها و گزارش‌های گروهی نام و منشن هر نفر کنار شناسه‌اش می‌آید تا هیچ‌وقت لازم نباشد آیدی‌ها را تک‌تک چک کنید.',
+    f8h:'آمار و «آخرین تخلف‌ها»',f8p:'شمارندهٔ امروز به وقت تهران، پرتکرارترین دلایل، ۱۵ تخلف آخر با لینک مستقیم پیام و ساعت شمسی.',
+    f9h:'حذف پیام‌های +۴۸ ساعت',f9p:'محدودیت تلگرام را با یوزرباتِ همراه دور بزن: پیام‌های قدیمی به صف می‌روند و با اکانت انسانی حذف می‌شوند (اختیاری).',
+    f10h:'بکاپ و بازگردانی',f10p:'کل تنظیمات هر کانال در یک متن قابل‌ذخیره؛ با یک ارسال دقیقاً همان وضعیت برمی‌گردد — انتقال آسان بین کانال‌ها.',
+    f11h:'سوپر بهینه',f11p:'کش دولایه، فلاش گروهی آمار، گزارش‌های ادغام‌شده در موج تخلف — ۰٫۳٪ از سهمیهٔ پلن رایگان Cloudflare.',
+    f12h:'دوزبانهٔ کامل (v2.3)',f12p:'هر کاربر زبان خودش را با دکمهٔ 🌐 انتخاب می‌کند؛ مالک زبان پیش‌فرض گزارش‌ها را با /setlang تعیین می‌کند.',
+    kh:'SETUP',hH:'۳ دقیقه تا کانال امن',hP:'بدون سرور، بدون دیتابیس، بدون پرداخت — فقط Cloudflare و یک توکن ربات.',
+    s1h:'استقرار در Cloudflare',s1p:'دکمهٔ Deploy را بزن یا با wrangler دیپلوی کن؛ BOT_TOKEN و OWNER_ID را به‌عنوان Secret ثبت کن و آدرس ?setup= را باز کن تا وب‌هوک خودکار وصل شود.',
+    s2h:'ربات را ادمین کن',s2p:'ربات را با دسترسی «حذف پیام» به کانال اضافه کن؛ خودکار ثبت می‌شود و پیام فعال‌سازی به پیوی مالک می‌آید.',
+    s3h:'قفل‌ها را بچین',s3p:'از پنل، قفل‌های دلخواه را روشن کن، وضعیت زرد/قرمز را تنظیم کن و ادمین‌هایت را با دسترسی کانالی وارد کن — تمام!',
+    kl:'PUNISH LADDER',lH:'نردبان وضعیت — از هشدار تا مجازات',lP:'برای ادیتِ پست‌های مدیادار، خودت انتخاب می‌کنی ربات چقدر سخت‌گیر باشد.',
+    m0:'خاموش',m0p:'فقط قفل‌های معمول اجرا می‌شوند؛ ادیت مدیا طبق قفل «ادیت مدیا» پاک می‌شود و کسی عزل نمی‌شود.',
+    m1:'زرد — عزل خودکار',m1p:'هر کسی پست مدیادار را ادیت کند: پیام فوراً پاک می‌شود، متخلف از ادمینی عزل می‌شود و گزارش فوری با جزئیات می‌آید.',
+    m2:'قرمز — عزل + بن',m2p:'همان زرد + بن از کانال با مدت دلخواه (۱ ساعت تا همیشگی). گزارش قرمز دکمهٔ «لغو بن» و «بازگردانی دسترسی‌های قبلی» دارد.',
+    ke:'GUIDE',eH:'آموزش و پرسش‌های رایج',eP:'هر چه باید بدانی — از دسترسی‌ها تا محدودیت‌های واقعی تلگرام.',
+    q1:'ربات دقیقاً چه دسترسی‌هایی لازم دارد؟',
+    a1:'تنها دسترسی <b>الزامی</b> «حذف پیام» (Delete messages) است. برای ادمین‌سازی از داخل ربات، دسترسی «Add New Admins» هم لازم می‌شود. بقیه اختیاری‌اند. از منوی هر کانال، «🩺 سلامت» وضعیت لحظه‌ای دسترسی‌ها را نشان می‌دهد.',
+    q2:'ادمین جدید چطور اضافه کنم؟',
+    a2:'ادمینِ ربات فقط از سوی مالک تعیین می‌شود: «👥 ادمین‌های ربات» → «➕ افزودن ادمین» → شناسهٔ عددی را بفرست (خود کاربر با <code>/id</code> از ربات می‌گیرد) یا لیست تا ۵۰ شناسه را یکجا بده. بعد در ویرایشگرِ بازشده، کانال‌های مجاز همان نفر را تیک بزن. برای ادمین کانال هم از منوی هر کانال: «👑 ادمین‌های کانال».',
+    q3:'چرا بعضی پیام‌های قدیمی حذف نمی‌شوند؟',
+    a3:'این محدودیت خود تلگرام است: <b>هیچ رباتی</b> نمی‌تواند پیام‌های قدیمی‌تر از ۴۸ ساعت را حذف کند. ربات ادیتِ چنین پیام‌هایی را شناسایی و گزارش می‌کند و لینک پیام را می‌دهد تا خودت دستی حذف کنی. اگر «یوزرباتِ همراه» را وصل کنی، حذفِ آن‌ها هم خودکار می‌شود.',
+    q4:'قفل پست ناشناس چطور کار می‌کند؟',
+    a4:'وقتی روشن باشد، هر پستی که «بدون امضای ادمین» (از طرف خودِ کانال) ارسال شود فوراً حذف می‌شود — هیچ‌کس نمی‌تواند بدون هویت واقعی خودش پست بدهد. برای اینکه امضا زیر پست بیاید، در دسترسی هر ادمین گزینهٔ «Sign messages» را روشن کن.',
+    q5:'امنیت و حریم خصوصی چطور است؟',
+    a5:'هیچ‌کس جز مالک نمی‌تواند دسترسی تعیین یا تنظیمات را تغییر دهد. توکن‌ها فقط به‌عنوان Secret روی Cloudflare نگهداری می‌شوند و هرگز در کد یا ریپو نیستند. وب‌هوک با secret token تلگرام اعتبارسنجی می‌شود و کد کاملاً متن‌باز (MIT) است — خودت می‌توانی بخوانی و دیپلوی کنی.',
+    q6:'پلن رایگان Cloudflare کافی است؟',
+    a6:'بله، با فاصله. ربات در مصرف واقعی حدود <b>۰٫۳٪</b> از سهمیهٔ روزانهٔ ۱۰۰ هزار ریکوئست پلن رایگان را استفاده می‌کند؛ فلاش گروهی آمار سهمیهٔ نوشتن KV را هم در موج تخلف زیر سقف نگه می‌دارد. برای ۳ کانال (و خیلی بیشتر) پلن رایگان کاملاً کافی است.',
+    dH:'آماده‌ای کانالت را امن کنی؟',dP:'دیپلوی در Cloudflare حدود یک دقیقه طول می‌کشد — بدون سرور، رایگان و متن‌باز.',
+    dBtn:'استقرار روی Cloudflare',dNote:'ترجیح می‌دهی دستی دیپلوی کنی؟ راهنمای کامل فارسی در ریپو هست — <code>README-FA.md</code>',
+    fA:'سازنده',fT:'🛡️ ضد خیانت کانال — متن‌باز تحت مجوز MIT · ساخته‌شده برای کانال‌های تمیز'},
+  en:{dir:'ltr',htmlLang:'en',btn:'🌐 فارسی',brand:'Anti-Treason Bot',
+    navF:'Features',navH:'Setup',navL:'Punish Ladder',navE:'Guide',navD:'Deploy',
+    badge:'Open source · Free · Runs on Cloudflare Workers',
+    h1a:'Delete betrayals the',h1b:'second they happen',h1c:'',
+    sub:'A Telegram channel guard bot: any unauthorized edit or post is detected and deleted instantly — even if the message is days old and was just edited. Bilingual panel, 20 smart locks, serverless and completely free.',
+    cta1:'🚀 One-click deploy',cta2:'📘 Step-by-step guide',
+    t1:'automated tests green',t2:'independent locks',t3:'channels at once',t4:'of the free-plan quota used',
+    kf:'FEATURES',fH:'Everything a clean channel needs',fP:'From fine-grained locks to the punishment ladder — all managed from one simple bilingual panel in the bot\'s DM.',
+    f1h:'20 independent locks',f1p:'Text & media edits, link-in-edit, text/photo/video/GIF/sticker/voice/music/file/poll/contact/location/dice posts, forwards, links, anonymous posts and a full lock.',
+    f2h:'Truly multi-channel',f2p:'Any number of channels active at once; stats, locks and reports are fully separate per channel.',
+    f3h:'Scoped access (RBAC)',f3p:'The owner defines exactly which channels each admin or viewer can access; an admin with no channels sees nothing.',
+    f4h:'Scheduled + instant lock',f4p:'Any window in Tehran time (like 4–8 AM) with three modes; or close the whole channel right now with one button.',
+    f5h:'Yellow & red ladder',f5p:'Editing a media post ⇒ instant delete + auto-demote (yellow) or delete + demote + timed ban (red) — with unban and restore-access buttons.',
+    f6h:'In-bot promotion',f6p:'Single or batch (up to 50 IDs), one-tap presets, an admin list with demote and edit-permissions buttons — without leaving the bot.',
+    f7h:'Names next to IDs',f7p:'Every list and batch report shows each person\'s name and mention next to their ID — no more checking IDs one by one.',
+    f8h:'Stats & latest violations',f8p:'A "today" counter in Tehran time, top reasons, the last 15 violations with direct message links and Jalali timestamps.',
+    f9h:'Delete 48h+ messages',f9p:'Bypass Telegram\'s limit with the companion userbot: old messages are queued and deleted via a human account (optional).',
+    f10h:'Backup & restore',f10p:'A channel\'s entire settings in one saveable text; one send restores the exact state — easy transfer between channels.',
+    f11h:'Super efficient',f11p:'Two-layer caching, batched stats flush, merged burst reports — uses ~0.3% of Cloudflare\'s free plan quota.',
+    f12h:'Fully bilingual (v2.3)',f12p:'Each user picks their language with the 🌐 button; the owner sets the reports default with /setlang.',
+    kh:'SETUP',hH:'3 minutes to a safe channel',hP:'No server, no database, no payment — just Cloudflare and a bot token.',
+    s1h:'Deploy to Cloudflare',s1p:'Hit the Deploy button or deploy with wrangler; set BOT_TOKEN and OWNER_ID as Secrets, then open the ?setup= URL to connect the webhook automatically.',
+    s2h:'Make the bot an admin',s2p:'Add the bot to your channel with the "Delete messages" permission; it registers automatically and an activation message arrives in the owner\'s DM.',
+    s3h:'Arrange the locks',s3p:'Turn on the locks you want from the panel, set the yellow/red mode and onboard your admins with scoped access — done!',
+    kl:'PUNISH LADDER',lH:'The punish ladder — from warning to consequence',lP:'You decide how strict the bot gets when someone edits a media post.',
+    m0:'Off',m0p:'Only the regular locks apply; media edits are deleted per the "media edit" lock and nobody is demoted.',
+    m1:'Yellow — auto-demote',m1p:'Anyone editing a media post: the message is deleted instantly, the offender is demoted, and a detailed report arrives immediately.',
+    m2:'Red — demote + ban',m2p:'Everything yellow does + a channel ban for a duration you choose (1 hour to permanent). The red report has "Unban" and "Restore previous access" buttons.',
+    ke:'GUIDE',eH:'Guide & FAQ',eP:'Everything you need to know — from permissions to Telegram\'s real limitations.',
+    q1:'What permissions does the bot actually need?',
+    a1:'The only <b>required</b> permission is "Delete messages". "Add New Admins" is also needed for in-bot promotion. Everything else is optional. The "🩺 Health" screen in each channel\'s menu shows live permission status.',
+    q2:'How do I add a new admin?',
+    a2:'Bot admins are only set by the owner: "👥 Bot admins" → "➕ Add admin" → send the numeric ID (the user can get it via <code>/id</code>) or a list of up to 50 IDs at once. Then tick the allowed channels in the editor that opens. For channel admins, use "👑 Channel admins" in each channel\'s menu.',
+    q3:'Why can\'t some old messages be deleted?',
+    a3:'That\'s Telegram\'s own limitation: <b>no bot</b> can delete messages older than 48 hours. The bot detects and reports edits of such messages and gives you the link to delete them manually. Connect the companion userbot and their deletion becomes automatic too.',
+    q4:'How does the anonymous-post lock work?',
+    a4:'When enabled, any post made "without an admin signature" (i.e. as the channel itself) is deleted instantly — nobody can post without their real identity. Enable "Sign messages" for each admin so signatures appear under posts.',
+    q5:'What about security & privacy?',
+    a5:'Nobody but the owner can grant access or change settings. Tokens are stored only as Cloudflare Secrets and never appear in code or the repo. The webhook is validated with Telegram\'s secret token, and the code is fully open source (MIT) — read it and deploy it yourself.',
+    q6:'Is the Cloudflare free plan enough?',
+    a6:'Yes, by a wide margin. In real usage the bot consumes about <b>0.3%</b> of the free plan\'s 100k daily requests; batched stats flushing also keeps KV write quota under the cap during violation bursts. For 3 channels (and many more) the free plan is fully sufficient.',
+    dH:'Ready to secure your channel?',dP:'Deploying to Cloudflare takes about a minute — serverless, free and open source.',
+    dBtn:'Deploy to Cloudflare',dNote:'Prefer manual deployment? The full Persian guide lives in the repo — <code>README-FA.md</code>',
+    fA:'Author',fT:'🛡️ Anti-Treason Bot — open source under MIT · built for clean channels'}
+};
+function setLang(l){
+  const d = I18N[l]; if(!d) return;
+  document.documentElement.lang = d.htmlLang;
+  document.documentElement.dir = d.dir;
+  document.getElementById('langBtn').textContent = d.btn;
+  document.querySelectorAll('[data-i]').forEach(el => { const v = d[el.dataset.i]; if (v != null) el.innerHTML = v; });
+  document.title = l === 'fa' ? 'ضد خیانت کانال — نگهبان تلگرامی کانال‌های شما | Anti-Treason Bot' : 'Anti-Treason Bot — Telegram channel guard | ضد خیانت کانال';
+  try { localStorage.setItem('atb-lang', l); } catch(e){}
+}
+try { const s = localStorage.getItem('atb-lang'); if (s === 'en') setLang('en'); } catch(e){}
+
+/* ── انیمیشن ورود ── */
+const io = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: .12 });
+document.querySelectorAll('.rv').forEach(el => io.observe(el));
+</script>
+</body>
+</html>

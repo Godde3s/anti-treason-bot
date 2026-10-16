@@ -30,6 +30,7 @@ const mockB = {
   botCanPromote: true, botCanRestrict: true, botCanDelete: true,
   admins: null,            // آرایهٔ result برای getChatAdministrators (null ⇒ [])
   memberOf: {},            // user_id → ChatMember (برای getChatMember غیر-بات)
+  chatInfo: {},            // v2.2: chat_id عددی → پروفایل کاربر (برای نام/منشن getUserInfo)
   failPromoteFor: [], failBanFor: [],
 };
 globalThis.fetch = async (url, init) => {
@@ -73,6 +74,11 @@ globalThis.fetch = async (url, init) => {
     // v1.7: رزولوشن @یوزرنیم برای افزودن ادمین کانال
     if (method === 'getChat' && typeof payload.chat_id === 'string' && payload.chat_id.startsWith('@')) {
       return J({ ok: true, result: { id: 777888, type: 'private', first_name: 'Resolved', username: payload.chat_id.slice(1) } });
+    }
+    // v2.2: getChat عددی — پروفایل کاربر شناخته‌شده (نام/منشن)؛ نامعلوم ⇒ همان پاسخ عمومی قبلی
+    if (method === 'getChat' && !String(payload.chat_id).startsWith('@')) {
+      const ci = (mockB.chatInfo || {})[String(payload.chat_id)];
+      if (ci) return J({ ok: true, result: ci });
     }
     // v1.7: خطاهای ارتقا/بن برای کاربران خاص (مثلاً مالک کانال)
     if (method === 'promoteChatMember' && mockB.failPromoteFor.includes(Number(payload.user_id))) {
@@ -1463,6 +1469,154 @@ await section('v2.1 — افزودن گروهی ناظرها + سقف ۵۰ شن�
   ok(lastText().includes('حداکثر'), 'لیست بلندتر از ۵۰ رد شد');
   ok(await env.KV.get('state:' + OWNER) !== null, 'state برای تلاش دوباره ماند');
   await post(cbQuery('camX:' + CID, OWNER)); // لغو
+});
+
+/* ─────────── v2.2 — نام/منشن در لیست‌ها + ویرایش دسترسی ادمین کانال ─────────── */
+
+await section('v2.2 — نام/منشن در لیست ادمین‌ها + کش uinfo', async () => {
+  mockB.chatInfo = { '71001': { id: 71001, type: 'private', first_name: 'علی', last_name: 'رضایی', username: 'ali_rezaei' } };
+  await post(cbQuery('admA', OWNER));
+  await post(priv('71001, 71002', OWNER));
+  ok(lastText().includes('ادمین‌سازی گروهی — 2 نفر ثبت شد'), 'دو ادمین از لیست ثبت شدند');
+  ok(lastText().includes('@ali_rezaei'), 'نام/منشن شناخته‌شده در گزارش گروهی آمد');
+  // نمای لیست ادمین‌ها: 71001 با منشن، 71002 ناشناخته فقط شناسه
+  clearCalls();
+  await post(cbQuery('admins', OWNER));
+  const t1 = lastEdited();
+  ok(t1.includes('@ali_rezaei'), 'منشن در لیست ادمین‌ها');
+  ok(t1.includes('(<code>71001</code>)'), 'شناسه کنار منشن حفظ شد');
+  ok(t1.includes('<code>71002</code>'), 'ادمین ناشناخته فقط با شناسه');
+  ok(t1.includes('نام و منشن هر نفر'), 'راهنمای نام/منشن در فوتر لیست');
+  const gcAgain = calls('getChat').filter((c) => String(c.payload.chat_id) === '71001').length;
+  ok(gcAgain === 0, 'بار دوم از کش uinfo خواند (بدون getChat تازه)');
+  // ویرایشگر دسترسی هم نام دارد
+  await post(cbQuery('asc:71001', OWNER));
+  ok(lastEdited().includes('دسترسی کانالی — ادمین @ali_rezaei'), 'ویرایشگر دسترسی با نام/منشن');
+  await post(cbQuery('admD:71001', OWNER));
+  await post(cbQuery('admD:71002', OWNER));
+});
+
+await section('v2.2 — ویرایش دسترسی ادمین کانال (camE): لود فعلی + اعمال تغییر', async () => {
+  mockB.admins = [
+    { status: 'creator', user: { id: 555000, first_name: 'صاحب', last_name: 'کانال', username: 'chanowner' } },
+    { status: 'administrator', user: { id: 3006005, first_name: 'کامبیز', username: 'kambiz_oz' },
+      can_post_messages: true, can_delete_messages: true, can_edit_messages: false, is_anonymous: false,
+      can_promote_members: false, can_restrict_members: false, can_change_info: false,
+      can_invite_users: false, can_post_stories: false },
+  ];
+  mockB.memberOf[3006005] = { status: 'administrator', user: { id: 3006005, first_name: 'کامبیز', username: 'kambiz_oz' },
+    can_post_messages: true, can_delete_messages: true, can_edit_messages: false, is_anonymous: false,
+    can_promote_members: false, can_restrict_members: false, can_change_info: false,
+    can_invite_users: false, can_post_stories: false };
+  mockB.chatInfo['3006005'] = { id: 3006005, type: 'private', first_name: 'کامبیز', username: 'kambiz_oz' };
+  await post(cbQuery('admC:' + CID, OWNER));
+  ok(lastEdited().includes('کامبیز'), 'نام ادمین کانال در فهرست آمد');
+  const kbEd = lastEditedKB();
+  const camEBtn = (kbEd.inline_keyboard || []).flat().find((b) => b.callback_data === 'camE:' + CID + ':3006005');
+  ok(!!camEBtn && camEBtn.text.includes('ویرایش'), 'دکمهٔ «ویرایش دسترسی» کنار عزل هست');
+  // باز کردن ویرایشگر: دسترسی‌های فعلی لود می‌شود
+  await post(cbQuery('camE:' + CID + ':3006005', OWNER));
+  const vt = lastEdited();
+  ok(vt.includes('ویرایش دسترسی ادمین'), 'عنوان ویرایشگر: ویرایش دسترسی');
+  ok(vt.includes('@kambiz_oz'), 'نام/منشن فرد در ویرایشگر آمد');
+  // دسترسی‌های فعلی در «دکمه‌ها» لود شده‌اند (نه متن پیام)
+  const btnsE = (lastEditedKB().inline_keyboard || []).flat();
+  ok(btnsE.some((b) => b.text === '❌ ارتقای ادمین‌ها' && b.callback_data === 'camT:' + CID + ':prom'), 'دسترسی فعلی (prom=false) درست لود شد');
+  ok(btnsE.some((b) => b.text === '✅ ارسال پست' && b.callback_data === 'camT:' + CID + ':post'), 'دسترسی فعلی (post=true) درست لود شد');
+  // toggle «ارتقای ادمین‌ها» و تأیید
+  await post(cbQuery('camT:' + CID + ':prom', OWNER));
+  await post(cbQuery('camG:' + CID, OWNER));
+  const pr = calls('promoteChatMember');
+  ok(pr.length === 1 && String(pr[0].payload.user_id) === '3006005', 'ارتقا برای همان فرد رفت');
+  ok(pr[0].payload.can_promote_members === true, 'تغییر دسترسی اعمال شد (prom=true)');
+  ok(pr[0].payload.can_post_messages === true, 'دسترسی‌های قبلی حفظ شد (post=true)');
+  ok(lastEdited().includes('دسترسی‌ها بروز شد'), 'پیام موفقیت حالت ویرایش');
+  ok(lastAnswer().includes('دسترسی‌ها بروز شد'), 'toast موفقیت ویرایش');
+  // مالک کانال قابل ویرایش نیست
+  mockB.memberOf[555000] = { status: 'creator', user: { id: 555000, first_name: 'صاحب', username: 'chanowner' } };
+  await post(cbQuery('camE:' + CID + ':555000', OWNER));
+  ok(lastAnswer().includes('مالک کانال قابل ویرایش نیست'), 'گارد مالک کانال');
+  // پاک‌سازی
+  mockB.admins = null;
+  delete mockB.memberOf[3006005];
+  delete mockB.memberOf[555000];
+  mockB.chatInfo = {};
+});
+
+await section('v2.2 — گیت‌ها: ناظر روی «ویرایش دسترسی» رد می‌شود', async () => {
+  await post(cbQuery('vwA', OWNER));
+  await post(priv('80010, 80011', OWNER));
+  ok(lastText().includes('ناظرهای گروهی — 2 نفر ثبت شد'), 'ناظرهای تستی ثبت شدند');
+  await post(cbQuery('camE:' + CID + ':3006005', 80010));
+  ok(lastAnswer().includes('ناظر فقط اجازهٔ مشاهده دارد'), 'ناظر روی camE رد شد');
+  await post(cbQuery('vwD:80010', OWNER));
+  await post(cbQuery('vwD:80011', OWNER));
+});
+
+/* ============================ 🌐 v2.3 — دوزبانه (FA/EN) ============================ */
+
+await section('v2.3 — تغییر زبان شخصی با دکمهٔ 🌐', async () => {
+  await post(cbQuery('lang', OWNER));
+  ok(lastAnswer().includes('Language: English'), 'پاسخ toggle انگلیسی شد');
+  ok((await env.KV.get('ulang:' + OWNER)) === 'en', 'زبان شخصی مالک در KV ذخیره شد (en)');
+  await post(cbQuery('home', OWNER));
+  ok(lastEdited().includes('Anti-Treason Channel Guard'), 'منوی اصلی حالا انگلیسی است');
+  const kbH = lastEditedKB();
+  ok(JSON.stringify(kbH).includes('🌐 فارسی'), 'دکمهٔ 🌐 حالا برچسب فارسی دارد (برای بازگشت)');
+});
+
+await section('v2.3 — جریان‌های پنل به انگلیسی', async () => {
+  await post(priv('/start', OWNER));
+  ok(lastText().includes('Anti-Treason Channel Guard'), '/start انگلیسی');
+  await post(cbQuery('help', OWNER));
+  ok(lastEdited().includes('Anti-Treason Bot Guide'), 'help انگلیسی');
+  await post(cbQuery('chats', OWNER));
+  ok(lastEdited().includes('My channels'), 'کانال‌های من → My channels');
+  await post(cbQuery('chat:' + CID, OWNER));
+  ok(lastEdited().includes('Active locks'), 'نمای کانال انگلیسی (Active locks)');
+  await post(cbQuery('locks:' + CID, OWNER));
+  const kbL = lastEditedKB();
+  ok(JSON.stringify(kbL).includes('Full lock'), 'لیبل قفل‌ها ترجمه شد (Full lock)');
+  await post(cbQuery('tgl:badkey:' + CID, OWNER));
+  ok(lastAnswer().includes('Invalid lock'), 'پاسخ callback ترجمه شد (Invalid lock)');
+  await post(cbQuery('myid', OWNER));
+  ok(lastEdited().includes('Your ID'), 'myid انگلیسی');
+});
+
+await section('v2.3 — جداسازی زبان کاربران (هر نفر زبان خودش)', async () => {
+  // از فلو خود ربات استفاده می‌کنیم تا کش درون-ایزوله (acache/pcache) هم به‌روز شود
+  const adm0 = JSON.parse((await env.KV.get('admins')) || '[]');
+  if (adm0.includes(String(ADMIN))) await post(cbQuery('admD:' + ADMIN, OWNER));
+  await post(cbQuery('admA', OWNER));
+  await post(priv(String(ADMIN), OWNER));
+  await post(priv('/start', ADMIN));
+  ok(lastText().includes('دسترسی تو'), 'ادمینِ دیگر هنوز فارسی می‌بیند (زبان شخصی جداست)');
+  const kbAdm = (calls('sendMessage').slice(-1)[0].payload.reply_markup) || {};
+  ok(JSON.stringify(kbAdm).includes('🌐 English'), 'دکمهٔ 🌐 برای کاربر فارسی‌زبان English نشان می‌دهد');
+});
+
+await section('v2.3 — /setlang مالک + گاردها', async () => {
+  await post(priv('/setlang', ADMIN));
+  ok(lastText().includes('دسترسی ندارید'), '/setlang برای غیرمالک رد شد');
+  await post(priv('/setlang', OWNER));
+  ok(lastText().includes('Usage'), 'بدون آرگومان → راهنما (انگلیسی چون مالک en است)');
+  await post(priv('/setlang en', OWNER));
+  ok(lastText().includes('Default bot language: English'), 'زبان پیش‌فرض → انگلیسی');
+  ok((await env.KV.get('lang')) === 'en', 'کلید lang در KV = en');
+});
+
+await section('v2.3 — گزارش‌ها از زبان پیش‌فرض ربات پیروی می‌کنند', async () => {
+  await setLock('send_text', true);
+  await post(chan({ text: 'پست ممنوع' }));
+  ok(delCalls().length >= 1, 'تخلف حذف شد');
+  ok(lastText().includes('Violation deleted'), 'گزارش حذف به انگلیسی رسید (زبان پیش‌فرض ربات)');
+  await post(priv('/setlang fa', OWNER));
+  ok(lastText().includes('زبان پیش‌فرض ربات: فارسی'), 'زبان پیش‌فرض برگشت به فارسی');
+  await post(chan({ text: 'پست ممنوع ۲' }));
+  ok(lastText().includes('تخلف حذف شد'), 'گزارش دوباره فارسی شد');
+  await post(cbQuery('tgl:send_text:' + CID, OWNER)); // خاموش برای پاک‌سازی
+  await post(cbQuery('lang', OWNER)); // برگشت زبان شخصی مالک به فارسی برای تمیزی
+  ok(lastAnswer().includes('زبان: فارسی'), 'زبان شخصی مالک برگشت فارسی');
 });
 
 await section('v1.8 — پاک‌سازی: وضعیت خاموش + undoهای باقی‌مانده در پایان', async () => {
