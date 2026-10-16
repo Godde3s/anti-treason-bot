@@ -15,7 +15,7 @@
 نصب و اجرا (خلاصه):
   pip install telethon
   # فایل userbot.env را کنار همین اسکریپت بساز:
-  #   WORKER_URL=https://anti-treason-bot.jauajajuuz.workers.dev
+  #   WORKER_URL=https://anti-treason-bot.<YOUR-SUBDOMAIN>.workers.dev
   #   SECRET=<همان WEBHOOK_SECRET ورکر>
   #   API_ID=1234567          ← از my.telegram.org (API development tools)
   #   API_HASH=abcd...        ← از همان‌جا

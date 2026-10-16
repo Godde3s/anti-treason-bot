@@ -338,7 +338,7 @@ python3 -m pip install telethon
 
 **۳) فایل `userbot.env` کنار `userbot.py` بساز:**
 ```ini
-WORKER_URL=https://anti-treason-bot.jauajajuuz.workers.dev
+WORKER_URL=https://anti-treason-bot.<YOUR-SUBDOMAIN>.workers.dev
 SECRET=<همان WEBHOOK_SECRET ورکر>
 API_ID=<api_id مرحله ۱>
 API_HASH=<api_hash مرحله ۱>
