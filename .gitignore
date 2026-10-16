@@ -1,0 +1,9 @@
+# Never commit credentials or deploy-time artifacts
+bot-credentials.txt
+webhook-secret.txt
+userbot.env
+*.session
+*.session-journal
+*.zip
+node_modules/
+.wrangler/

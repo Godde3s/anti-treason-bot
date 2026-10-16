@@ -1,0 +1,32 @@
+# ============================================================
+# Cloudflare Wrangler config — Anti-Treason Bot (Telegram guard bot)
+# ------------------------------------------------------------
+# Easiest path: the one-click "Deploy to Cloudflare" button in README.md.
+# Manual CLI path:
+#   npx wrangler kv namespace create KV   ->  paste the id below
+#   npx wrangler deploy
+#
+# Never commit real secrets here:
+#   BOT_TOKEN / OWNER_ID must be added as Worker *Secrets*
+#   (Dashboard -> Workers -> anti-treason-bot -> Settings -> Variables).
+# ============================================================
+
+# Paste your Cloudflare account id (Dashboard -> Workers -> Overview).
+account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+
+name = "anti-treason-bot"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# A random string used to verify Telegram webhook requests (X-Telegram-Bot-Api-Secret-Token).
+# Generate one, e.g.:  node -e "console.log(require('crypto').randomBytes(18).toString('hex'))"
+WEBHOOK_SECRET = "GENERATE_A_RANDOM_SECRET"
+
+# Optional: stats flush interval in ms (default 15000)
+# FLUSH_MS = "15000"
+
+[[kv_namespaces]]
+binding = "KV"
+# Create the namespace and paste its id here (the Deploy button provisions it automatically).
+id = "YOUR_KV_NAMESPACE_ID"
