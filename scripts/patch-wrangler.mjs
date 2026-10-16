@@ -38,7 +38,7 @@ let secret = '';
 const secretFile = join(pkg, 'webhook-secret.txt');
 if (existsSync(secretFile)) secret = readFileSync(secretFile, 'utf8').trim();
 const m = t.match(/^WEBHOOK_SECRET\s*=\s*"([A-Za-z0-9_-]+)"/m);
-if (m && m[1]) secret = m[1];
+if (m && m[1] && m[1] !== 'GENERATE_A_RANDOM_SECRET') secret = m[1]; // ⚠️ fix: هرگز placeholder را به‌عنوان secret واقعی نپذیر
 if (!secret) secret = randomBytes(18).toString('hex');
 if (!m) t = t.replace(/^\[vars\]\s*$/m, `[vars]\nWEBHOOK_SECRET = "${secret}"`);
 
