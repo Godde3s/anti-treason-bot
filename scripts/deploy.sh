@@ -100,7 +100,7 @@ if [ -z "${LEGACY_BOT_TOKEN:-}" ] && [ -f "$CRED_FILE" ]; then
   LEGACY_BOT_TOKEN=$(sed -n 's/^\s*LEGACY_BOT_TOKEN=//p' "$CRED_FILE" | head -1 | tr -d '[:space:]')
   [ -n "$LEGACY_BOT_TOKEN" ] && echo "ℹ️  LEGACY_BOT_TOKEN (ربات قبلی) هم به‌عنوان Secret ست می‌شود."
 fi
-# 🛡 v3.0 — گارد حفظ Secret ها: PUT متادیتا همهٔ binding ها را جایگزین میکند؛
+# 🛡 v3.1 — گارد حفظ Secret ها: keep_vars:true هر binding ای که ارسال نشود را حفظ میکند؛
 # اگر Secret ای روی ورکر فعلی هست ولی مقدارش الان در دسترس نیست، میترکد و حذف میشود.
 # پس قبل از آپلود چک میکنیم: هر Secret موجود باید مقدار تازه داشته باشد (یا رفع قفل صریح).
 PREV_BIND=$(cfget "$API/accounts/$ACC/workers/scripts/$NAME/settings" 2>/dev/null || echo '')
@@ -111,11 +111,8 @@ for SNAME in BOT_TOKEN OWNER_ID LEGACY_BOT_TOKEN; do
       OWNER_ID)  CURVAL="${OWNER_ID:-}" ;;
       LEGACY_BOT_TOKEN) CURVAL="${LEGACY_BOT_TOKEN:-}" ;;
     esac
-    if [ -z "$CURVAL" ] && [ "${DROP_MISSING_SECRETS:-}" != "1" ]; then
-      die "Secret « $SNAME » روی ورکر فعلی هست ولی مقدار جدیدش داده نشده — با این دیپلوی حذف میشد .
-        مقدارش را در bot-credentials.txt ( خط $SNAME=... ) بگذار و دوباره اجرا کن .
-        ( توکن ربات قبلی برای عزل ادمین هایی که خودش ساخته بود لازم است ؛ از @BotFather قابل بازیابی است )
-        اگر واقعا میخواهی حذف شود:  DROP_MISSING_SECRETS=1  به دستور اضافه کن ."
+    if [ -z "$CURVAL" ]; then
+      echo "ℹ️  Secret « $SNAME » روی ورکر هست ولی مقدار جدیدش داده نشده — با keep_vars حفظ میشود (v3.1: مقدارش لازم نیست)."
     fi
   fi
 done
@@ -129,7 +126,7 @@ const bindings=[
 if (bt) bindings.push({type:"secret_text",name:"BOT_TOKEN",text:bt});
 if (oid) bindings.push({type:"secret_text",name:"OWNER_ID",text:oid});
 if (lt) bindings.push({type:"secret_text",name:"LEGACY_BOT_TOKEN",text:lt});
-console.log(JSON.stringify({main_module:"worker.js",compatibility_date:"2025-01-01",bindings}))
+console.log(JSON.stringify({main_module:"worker.js",compatibility_date:"2025-01-01",keep_vars:true,bindings}))
 ' "$NS" "$SECRET" "${BOT_TOKEN:-}" "${OWNER_ID:-}" "${LEGACY_BOT_TOKEN:-}")
 UP=$(curl -sS -X PUT \
   -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
