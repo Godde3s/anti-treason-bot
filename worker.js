@@ -64,6 +64,11 @@
  *    در KV نگه‌داری می‌شود تا فقط «یک‌بار» اعلان شود — بدون اسپم و با کمترین مصرف سهمیهٔ نوشتن KV).
  *  • ✍️ بازنویسی اعلان‌ها (v2.6): متن اعلان‌ها بولد و انسانی شد و زیر هر اعلان شناسهٔ کانال (t.me/…)
  *    می‌آید + کلید «اعلان قفل» برای هر کانال — اگه نخوای متنی تو کانالت ارسال شه، خاموشش کن.
+ *  • 📣 ارسال پیام + پیام همگانی (v2.7): مالک از پنل کانال «ارسال پیام به کانال» می‌زند یا از منوی
+ *    اصلی «پیام همگانی» — پیام بعدی (هر نوعی: متن/عکس/ویدیو/آلبوم) با پیش‌نمایش و تأیید، بدون هدر
+ *    فوروارد با صدای خود ربات در مقصد کپی می‌شود (copyMessage).
+ *  • 🧹 حذف پیام‌های اخیر (v2.7): هر پست جدید کانال در حلقهٔ ۱۰۰تایی «msgs:<cid>» ثبت می‌شود
+ *    (فلاش تایمردار ⇒ کمترین نوشتن KV)؛ مالک عدد ۱ تا ۴۰ می‌فرستد و همان تعداد پیام آخر پاک می‌شود.
  *  • ⚡️ بهینه‌سازی v1.8: حذف پیام و شناسایی متخلف به‌صورت «موازی» (Promise.all) —
  *    گزارش قرمز سریع‌تر می‌رسد؛ پیام‌های سیستمی قبل از هر خواندن KV فیلتر می‌شوند.
  *  • 👑 ادمین‌سازی در کانال (v1.7): از پنل، هر کسی را با شناسهٔ عددی (یا @یوزرنیم) ادمین کانال کن؛
@@ -303,12 +308,77 @@ function instantAnnounceText(on, s, cid) {
         `<b>- Instant lock is OFF !! You can start posting again .</b>\n${chanLine(s, cid)}`);
 }
 
-/** اعلان در خودِ کانال — true یعنی موفق */
+/** اعلان در خودِ کانال — true یعنی موفق؛ شناسهٔ اعلان هم در حلقهٔ پیام‌های اخیر ثبت می‌شود (v2.7) */
 async function announceChannel(env, cid, text) {
   const r = await tg(env, 'sendMessage', {
     chat_id: cid, text, parse_mode: 'HTML', link_preview_options: { is_disabled: true },
   }).catch(() => null);
+  if (r && r.ok && r.result && r.result.message_id) trackMsg(env, null, cid, r.result.message_id);
   return !!(r && r.ok);
+}
+
+/* ── 🧹 v2.7: حلقهٔ پیام‌های اخیر هر کانال + پاک‌سازی دسته‌ای N پیام آخر ─────────
+ *  • هر channel_post جدید شناسه‌اش در بافر حافظه ثبت می‌شود؛ فلاش به KV تایمردار است
+ *    (DEFAULT_FLUSH_MS) یا وقتی بافر ۲۰تایی پر شود ⇒ کمترین مصرف سهمیهٔ نوشتن KV.
+ *  • اعلان‌های خود بات و پیام‌های «📣 ارسال پیام/همگانی» هم در حلقه ثبت می‌شوند.
+ *  • محدودیت: تلگرام به بات اجازهٔ دیدن تاریخچه نمی‌دهد ⇒ فقط پست‌های بعد از نصب v2.7
+ *    ثبت می‌شوند؛ «حذف پیام‌های اخیر» روی همین حلقه کار می‌کند. */
+const MSGS = 'msgs:';
+const MSG_KEEP = 100;       // حداکثر شناسهٔ نگه‌داشته‌شده برای هر کانال
+const MSG_FLUSH_N = 20;     // با پُر شدن بافر حافظه تا این تعداد ⇒ فلاش فوری
+const MAX_DEL = 40;         // سقف حذف دسته‌ای در هر اجرا (سقف ساب‌ریکوئست پلن رایگان)
+const MAX_BC = 40;          // سقف کانال برای پیام همگانی (سقف ساب‌ریکوئست)
+const faNum = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]); // ارقام فارسی برای متن‌های فارسی
+const pendMsgs = new Map();        // cid -> [message_id, ...] (جدید در انتها)
+const pendMsgsTimer = new Map();   // cid -> bool (تایمر فلاش فعال است؟)
+
+async function readMsgsRaw(env, cid) {
+  try { const raw = await env.KV.get(MSGS + cid); const v = raw ? JSON.parse(raw) : []; return Array.isArray(v) ? v : []; }
+  catch (e) { return []; }
+}
+
+/** حلقهٔ کامل پیام‌های اخیر: KV + بافر حافظه (بدون تکرار، آخرین MSG_KEEP تا) */
+async function readMsgs(env, cid) {
+  const pendArr = pendMsgs.get(cid) || [];
+  return [...new Set((await readMsgsRaw(env, cid)).concat(pendArr))].slice(-MSG_KEEP);
+}
+
+/** ادغام و نوشتن بافر در KV */
+async function flushMsgs(env, cid) {
+  const fresh = pendMsgs.get(cid);
+  if (!fresh || !fresh.length) return;
+  pendMsgs.delete(cid); pendMsgsTimer.delete(cid);
+  try {
+    const old = await readMsgsRaw(env, cid);
+    const merged = [...new Set(old.concat(fresh))].slice(-MSG_KEEP);
+    await env.KV.put(MSGS + cid, JSON.stringify(merged));
+  } catch (e) { console.error('flushMsgs', e); }
+}
+
+/** ثبت شناسهٔ یک پیام در حلقهٔ کانال (env می‌تواند null باشد وقتی فلاش بعدی نیاز نیست) */
+function trackMsg(env, ctx, cid, mid) {
+  if (!cid || !mid) return;
+  let arr = pendMsgs.get(cid);
+  if (!arr) { arr = []; pendMsgs.set(cid, arr); }
+  if (!arr.includes(mid)) arr.push(mid);
+  if (!ctx || !env) return;
+  if (arr.length >= MSG_FLUSH_N) { ctx.waitUntil(flushMsgs(env, cid)); return; }
+  if (!pendMsgsTimer.get(cid)) {
+    pendMsgsTimer.set(cid, true);
+    ctx.waitUntil(
+      new Promise((r) => setTimeout(r, Number(env.FLUSH_MS || DEFAULT_FLUSH_MS)))
+        .then(() => flushMsgs(env, cid)).catch(() => {})
+    );
+  }
+}
+
+/** حذف شناسه‌های پاک‌شده از حلقه (بافر حافظه + KV) */
+async function removeMsgs(env, cid, ids) {
+  pendMsgs.delete(cid); pendMsgsTimer.delete(cid);
+  try {
+    const keep = (await readMsgsRaw(env, cid)).filter((x) => !ids.includes(x));
+    await env.KV.put(MSGS + cid, JSON.stringify(keep));
+  } catch (e) { console.error('removeMsgs', e); }
 }
 
 /* ---------------------------- تلگرام ---------------------------- */
@@ -520,6 +590,11 @@ const EN_MAP = new Map([['قفل کامل', 'Full lock'],
   ['👑 این شخص «مالک کانال» است — قابل تغییر و عزل نیست.', '👑 This person is the "channel owner" — cannot be changed or demoted.'],
   ['قفل', 'locks'], ['ناظر', 'Viewer'], ['📡 دسترسی کانالی', '📡 Channel access'],
   ['دسترسی فعلی', 'Current access'], ['👑 دسترسی‌ها', '👑 Permissions'], ['📺 کانال', '📺 Channel'],
+  ['ارسال پیام به کانال', 'Post to channel'],
+  ['حذف پیام‌های اخیر', 'Delete recent messages'],
+  ['پیام همگانی', 'Broadcast'],
+  ['ارسال ✅', 'Send ✅'],
+  ['لغو', 'Cancel'],
   ['⚠️ شناسهٔ عددی پیدا نشد!', '⚠️ No numeric ID found!'], ['🔔 قفل زمان‌دار فعال شد', '🔔 Scheduled lock enabled'],
   ['✅ ثبت شد!', '✅ Saved!'], ['⚠️ این کانال دیگه ثبت نیست.', '⚠️ This channel is no longer registered.']]);
 const tr = (s) => (CUR_LANG === 'en' ? (EN_MAP.get(String(s)) || s) : s);
@@ -1816,6 +1891,7 @@ function mainKB(isOwner) {
     [BTN('کانال‌های من', 'chats'), BTN('راهنمای کامل', 'help')],
   ];
   if (isOwner) rows.push([BTN('ادمین‌های ربات', 'admins'), BTN('ناظرها', 'viewers')]);
+  if (isOwner) rows.push([BTN('پیام همگانی', 'bcAll', 'primary')]);
   rows.push([BTN('شناسه من', 'myid'), BTN(CUR_LANG === 'en' ? 'فارسی' : 'English', 'lang')]);
   return kb(rows);
 }
@@ -1943,6 +2019,7 @@ function chatKB(cid, s = null, viewer = false, isOwner = true) {
   rows.push([BTN('قفل‌ها', `locks:${cid}`), BTN('قفل زمان‌دار', `sched:${cid}`)]);
   rows.push([BTN('ادمین‌های کانال', `admC:${cid}`)]);
   rows.push([BTN('بکاپ تنظیمات', `bakE:${cid}`), BTN('بازگردانی', `bakI:${cid}`)]);
+  if (isOwner) rows.push([BTN('ارسال پیام به کانال', `bc1:${cid}`), BTN('حذف پیام‌های اخیر', `dLM:${cid}`)]);
   rows.push([BTN('آمار تخلفات', `stats:${cid}`), BTN('سلامت', `health:${cid}`)]);
   rows.push([BTN('بروزرسانی', `refresh:${cid}`), BTN('کانال‌ها', 'chats')]);
   return kb(rows);
@@ -2349,6 +2426,33 @@ async function handlePrivate(msg, env, ctx) {
   if (stateRaw) {
     let st = null;
     try { st = JSON.parse(stateRaw); } catch (e) { st = null; }
+    // 📣 v2.7 — «ارسال پیام/همگانی»: هر نوع پیامی (متن/عکس/ویدیو/آلبوم) منبع کپی می‌شود
+    if (st && st.exp && st.exp > Date.now() && (st.t === 'bcPick' || st.t === 'bcAllPick')) {
+      const scopeB = await accessOf(env, msg.from.id);
+      if (!scopeB || scopeB.role !== 'owner') {
+        await clearPanelState(env, msg.from.id);
+        return send(env, msg.chat.id, deniedText());
+      }
+      await setPanelState(env, msg.from.id, { t: 'bcGo', cid: st.cid || '', sc: msg.chat.id, sm: msg.message_id });
+      await tg(env, 'forwardMessage', { chat_id: msg.chat.id, from_chat_id: msg.chat.id, message_id: msg.message_id }).catch(() => {});
+      let dst = L('مقصد: <b>همهٔ کانال‌های فعال</b>', 'Destination: <b>all active channels</b>');
+      if (st.t === 'bcPick') {
+        const sB = await getSettings(env, st.cid);
+        dst = L(`مقصد: <b>${esc(sB ? sB.title : st.cid)}</b>`, `Destination: <b>${esc(sB ? sB.title : st.cid)}</b>`);
+      }
+      return send(env, msg.chat.id,
+        L(`<b>📣 این پیام ارسال بشه؟</b>
+${dst}
+
+` +
+          `پیام بالا پیش‌نمایشه — با «ارسال ✅» کپی میشه (بدون هدر فوروارد و با اسم ربات)، با «لغو» بی‌اثر میشه.`,
+          `<b>📣 Send this message?</b>
+${dst}
+
+` +
+          `The message above is the preview — "Send ✅" copies it as the bot (no forward header), "Cancel" does nothing.`),
+        kb([[BTN('ارسال ✅', 'bcGo', 'success'), BTN('لغو', 'bcX', 'danger')]]));
+    }
     if (st && st.exp && st.exp > Date.now() && typeof msg.text === 'string' && msg.text.trim()) {
       const handled = await handleStateInput(msg, env, st);
       if (handled) return;
@@ -2392,6 +2496,56 @@ async function handleStateInput(msg, env, st) {
   } else if (st.cid && !canCh(scopeNow, st.cid)) {
     await clearPanelState(env, uid);
     return send(env, msg.chat.id, `⛔️ دسترسی شما به این کانال وجود ندارد (یا گرفته شده).`);
+  }
+
+  // 🧹 v2.7 — حذف N پیام آخر کانال: دریافت عدد (فقط مالک)
+  if (st.t === 'dLM') {
+    const scopeD = await accessOf(env, uid);
+    if (!scopeD || scopeD.role !== 'owner') {
+      await clearPanelState(env, uid);
+      return send(env, msg.chat.id, deniedText());
+    }
+    const n = parseInt(toEnDigits(text).replace(/[^\d]/g, ''), 10);
+    if (!n || n < 1 || n > MAX_DEL) {
+      return send(env, msg.chat.id,
+        L(`⚠️ یه عدد بین ۱ تا ${faNum(MAX_DEL)} بفرست.
+
+دوباره بفرست یا /start بزن تا لغو بشه.`,
+          `⚠️ Send a number between 1 and ${MAX_DEL}.
+
+Send it again, or press /start to cancel.`));
+    }
+    const sD = await getSettings(env, st.cid);
+    if (!sD) { await clearPanelState(env, uid); return send(env, msg.chat.id, L(`⚠️ این کانال دیگه ثبت نیست.`, `⚠️ This channel is no longer registered.`)); }
+    const list = await readMsgs(env, st.cid);
+    if (!list.length) {
+      await clearPanelState(env, uid);
+      return send(env, msg.chat.id,
+        L(`ℹ️ هنوز پیامی برای این کانال ثبت نشده.
+از این به بعد هر پست جدید کانال ثبت میشه و می‌تونی پاک‌سازی دسته‌ای بزنی.`,
+          `ℹ️ No tracked messages for this channel yet.
+From now on every new channel post is tracked, so batch cleanup will be available.`));
+    }
+    const take = list.slice(-n);
+    await setPanelState(env, uid, { t: 'dLGo', cid: st.cid, ids: take });
+    return send(env, msg.chat.id,
+      L(`<b>🧹 پاک‌سازی ${faNum(take.length)} پیام آخر</b>
+` +
+        `کانال: <b>${esc(sD.title || st.cid)}</b>
+` +
+        `قدیمی‌ترین: <code>${take[0]}</code> — جدیدترین: <code>${take[take.length - 1]}</code>
+
+` +
+        `اگه بعضی از این پیام‌ها قبلاً حذف شده باشن، فقط بی‌اثر می‌شن و بقیه پاک می‌شن.`,
+        `<b>🧹 Batch-delete the last ${take.length} messages</b>
+` +
+        `Channel: <b>${esc(sD.title || st.cid)}</b>
+` +
+        `Oldest: <code>${take[0]}</code> — Newest: <code>${take[take.length - 1]}</code>
+
+` +
+        `If some of them are already gone, those calls are just no-ops; the rest get deleted.`),
+      kb([[BTN(`پاک کن ✅ (${faNum(take.length)})`, `dlGo:${st.cid}`, 'danger'), BTN('لغو', `dlX:${st.cid}`)]]));
   }
 
   if (st.t === 'schS' || st.t === 'schE') {
@@ -2972,6 +3126,100 @@ async function handleCallback(cb, env, ctx) {
         : L('اعلان قفل در کانال خاموش شد ❌ — با شروع/پایان قفل‌ها دیگه هیچ پیامی تو کانال ارسال نمیشه',
             'Channel lock announcements: OFF ❌ — nothing is posted in the channel on lock start/end'));
     }
+    /* ── 📣 v2.7: ارسال پیام به کانال / پیام همگانی — فقط مالک ── */
+    if (act === 'bc1') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      await setPanelState(env, uid, { t: 'bcPick', cid: a1 });
+      return answerCb(env, cb.id,
+        L('📣 پیامی که می‌خوای تو این کانال ارسال بشه رو همین‌جا بفرست — هر نوعی: متن، عکس، ویدیو، آلبوم. /start = لغو',
+          '📣 Send the message you want posted to this channel — any type: text, photo, video, album. /start = cancel'), true);
+    }
+    if (act === 'bcAll') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const nChats = (await listChats(env)).length;
+      await setPanelState(env, uid, { t: 'bcAllPick' });
+      return answerCb(env, cb.id,
+        L(`📣 پیام همگانی — پیامی که بفرستی به همهٔ کانال‌های فعال کپی میشه (الان ${nChats} کانال ثبت شده). /start = لغو`,
+          `📣 Broadcast — your next message is copied to all active channels (${nChats} registered). /start = cancel`), true);
+    }
+    if (act === 'bcGo') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const stRaw = await env.KV.get('state:' + uid);
+      let stO = null;
+      try { stO = stRaw ? JSON.parse(stRaw) : null; } catch (e) { stO = null; }
+      if (!stO || stO.t !== 'bcGo' || !stO.sc) return answerCb(env, cb.id, L('⚠️ اول پیام رو بفرست (دکمهٔ «ارسال پیام»).', '⚠️ Send the message first.'), true);
+      await clearPanelState(env, uid);
+      if (stO.cid) { // تک‌کانال
+        const r = await tg(env, 'copyMessage', { chat_id: stO.cid, from_chat_id: stO.sc, message_id: stO.sm }).catch(() => null);
+        if (r && r.ok && r.result && r.result.message_id) trackMsg(env, ctx, stO.cid, r.result.message_id);
+        return answerCb(env, cb.id, r && r.ok
+          ? L('✅ پیام تو کانال ارسال شد', '✅ Message posted to the channel')
+          : L(`❌ ارسال نشد: ${esc((r && r.description) || 'نامشخص')}`, `❌ Failed: ${esc((r && r.description) || 'unknown')}`), !!(r && r.ok));
+      }
+      // پیام همگانی
+      const chats = await listChats(env);
+      const actives = [];
+      for (const c of chats) {
+        const sb = await getSettings(env, c.cid);
+        if (sb && sb.active !== false) actives.push(c);
+      }
+      if (!actives.length) return answerCb(env, cb.id, L('⚠️ هیچ کانال فعالی نیست.', '⚠️ No active channels.'), true);
+      if (actives.length > MAX_BC) return answerCb(env, cb.id, L(`⚠️ ${faNum(actives.length)} کانال فعاله — سقف همگانی ${faNum(MAX_BC)} تاست.`, `⚠️ ${actives.length} active channels — broadcast cap is ${MAX_BC}.`), true);
+      let okN = 0; const errs = [];
+      for (const c of actives) {
+        const r = await tg(env, 'copyMessage', { chat_id: c.cid, from_chat_id: stO.sc, message_id: stO.sm }).catch(() => null);
+        if (r && r.ok && r.result && r.result.message_id) trackMsg(env, ctx, c.cid, r.result.message_id);
+        if (r && r.ok) okN++;
+        else errs.push(`${(c.title || c.cid).slice(0, 24)} — ${esc((r && r.description) || 'نامشخص').slice(0, 60)}`);
+      }
+      await send(env, msg.chat.id,
+        L(`📣 <b>پیام همگانی ارسال شد</b> — ${faNum(okN)} از ${faNum(actives.length)} کانال` +
+          (errs.length ? `
+
+❌ خطاها:
+${errs.join('\n')}` : ''),
+          `📣 <b>Broadcast sent</b> — ${okN}/${actives.length} channels` +
+          (errs.length ? `\n\n❌ Errors:\n${errs.join('\n')}` : '')));
+      return answerCb(env, cb.id, L(`✅ به ${faNum(okN)} کانال ارسال شد`, `✅ Sent to ${okN} channels`));
+    }
+    if (act === 'bcX') {
+      await clearPanelState(env, uid);
+      return answerCb(env, cb.id, L('لغو شد', 'Cancelled'));
+    }
+
+    /* ── 🧹 v2.7: حذف N پیام آخر کانال — فقط مالک ── */
+    if (act === 'dLM') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      await setPanelState(env, uid, { t: 'dLM', cid: a1 });
+      return answerCb(env, cb.id,
+        L(`🧹 چند پیام آخر این کانال پاک بشه؟ یه عدد بین ۱ تا ${faNum(MAX_DEL)} بفرست.\n` +
+          `(فقط پست‌های بعد از نصب نسخهٔ ۲.۷ ثبت شدن — پیام‌های قدیمی‌تر قابل انتخاب نیستن) /start = لغو`,
+          `🧹 How many of the latest messages should be deleted? Send a number between 1 and ${MAX_DEL}.\n` +
+          `(only posts made after v2.7 are tracked — older ones cannot be selected) /start = cancel`), true);
+    }
+    if (act === 'dlGo') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const stRawD = await env.KV.get('state:' + uid);
+      let stO = null;
+      try { stO = stRawD ? JSON.parse(stRawD) : null; } catch (e) { stO = null; }
+      if (!stO || stO.t !== 'dLGo' || stO.cid !== a1 || !Array.isArray(stO.ids) || !stO.ids.length)
+        return answerCb(env, cb.id, L('⚠️ اول تعداد رو بفرست (دکمهٔ «حذف پیام‌های اخیر»).', '⚠️ Send the count first ("Delete recent messages").'), true);
+      await clearPanelState(env, uid);
+      let okD = 0; const failD = [];
+      for (const mid of stO.ids) {
+        const r = await tg(env, 'deleteMessage', { chat_id: a1, message_id: mid }).catch(() => null);
+        if (r && r.ok) okD++; else failD.push(mid);
+      }
+      await removeMsgs(env, a1, stO.ids);
+      return answerCb(env, cb.id,
+        L(`🧹 ${faNum(okD)} پیام پاک شد` + (failD.length ? ` — ${faNum(failD.length)} تا پاک نشد (قبلاً حذف شده یا قدیمی‌تر از ۴۸ ساعت)` : ''),
+          `🧹 ${okD} messages deleted` + (failD.length ? ` — ${failD.length} failed (already deleted or older than 48h)` : '')), true);
+    }
+    if (act === 'dlX') {
+      await clearPanelState(env, uid);
+      return answerCb(env, cb.id, L('لغو شد', 'Cancelled'));
+    }
+
     if (act === 'instT') {
       const s = await getSettings(env, a1, true);
       if (!s) return answerCb(env, cb.id, '⚠️ این کانال دیگه ثبت نیست.', true);
@@ -3004,8 +3252,10 @@ async function handleCallback(cb, env, ctx) {
       await env.KV.delete('chat:' + a1);
       await env.KV.delete('stat:' + a1);
       await env.KV.delete('vlog:' + a1);
+      await env.KV.delete('msgs:' + a1);
       scache.delete('chat:' + a1);
       pend.delete(a1); pendVlog.delete(a1);
+      pendMsgs.delete(a1); pendMsgsTimer.delete(a1);
       return answerCb(env, cb.id, '🗑 کانال رد شد و از لیست حذف شد');
     }
     if (act === 'sched') {
@@ -3442,6 +3692,9 @@ async function handleChannelPost(u, env, ctx) {
   if (!s) return; // کانال ثبت نشده ⇒ هیچ کاری نکن
   if (s.active === false) return; // کانال هنوز از سوی مالک فعال نشده ⇒ هیچ اجرایی
 
+  // 🧹 v2.7: هر پست جدید در حلقهٔ «پیام‌های اخیر» ثبت می‌شود (برای حذف دسته‌ای)
+  if (!isEdit) trackMsg(env, ctx, cid, msg.message_id);
+
   // 🧩 v2.4 — پست‌های آلبوم/اسلایدشو برای «حذف کل آلبوم» ثبت می‌شوند (قبل از تصمیم‌گیری)
   if (a.album && !isEdit) albumRemember(cid, a.album, msg.message_id);
 
@@ -3497,7 +3750,9 @@ async function handleMyChatMember(mcm, env) {
     await env.KV.delete('chat:' + cid);
     await env.KV.delete('stat:' + cid);
     await env.KV.delete('vlog:' + cid);
+    await env.KV.delete('msgs:' + cid);
     pendVlog.delete(cid);
+    pendMsgs.delete(cid); pendMsgsTimer.delete(cid);
     scache.delete('chat:' + cid);
     if (owner) {
       await send(env, owner,
@@ -3613,7 +3868,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v2.6 (restyled bold lock announcements + channel-handle line + per-channel announcements toggle + Bot API 10.x: albums/slideshows, new message types, ownership alert, styled buttons + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v2.7 (post-to-channel + broadcast + delete-recent-messages (owner) + restyled bold lock announcements + channel-handle line + per-channel announcements toggle + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;

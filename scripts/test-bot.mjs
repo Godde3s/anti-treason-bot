@@ -1825,6 +1825,85 @@ await section('v2.6 — کلید «اعلان قفل»: خاموش‌کردن = 
   ok(s.instant.on === false, 'قفل آنی خاموش شد (بازگشت به حالت اول)');
 });
 
+/* ───────────────────────── v2.7: ارسال پیام/همگانی + حذف پیام‌های اخیر ───────────────────────── */
+
+await section('v2.7 — ارسال پیام به کانال (فقط مالک): pick → تأیید → copyMessage', async () => {
+  await post(cbQuery(`bc1:${CID}`, ADMIN));
+  ok(lastAnswer().includes('فقط مالک'), 'غریبه روی «ارسال پیام به کانال» رد شد');
+  await post(cbQuery(`bc1:${CID}`, OWNER));
+  ok(lastAnswer().includes('بفرست'), 'پرسش «پیام رو بفرست» (state bcPick)');
+  ok(JSON.parse(await env.KV.get('state:' + OWNER)).t === 'bcPick', 'state bcPick ثبت شد');
+  clearCalls();
+  await post(upd({ message: { message_id: 9001, chat: { id: OWNER, type: 'private' }, from: { id: OWNER, first_name: 'O' }, photo: [{ file_id: 'ph1' }], caption: 'پست آزمایشی' } }));
+  ok(calls('forwardMessage').length === 1, 'پیش‌نمایش با forwardMessage به مالک رفت');
+  const st1 = JSON.parse(await env.KV.get('state:' + OWNER));
+  ok(st1.t === 'bcGo' && String(st1.cid) === String(CID) && st1.sm === 9001, 'state bcGo با مقصد/منبع درست');
+  clearCalls();
+  await post(cbQuery('bcGo', OWNER));
+  const cp = calls('copyMessage').find((c) => String(c.payload.chat_id) === String(CID));
+  ok(!!cp && Number(cp.payload.from_chat_id) === OWNER && cp.payload.message_id === 9001, 'copyMessage به کانال با منبع درست (بدون هدر فوروارد)');
+  ok(lastAnswer().includes('ارسال شد'), 'پاسخ موفقیت ارسال');
+  const stAfter = await env.KV.get('state:' + OWNER);
+  ok(stAfter === null || stAfter === undefined, 'state بعد از ارسال پاک شد');
+});
+
+await section('v2.7 — لغو ارسال پیام', async () => {
+  await post(cbQuery(`bc1:${CID}`, OWNER));
+  await post(upd({ message: { message_id: 9002, chat: { id: OWNER, type: 'private' }, from: { id: OWNER, first_name: 'O' }, text: 'متن لغوی' } }));
+  clearCalls();
+  await post(cbQuery('bcX', OWNER));
+  const stx = await env.KV.get('state:' + OWNER);
+  ok(stx === null || stx === undefined, 'state پاک شد');
+  ok(calls('copyMessage').length === 0, 'هیچی کپی نشد');
+});
+
+await section('v2.7 — پیام همگانی به همهٔ کانال‌های فعال', async () => {
+  const CID2 = '-1002002';
+  await env.KV.put('chat:' + CID2, JSON.stringify({ title: 'کانال دوم', username: 'chan2', locks: {}, active: true, instant: { on: false, at: 0 }, schedule: { enabled: false, start: 240, end: 1200, mode: 'all' }, punishMode: 'off', banHours: 0, ann: true }));
+  await post(cbQuery('bcAll', OWNER));
+  ok(lastAnswer().includes('همگانی'), 'پرسش پیام همگانی (state bcAllPick)');
+  await post(upd({ message: { message_id: 9003, chat: { id: OWNER, type: 'private' }, from: { id: OWNER, first_name: 'O' }, text: 'اعلام عمومی' } }));
+  clearCalls();
+  await post(cbQuery('bcGo', OWNER));
+  const cps = calls('copyMessage');
+  ok(cps.some((c) => String(c.payload.chat_id) === String(CID)), 'همگانی → کانال ۱');
+  ok(cps.some((c) => String(c.payload.chat_id) === String(CID2)), 'همگانی → کانال ۲');
+  ok(calls('sendMessage').some((c) => /پیام همگانی ارسال شد/.test(c.payload.text || '')), 'گزارش همگانی با شمارنده ۲/۲');
+  await env.KV.delete('chat:' + CID2);
+});
+
+await section('v2.7 — حذف N پیام آخر: عدد → تأیید → deleteMessage + پاکسازی حلقه', async () => {
+  const ids = [];
+  for (let i = 1; i <= 12; i++) ids.push(7000 + i);
+  await env.KV.put('msgs:' + CID, JSON.stringify(ids));
+  await post(cbQuery(`dLM:${CID}`, ADMIN));
+  ok(lastAnswer().includes('فقط مالک'), 'غریبه روی «حذف پیام‌های اخیر» رد شد');
+  await post(cbQuery(`dLM:${CID}`, OWNER));
+  ok(lastAnswer().includes('۱ تا ۴۰'), 'پرسش تعداد (۱ تا ۴۰)');
+  await post(priv('abc', OWNER));
+  ok(lastText().includes('۱ تا ۴۰'), 'عدد نامعتبر → خطا و دوباره‌خوانی');
+  clearCalls();
+  await post(priv('۵', OWNER)); // ارقام فارسی هم قبول است
+  const stD = JSON.parse(await env.KV.get('state:' + OWNER));
+  ok(stD.t === 'dLGo' && JSON.stringify(stD.ids) === JSON.stringify([7008, 7009, 7010, 7011, 7012]), '۵ پیام آخر انتخاب شد (ارقام فارسی)');
+  clearCalls();
+  await post(cbQuery(`dlGo:${CID}`, OWNER));
+  const dels = calls('deleteMessage').map((c) => c.payload.message_id);
+  ok(JSON.stringify(dels) === JSON.stringify([7008, 7009, 7010, 7011, 7012]), 'دقیقاً ۵ پیام آخر deleteMessage شد');
+  ok(lastAnswer().includes('۵ پیام پاک شد'), 'گزارش تعداد پاک‌شده');
+  const left = JSON.parse(await env.KV.get('msgs:' + CID));
+  ok(JSON.stringify(left) === JSON.stringify([7001, 7002, 7003, 7004, 7005, 7006, 7007]), 'حلقه بعد از حذف، فقط پیام‌های باقی را نگه داشت');
+  await env.KV.delete('msgs:' + CID);
+});
+
+await section('v2.7 — ردیابی خودکار پست کانال در حلقه', async () => {
+  await env.KV.delete('msgs:' + CID);
+  await post(chan({ text: 'پست برای ردیابی' }));
+  const tracked = JSON.parse(await env.KV.get('msgs:' + CID) || '[]');
+  ok(Array.isArray(tracked) && tracked.length >= 1, 'پست جدید کانال خودکار ثبت شد (فلاش تایمردار)');
+  await env.KV.delete('msgs:' + CID);
+});
+
 /* ---------------------------- جمع‌بندی ---------------------------- */
 
 unfreeze();
