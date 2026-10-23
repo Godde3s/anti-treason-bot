@@ -100,6 +100,26 @@ if [ -z "${LEGACY_BOT_TOKEN:-}" ] && [ -f "$CRED_FILE" ]; then
   LEGACY_BOT_TOKEN=$(sed -n 's/^\s*LEGACY_BOT_TOKEN=//p' "$CRED_FILE" | head -1 | tr -d '[:space:]')
   [ -n "$LEGACY_BOT_TOKEN" ] && echo "ℹ️  LEGACY_BOT_TOKEN (ربات قبلی) هم به‌عنوان Secret ست می‌شود."
 fi
+# 🛡 v3.0 — گارد حفظ Secret ها: PUT متادیتا همهٔ binding ها را جایگزین میکند؛
+# اگر Secret ای روی ورکر فعلی هست ولی مقدارش الان در دسترس نیست، میترکد و حذف میشود.
+# پس قبل از آپلود چک میکنیم: هر Secret موجود باید مقدار تازه داشته باشد (یا رفع قفل صریح).
+PREV_BIND=$(cfget "$API/accounts/$ACC/workers/scripts/$NAME/settings" 2>/dev/null || echo '')
+for SNAME in BOT_TOKEN OWNER_ID LEGACY_BOT_TOKEN; do
+  if echo "$PREV_BIND" | grep -q "\"name\":\"$SNAME\""; then
+    case "$SNAME" in
+      BOT_TOKEN) CURVAL="${BOT_TOKEN:-}" ;;
+      OWNER_ID)  CURVAL="${OWNER_ID:-}" ;;
+      LEGACY_BOT_TOKEN) CURVAL="${LEGACY_BOT_TOKEN:-}" ;;
+    esac
+    if [ -z "$CURVAL" ] && [ "${DROP_MISSING_SECRETS:-}" != "1" ]; then
+      die "Secret « $SNAME » روی ورکر فعلی هست ولی مقدار جدیدش داده نشده — با این دیپلوی حذف میشد .
+        مقدارش را در bot-credentials.txt ( خط $SNAME=... ) بگذار و دوباره اجرا کن .
+        ( توکن ربات قبلی برای عزل ادمین هایی که خودش ساخته بود لازم است ؛ از @BotFather قابل بازیابی است )
+        اگر واقعا میخواهی حذف شود:  DROP_MISSING_SECRETS=1  به دستور اضافه کن ."
+    fi
+  fi
+done
+
 META=$(node -e '
 const [,ns,sec,bt,oid,lt]=process.argv;
 const bindings=[
