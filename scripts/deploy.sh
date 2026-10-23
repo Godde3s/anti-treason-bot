@@ -95,16 +95,22 @@ if [ -z "${BOT_TOKEN:-}" ] && [ -f "$CRED_FILE" ]; then
   OWNER_ID=$(sed -n 's/^\s*OWNER_ID=//p' "$CRED_FILE" | head -1 | tr -d '[:space:]')
   [ -n "$BOT_TOKEN" ] && echo "ℹ️  BOT_TOKEN/OWNER_ID از bot-credentials.txt خوانده شد و به‌عنوان Secret ست می‌شود."
 fi
+# 🤝 v2.8 — توکن «ربات قبلی» (اختیاری): برای عزل/بن ادمین‌هایی که همان ربات ساخته بود
+if [ -z "${LEGACY_BOT_TOKEN:-}" ] && [ -f "$CRED_FILE" ]; then
+  LEGACY_BOT_TOKEN=$(sed -n 's/^\s*LEGACY_BOT_TOKEN=//p' "$CRED_FILE" | head -1 | tr -d '[:space:]')
+  [ -n "$LEGACY_BOT_TOKEN" ] && echo "ℹ️  LEGACY_BOT_TOKEN (ربات قبلی) هم به‌عنوان Secret ست می‌شود."
+fi
 META=$(node -e '
-const [,ns,sec,bt,oid]=process.argv;
+const [,ns,sec,bt,oid,lt]=process.argv;
 const bindings=[
   {type:"kv_namespace",name:"KV",namespace_id:ns},
   {type:"plain_text",name:"WEBHOOK_SECRET",text:sec}
 ];
 if (bt) bindings.push({type:"secret_text",name:"BOT_TOKEN",text:bt});
 if (oid) bindings.push({type:"secret_text",name:"OWNER_ID",text:oid});
+if (lt) bindings.push({type:"secret_text",name:"LEGACY_BOT_TOKEN",text:lt});
 console.log(JSON.stringify({main_module:"worker.js",compatibility_date:"2025-01-01",bindings}))
-' "$NS" "$SECRET" "${BOT_TOKEN:-}" "${OWNER_ID:-}")
+' "$NS" "$SECRET" "${BOT_TOKEN:-}" "${OWNER_ID:-}" "${LEGACY_BOT_TOKEN:-}")
 UP=$(curl -sS -X PUT \
   -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
   -F "metadata=${META};type=application/json" \
@@ -141,6 +147,7 @@ if [ -n "${BOT_TOKEN:-}" ]; then
   {
     printf 'BOT_TOKEN=%s\n' "$BOT_TOKEN"
     [ -n "${OWNER_ID:-}" ] && printf 'OWNER_ID=%s\n' "$OWNER_ID"
+    [ -n "${LEGACY_BOT_TOKEN:-}" ] && printf 'LEGACY_BOT_TOKEN=%s\n' "$LEGACY_BOT_TOKEN"
   } > "$CRED_FILE"
   chmod 600 "$CRED_FILE"
   SETUP_R=$(curl -sS "$URL/?setup=$SECRET" || true)

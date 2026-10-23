@@ -67,6 +67,10 @@
  *  • 📣 ارسال پیام + پیام همگانی (v2.7): مالک از پنل کانال «ارسال پیام به کانال» می‌زند یا از منوی
  *    اصلی «پیام همگانی» — پیام بعدی (هر نوعی: متن/عکس/ویدیو/آلبوم) با پیش‌نمایش و تأیید، بدون هدر
  *    فوروارد با صدای خود ربات در مقصد کپی می‌شود (copyMessage).
+ *  • 🧭 v2.8: فلوهای «افزودن ادمین / ادمین‌سازی کانال / ارسال پیام / همگانی / حذف پیام‌های اخیر»
+ *    راهنمای گام‌به‌گام با دکمهٔ لغو گرفتند (به‌جای پیام خشک) + منوی دستورات /start مثل BotFather.
+ *  • 🤝 v2.8: عزل/بن/لغوبن اگر با ربات اصلی ممکن نشود، خودکار با «ربات قبلی» تلاش می‌شود
+ *    (Secret با نام LEGACY_BOT_TOKEN) — ادمین‌هایی که ربات قبلی ساخته بود فقط با خودش قابل عزل‌اند.
  *  • 🧹 حذف پیام‌های اخیر (v2.7): هر پست جدید کانال در حلقهٔ ۱۰۰تایی «msgs:<cid>» ثبت می‌شود
  *    (فلاش تایمردار ⇒ کمترین نوشتن KV)؛ مالک عدد ۱ تا ۴۰ می‌فرستد و همان تعداد پیام آخر پاک می‌شود.
  *  • ⚡️ بهینه‌سازی v1.8: حذف پیام و شناسایی متخلف به‌صورت «موازی» (Promise.all) —
@@ -397,6 +401,17 @@ async function tg(env, method, payload) {
     return { ok: false, description: desc };
   }
   return data;
+}
+
+/* 🤝 v2.8 — «ربات قبلی»: اگر عملیات با ربات اصلی ممکن نبود (مثلاً عزل ادمینی که ربات قبلی
+ * ساخته بود — تلگرام اجازهٔ تغییر ادمین‌های ساخته‌شده توسط دیگران را نمی‌دهد)، یک تلاش هم
+ * با توکن ربات قبلی (Secret با نام LEGACY_BOT_TOKEN) زده می‌شود؛ نتیجهٔ موفق → r.legacy=true */
+async function tgSmart(env, method, payload) {
+  const r = await tg(env, method, payload);
+  if (r.ok || !env.LEGACY_BOT_TOKEN) return r;
+  const r2 = await tg({ ...env, BOT_TOKEN: env.LEGACY_BOT_TOKEN }, method, payload);
+  if (r2.ok) r2.legacy = true;
+  return r2;
 }
 
 const kb = (rows) => ({ inline_keyboard: rows });
@@ -1349,7 +1364,7 @@ async function enforce(env, ctx, cid, s, msg, a, reason, isEdit) {
 
 /** گرفتن همهٔ دسترسی‌های ادمینی یک کاربر (عزل ادمین — بن نمی‌شود) */
 async function demoteAdmin(env, cid, uid) {
-  return tg(env, 'promoteChatMember', {
+  return tgSmart(env, 'promoteChatMember', {
     chat_id: cid, user_id: uid,
     is_anonymous: false, can_manage_chat: false, can_manage_video_chats: false,
     can_post_messages: false, can_edit_messages: false, can_delete_messages: false,
@@ -1440,10 +1455,10 @@ async function redEnforce(env, ctx, cid, s, msg, a, reason) {
       for (const k of CAM_ORDER) prev[k] = !!st.result[CAM_OPTS[k].param];
       await env.KV.put(`undo:${cid}:${target}`, JSON.stringify(prev), { expirationTtl: 86400 }).catch(() => {});
       const demote = await demoteAdmin(env, cid, target);
-      const ban = pm === 'red' ? await tg(env, 'banChatMember', banPay(env, cid, target, s)) : null;
+      const ban = pm === 'red' ? await tgSmart(env, 'banChatMember', banPay(env, cid, target, s)) : null;
       pun = { demote, ban };
     } else {
-      const ban = pm === 'red' ? await tg(env, 'banChatMember', banPay(env, cid, target, s)) : null;
+      const ban = pm === 'red' ? await tgSmart(env, 'banChatMember', banPay(env, cid, target, s)) : null;
       pun = { demote: null, ban };
     }
   }
@@ -2604,7 +2619,7 @@ From now on every new channel post is tracked, so batch cleanup will be availabl
       await setScopes(env, acc);
       await clearPanelState(env, uid);
       const v = await scopeView(env, 'a', idStr);
-      return send(env, msg.chat.id, L(`✅ <b>ادمین اضافه شد!</b>\n\n`, `✅ <b>Admin added!</b>\n\n`) + v.text, v.markup);
+      return send(env, msg.chat.id, L(`✅ <b>ادمین اضافه شد!</b>\n👤 ${await userLabel(env, idStr)}\n\n`, `✅ <b>Admin added!</b>\n👤 ${await userLabel(env, idStr)}\n\n`) + v.text, v.markup);
     }
     // 📋 v2.1 — افزودن گروهی: همگی بدون هیچ کانالی (امن پیش‌فرض)؛ مالک/تکراری نادیده
     const acc = await getScopes(env);
@@ -3007,7 +3022,23 @@ async function handleCallback(cb, env, ctx) {
     if (act === 'admA') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
       await setPanelState(env, uid, { t: 'admA' });
-      return answerCb(env, cb.id, '🆔 شناسه یا لیست شناسه‌ها را بفرست (با کاما/خط جدید جدا کن، حداکثر ۵۰). /start = لغو', true);
+      await send(env, msg.chat.id,
+        L(`<b>➕ افزودن ادمین ربات</b>
+
+۱) از فرد بخواه ربات رو استارت کنه.
+۲) شناسه عددیش رو بفرست — با دستور /myid (همین‌جا تو ربات) یا ربات @userinfobot می‌تونه بگیره.
+   چند نفر رو با کاما جدا کن؛ همه باهم اضافه میشن (حداکثر ۵۰).
+
+بعد از ثبت، همین‌جا کانال‌های مجازش رو انتخاب می‌کنی.`,
+          `<b>➕ Add a bot admin</b>
+
+1) Ask them to start this bot first.
+2) Send their numeric ID — they can get it via /myid (right here) or the @userinfobot bot.
+   Separate several IDs with commas; all of them get added at once (max 50).
+
+After saving, you'll pick their allowed channels right here.`),
+        kb([[BTN('❌ لغو', 'bcX')]]));
+      return answerCb(env, cb.id, L('↓ راهنما رو فرستادم', '↓ Guide sent'));
     }
     if (act === 'admD') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
@@ -3130,17 +3161,35 @@ async function handleCallback(cb, env, ctx) {
     if (act === 'bc1') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
       await setPanelState(env, uid, { t: 'bcPick', cid: a1 });
-      return answerCb(env, cb.id,
-        L('📣 پیامی که می‌خوای تو این کانال ارسال بشه رو همین‌جا بفرست — هر نوعی: متن، عکس، ویدیو، آلبوم. /start = لغو',
-          '📣 Send the message you want posted to this channel — any type: text, photo, video, album. /start = cancel'), true);
+      await send(env, msg.chat.id,
+        L(`<b>📣 ارسال پیام به کانال</b>
+
+هر پیامی که همین الان بفرستی، عیناً تو این کانال منتشر میشه — متن، عکس، ویدیو، آلبوم؛ بدون هدرِ «فوروارد شده از».
+
+قبل از انتشار، پیش‌نمایشش رو نشونت میدم و تأیید می‌گیری.`,
+          `<b>📣 Post to channel</b>
+
+Whatever you send right now gets posted to this channel exactly as-is — text, photo, video, album; no "Forwarded from" header.
+
+You'll get a preview and confirm before it goes live.`),
+        kb([[BTN('❌ لغو', 'bcX')]]));
+      return answerCb(env, cb.id, L('↓ راهنما رو فرستادم', '↓ Guide sent'));
     }
     if (act === 'bcAll') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
       const nChats = (await listChats(env)).length;
       await setPanelState(env, uid, { t: 'bcAllPick' });
-      return answerCb(env, cb.id,
-        L(`📣 پیام همگانی — پیامی که بفرستی به همهٔ کانال‌های فعال کپی میشه (الان ${nChats} کانال ثبت شده). /start = لغو`,
-          `📣 Broadcast — your next message is copied to all active channels (${nChats} registered). /start = cancel`), true);
+      await send(env, msg.chat.id,
+        L(`<b>📣 پیام همگانی</b>
+
+هر پیامی که بفرستی عیناً به همهٔ کانال‌های فعال کپی میشه (الان ${faNum(nChats)} کانال ثبت شده).
+قبل از ارسال، پیش‌نمایشش رو نشونت میدم و تأیید می‌گیری.`,
+          `<b>📣 Broadcast</b>
+
+Whatever you send gets copied to all active channels exactly as-is (${nChats} registered).
+You'll get a preview and confirm before it goes out.`),
+        kb([[BTN('❌ لغو', 'bcX')]]));
+      return answerCb(env, cb.id, L('↓ راهنما رو فرستادم', '↓ Guide sent'));
     }
     if (act === 'bcGo') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
@@ -3191,11 +3240,21 @@ ${errs.join('\n')}` : ''),
     if (act === 'dLM') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
       await setPanelState(env, uid, { t: 'dLM', cid: a1 });
-      return answerCb(env, cb.id,
-        L(`🧹 چند پیام آخر این کانال پاک بشه؟ یه عدد بین ۱ تا ${faNum(MAX_DEL)} بفرست.\n` +
-          `(فقط پست‌های بعد از نصب نسخهٔ ۲.۷ ثبت شدن — پیام‌های قدیمی‌تر قابل انتخاب نیستن) /start = لغو`,
-          `🧹 How many of the latest messages should be deleted? Send a number between 1 and ${MAX_DEL}.\n` +
-          `(only posts made after v2.7 are tracked — older ones cannot be selected) /start = cancel`), true);
+      await send(env, msg.chat.id,
+        L(`<b>🧹 حذف پیام‌های اخیر</b>
+
+چند پیام آخر این کانال پاک بشه؟ فقط عدد بفرست — بین ۱ تا ${faNum(MAX_DEL)}.
+مثلاً «10» یعنی ۱۰ پیام آخر پاک بشه.
+
+نکته: فقط پست‌های بعد از نصب نسخهٔ ۲.۷ ثبت شدن؛ پیام‌های قدیمی‌تر به هیچ رباتی داده نمیشه.`,
+          `<b>🧹 Delete recent messages</b>
+
+How many of the latest messages should go? Just send a number — between 1 and ${MAX_DEL}.
+E.g. "10" deletes the last 10 messages.
+
+Note: only posts made after v2.7 are tracked; older ones are out of reach for any bot.`),
+        kb([[BTN('❌ لغو', 'bcX')]]));
+      return answerCb(env, cb.id, L('↓ راهنما رو فرستادم', '↓ Guide sent'));
     }
     if (act === 'dlGo') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
@@ -3432,7 +3491,7 @@ ${errs.join('\n')}` : ''),
     /* ── ♻️ لغو بن متخلف (دکمهٔ گزارش قرمز) ── */
     if (act === 'ubn') {
       const cu = parts[2] || '';
-      const r = await tg(env, 'unbanChatMember', { chat_id: a1, user_id: cu });
+      const r = await tgSmart(env, 'unbanChatMember', { chat_id: a1, user_id: cu });
       return answerCb(env, cb.id,
         r.ok ? '♻️ بن لغو شد — این فرد می‌تواند دوباره عضو کانال شود'
              : '❌ ' + (r.description || L('لغو بن ناموفق بود', 'Unban failed')), r.ok ? false : true);
@@ -3446,7 +3505,7 @@ ${errs.join('\n')}` : ''),
         return answerCb(env, cb.id, '⚠️ اطلاعات بازگردانی پیدا نشد (منقضی شده یا قبلاً اعمال شده).', true);
       const p = { chat_id: a1, user_id: cu };
       for (const k of CAM_ORDER) p[CAM_OPTS[k].param] = !!prev[k];
-      const r = await tg(env, 'promoteChatMember', p);
+      const r = await tgSmart(env, 'promoteChatMember', p);
       if (r.ok) await env.KV.delete(`undo:${a1}:${cu}`).catch(() => {});
       if (r.ok && msg && msg.text) {
         await edit(env, msg.chat.id, msg.message_id, msg.text + L('\n\n↩️ <b>دسترسی‌های قبلی متخلف بازگردانی شد ✅</b>', "\n\n↩️ <b>The offender's previous access was restored ✅</b>")).catch(() => {});
@@ -3466,7 +3525,23 @@ ${errs.join('\n')}` : ''),
       const s = await getSettings(env, a1, true);
       if (!s) return answerCb(env, cb.id, '⚠️ این کانال دیگه ثبت نیست.', true);
       await setPanelState(env, uid, { t: 'camA', cid: a1 });
-      return answerCb(env, cb.id, '🆔 شناسهٔ فرد یا لیست شناسه‌ها را بفرست (با کاما/خط جدید، حداکثر ۵۰) — یا @یوزرنیم. /start = لغو', true);
+      await send(env, msg.chat.id,
+        L(`<b>👑 ادمین‌سازی در کانال</b> — ${esc(s.title)}
+
+۱) شناسهٔ عددی فرد رو بفرست، یا @یوزرنیمش (یوزرنیم فقط تک‌نفره).
+   برای چند نفر، شناسه‌ها رو با کاما یا خط جدید بفرست (حداکثر ۵۰).
+۲) بعد یه پریست انتخاب می‌کنی — پیشنهاد ما «⚡️ ادمین معمولی» هست — و تأیید می‌زنی.
+
+نکته: لازم نیست فرد عضو کانال باشه؛ بعد از ارتقا می‌تونه با لینک بیاد.`,
+          `<b>👑 Promote a channel admin</b> — ${esc(s.title)}
+
+1) Send the person's numeric ID, or their @username (username works for one person only).
+   For several people, send IDs separated by commas or newlines (max 50).
+2) Then pick a preset — we recommend "⚡️ Basic admin" — and confirm.
+
+Note: they don't have to be a member yet; they can join via the link after promotion.`),
+        kb([[BTN('❌ لغو', 'bcX')]]));
+      return answerCb(env, cb.id, L('↓ راهنما رو فرستادم', '↓ Guide sent'));
     }
     /* ── ⚡️ v1.8: پریست ادمین‌سازی — یک ضربه = تنظیم + ارتقا ── */
     if (act === 'camP') {
@@ -3607,7 +3682,9 @@ ${errs.join('\n')}` : ''),
       const v = await camView(env, a1);
       if (v) await edit(env, msg.chat.id, msg.message_id, v.text, v.markup);
       return answerCb(env, cb.id,
-        r.ok ? '✅ عزل شد — دسترسی‌های ادمینی گرفته شد' : '❌ ' + (r.description || L('عزل ناموفق بود', 'Demotion failed')),
+        r.ok ? L('✅ عزل شد — دسترسی‌های ادمینی گرفته شد' + (r.legacy ? ' (با ربات قبلی)' : ''),
+                 '✅ Demoted — admin rights revoked' + (r.legacy ? ' (via the previous bot)' : ''))
+             : '❌ ' + (r.description || L('عزل ناموفق بود', 'Demotion failed')),
         r.ok ? false : true);
     }
 
@@ -3868,7 +3945,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v2.7 (post-to-channel + broadcast + delete-recent-messages (owner) + restyled bold lock announcements + channel-handle line + per-channel announcements toggle + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v2.8 (guided interactive flows + previous-bot fallback for demotions/bans + command menu + post-to-channel + broadcast + delete-recent-messages (owner) + bold lock announcements + channel-handle line + per-channel announcements toggle + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;

@@ -39,7 +39,8 @@ globalThis.fetch = async (url, init) => {
     const method = u.split('/').pop();
     let payload = {};
     try { payload = JSON.parse(init.body); } catch (e) { /* ignore */ }
-    tgCalls.push({ method, payload });
+    const mTok = u.match(/^https:\/\/api\.telegram\.org\/bot([^\/]+)\//);
+    tgCalls.push({ method, payload, tok: mTok ? mTok[1] : '' });
     const J = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
     // v1.7: getMe واقعی (برای botInfo/me.id)
     if (method === 'getMe') {
@@ -81,7 +82,7 @@ globalThis.fetch = async (url, init) => {
       if (ci) return J({ ok: true, result: ci });
     }
     // v1.7: خطاهای ارتقا/بن برای کاربران خاص (مثلاً مالک کانال)
-    if (method === 'promoteChatMember' && mockB.failPromoteFor.includes(Number(payload.user_id))) {
+    if (method === 'promoteChatMember' && mTok && mTok[1] === 'TESTTOKEN' && mockB.failPromoteFor.includes(Number(payload.user_id))) {
       return J({ ok: false, description: 'Bad Request: user is an administrator of the chat' }, 400);
     }
     if (method === 'banChatMember' && mockB.failBanFor.includes(Number(payload.user_id))) {
@@ -946,7 +947,7 @@ await section('v1.7 — نمای «👑 ادمین‌های کانال»', async
 await section('v1.7 — افزودن ادمین کانال: فلو کامل (شناسه → دسترسی → ارتقا)', async () => {
   clearCalls();
   await post(cbQuery('camA:' + CID, OWNER));
-  ok(lastAnswer().includes('شناسه'), 'درخواست شناسهٔ عددی شد');
+  ok(calls('sendMessage').some((c) => /شناسهٔ عددی فرد رو بفرست/.test(c.payload.text || '')), 'درخواست شناسهٔ عددی شد (راهنمای گام‌به‌گام)');
   mockB.memberOf[3003003] = { status: 'member', user: { id: 3003003, first_name: 'رضا' } };
   await post(priv('3003003', OWNER));
   const sm = calls('sendMessage');
@@ -1831,7 +1832,7 @@ await section('v2.7 — ارسال پیام به کانال (فقط مالک): p
   await post(cbQuery(`bc1:${CID}`, ADMIN));
   ok(lastAnswer().includes('فقط مالک'), 'غریبه روی «ارسال پیام به کانال» رد شد');
   await post(cbQuery(`bc1:${CID}`, OWNER));
-  ok(lastAnswer().includes('بفرست'), 'پرسش «پیام رو بفرست» (state bcPick)');
+  ok(calls('sendMessage').some((c) => /ارسال پیام به کانال/.test(c.payload.text || '')), 'راهنمای گام‌به‌گام «ارسال پیام به کانال» با دکمهٔ لغو فرستاده شد');
   ok(JSON.parse(await env.KV.get('state:' + OWNER)).t === 'bcPick', 'state bcPick ثبت شد');
   clearCalls();
   await post(upd({ message: { message_id: 9001, chat: { id: OWNER, type: 'private' }, from: { id: OWNER, first_name: 'O' }, photo: [{ file_id: 'ph1' }], caption: 'پست آزمایشی' } }));
@@ -1861,7 +1862,7 @@ await section('v2.7 — پیام همگانی به همهٔ کانال‌های 
   const CID2 = '-1002002';
   await env.KV.put('chat:' + CID2, JSON.stringify({ title: 'کانال دوم', username: 'chan2', locks: {}, active: true, instant: { on: false, at: 0 }, schedule: { enabled: false, start: 240, end: 1200, mode: 'all' }, punishMode: 'off', banHours: 0, ann: true }));
   await post(cbQuery('bcAll', OWNER));
-  ok(lastAnswer().includes('همگانی'), 'پرسش پیام همگانی (state bcAllPick)');
+  ok(calls('sendMessage').some((c) => /پیام همگانی/.test(c.payload.text || '')), 'راهنمای گام‌به‌گام «پیام همگانی» با دکمهٔ لغو فرستاده شد');
   await post(upd({ message: { message_id: 9003, chat: { id: OWNER, type: 'private' }, from: { id: OWNER, first_name: 'O' }, text: 'اعلام عمومی' } }));
   clearCalls();
   await post(cbQuery('bcGo', OWNER));
@@ -1879,7 +1880,7 @@ await section('v2.7 — حذف N پیام آخر: عدد → تأیید → dele
   await post(cbQuery(`dLM:${CID}`, ADMIN));
   ok(lastAnswer().includes('فقط مالک'), 'غریبه روی «حذف پیام‌های اخیر» رد شد');
   await post(cbQuery(`dLM:${CID}`, OWNER));
-  ok(lastAnswer().includes('۱ تا ۴۰'), 'پرسش تعداد (۱ تا ۴۰)');
+  ok(calls('sendMessage').some((c) => /چند پیام آخر این کانال پاک بشه/.test(c.payload.text || '')), 'راهنمای گام‌به‌گام «حذف پیام‌های اخیر» با دکمهٔ لغو فرستاده شد');
   await post(priv('abc', OWNER));
   ok(lastText().includes('۱ تا ۴۰'), 'عدد نامعتبر → خطا و دوباره‌خوانی');
   clearCalls();
@@ -1902,6 +1903,46 @@ await section('v2.7 — ردیابی خودکار پست کانال در حلق�
   const tracked = JSON.parse(await env.KV.get('msgs:' + CID) || '[]');
   ok(Array.isArray(tracked) && tracked.length >= 1, 'پست جدید کانال خودکار ثبت شد (فلاش تایمردار)');
   await env.KV.delete('msgs:' + CID);
+});
+
+/* ───────────────────────── v2.8: راهنماهای تعاملی + fallback ربات قبلی ───────────────────────── */
+
+await section('v2.8 — راهنمای تعاملی «افزودن ادمین ربات» + نمایش نام بعد از ثبت', async () => {
+  await post(cbQuery('admA', OWNER));
+  const g = calls('sendMessage').find((c) => /افزودن ادمین ربات/.test(c.payload.text || ''));
+  ok(!!g && /myid|userinfobot/.test(g.payload.text || ''), 'راهنمای گام‌به‌گام با روش گرفتن شناسه فرستاده شد');
+  ok(JSON.stringify((g && g.payload.reply_markup) || {}).includes('bcX'), 'دکمهٔ «لغو» کنار راهنما هست');
+  ok(lastAnswer().includes('راهنما'), 'تُست کوتاه: راهنما فرستاده شد');
+  clearCalls();
+  await post(priv('515151', OWNER));
+  const added = calls('sendMessage').find((c) => /ادمین اضافه شد/.test(c.payload.text || ''));
+  ok(!!added && /👤/.test(added.payload.text || ''), 'بعد از ثبت، نام/منشن فرد هم کنار پیام موفقیت آمد');
+  clearCalls();
+  await post(cbQuery('admD:515151', OWNER));
+  ok(lastAnswer().includes('حذف شد'), 'ادمین آزمایشی حذف شد (پاکسازی)');
+});
+
+await section('v2.8 — راهنمای تعاملی ادمین‌سازی کانال + حذف پیام‌های اخیر', async () => {
+  await post(cbQuery(`camA:${CID}`, OWNER));
+  const gC = calls('sendMessage').find((c) => /ادمین‌سازی در کانال/.test(c.payload.text || ''));
+  ok(!!gC && JSON.stringify(gC.payload.reply_markup || {}).includes('bcX'), 'راهنمای ادمین‌سازی کانال + دکمهٔ لغو فرستاده شد');
+  clearCalls();
+  await post(cbQuery(`dLM:${CID}`, OWNER));
+  const gD = calls('sendMessage').find((c) => /حذف پیام‌های اخیر/.test(c.payload.text || ''));
+  ok(!!gD && JSON.stringify(gD.payload.reply_markup || {}).includes('bcX'), 'راهنمای حذف پیام‌های اخیر + دکمهٔ لغو فرستاده شد');
+});
+
+await section('v2.8 — عزل ادمینِ ساختهٔ ربات قبلی (fallback خودکار توکن)', async () => {
+  env.LEGACY_BOT_TOKEN = 'LEGACYTOKEN';
+  mockB.failPromoteFor = [555];
+  clearCalls();
+  await post(cbQuery(`camD2:${CID}:555`, OWNER));
+  const prs = calls('promoteChatMember');
+  ok(prs.length === 2, 'دو تلاش انجام شد: اول ربات اصلی، بعد ربات قبلی');
+  ok(prs.length === 2 && prs[0].tok === 'TESTTOKEN' && prs[1].tok === 'LEGACYTOKEN', 'تلاش دوم با توکن ربات قبلی بود');
+  ok(lastAnswer().includes('عزل شد') && lastAnswer().includes('ربات قبلی'), 'عزل موفق + یادداشت «با ربات قبلی» در پاسخ');
+  mockB.failPromoteFor = [];
+  delete env.LEGACY_BOT_TOKEN;
 });
 
 /* ---------------------------- جمع‌بندی ---------------------------- */
