@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare Workers" /></a>
   <a href="README-FA.md"><img src="https://img.shields.io/badge/مستندات-فارسی-0ea5e9?style=for-the-badge" alt="Persian docs" /></a>
-  <img src="https://img.shields.io/badge/tests-495%2F495_passing-22c55e?style=for-the-badge" alt="tests" />
+  <img src="https://img.shields.io/badge/tests-524%2F524_passing-22c55e?style=for-the-badge" alt="tests" />
   <img src="https://img.shields.io/badge/runtime-Cloudflare_Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="runtime" />
 </p>
 
@@ -59,6 +59,9 @@ A full Telegram + KV simulator runs **414 assertions** (`node scripts/test-bot.m
 - 📣 **In-channel lock announcements (v2.5)** — when the instant lock flips or a scheduled window starts/ends (1-minute cron), the bot posts a notice inside the channel itself; per-channel toggle, fires only on state transitions (no spam, minimal KV writes).
 - 📣 **Post to channel / broadcast (v2.7)** — the owner taps "Post to channel" (or "Broadcast" in the main menu), sends any message (text/photo/video/album), previews it, confirms — and it's copied as the bot with no forward header; broadcast goes to every active channel with a per-channel ✅/❌ report.
 - 🧹 **Delete recent messages (v2.7)** — every new channel post is tracked in a 100-item rolling buffer (timer-based KV flush); the owner sends a number 1–40 and that many **latest channel messages** are deleted, with a confirmation step and a success count.
+- ⏱ **Minute picker for scheduled locks (v3.0)** — after the hour grid a **minute grid** (00–55, 5-minute steps) completes each side, so windows are now minute-precise (e.g. 4:30–8:15); typing the full time still works.
+- 🎯 **Broadcast destination picker (v3.0)** — pick the destination before sending: **channels only / +groups / +DMs / everything**; every group or DM that talks to the bot is auto-registered (see the "Registered audience" panel) and live counts sit on the buttons (40-target cap per run).
+- 🧹 **Auto-cleanup + result cards (v3.0)** — after confirming a post/broadcast the guide, preview and confirm card are deleted and one clean **result card** remains (channels/groups/DMs counters + error list); batch delete got a result card with "delete more" buttons, and cancelling any flow removes its own clutter.
 - 🕐 **Button-based hour picker (v2.9)** — the scheduled-lock flow is now fully interactive: pick start/end hours from a 0–23 button grid (no typing), one-tap presets (nightly 4–8, nightly 22–6, 24-hour) and a confirmation card before saving; typed input (e.g. 4:30) still works.
 - 🧹 **Quick-pick batch delete (v2.9)** — "Delete recent messages" now has 5/10/20/40 buttons plus a custom-number option; adding viewers and restoring backups also got step-by-step guides with cancel buttons.
 - ✍️ **Full Persian copy rewrite (v2.9)** — every Persian text now follows the new house style: no half-spaces, spaced punctuation, "chanel" wording instead of "kanal", no decorative emoji.

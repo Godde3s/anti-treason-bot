@@ -1847,6 +1847,9 @@ await section('v2.7 — ارسال پیام به چنل (فقط مالک): pick 
   const cp = calls('copyMessage').find((c) => String(c.payload.chat_id) === String(CID));
   ok(!!cp && Number(cp.payload.from_chat_id) === OWNER && cp.payload.message_id === 9001, 'copyMessage به چنل با منبع درست (بدون هدر فوروارد)');
   ok(lastAnswer().includes('ارسال شد'), 'پاسخ موفقیت ارسال');
+  const dels1 = calls('deleteMessage').map((c) => c.payload.message_id);
+  ok(dels1.length === 2, 'راهنما و پیش نمایش پاک شدن ( کارت تأیید خودش نتیجه شد )');
+  ok(calls('editMessageText').some((c) => /پیام ارسال شد/.test(c.payload.text || '')), 'کارت تأیید به کارت نتیجه « پیام ارسال شد » تبدیل شد');
   const stAfter = await env.KV.get('state:' + OWNER);
   ok(stAfter === null || stAfter === undefined, 'state بعد از ارسال پاک شد');
 });
@@ -1861,18 +1864,26 @@ await section('v2.7 — لغو ارسال پیام', async () => {
   ok(calls('copyMessage').length === 0, 'هیچی کپی نشد');
 });
 
-await section('v2.7 — پیام همگانی به همه چنل های فعال', async () => {
+await section('v2.7/v3.0 — پیام همگانی: انتخاب مقصد → پیش نمایش → تأیید → پاکسازی + نتیجه', async () => {
   const CID2 = '-1002002';
   await env.KV.put('chat:' + CID2, JSON.stringify({ title: 'چنل دوم', username: 'chan2', locks: {}, active: true, instant: { on: false, at: 0 }, schedule: { enabled: false, start: 240, end: 1200, mode: 'all' }, punishMode: 'off', banHours: 0, ann: true }));
   await post(cbQuery('bcAll', OWNER));
-  ok(calls('sendMessage').some((c) => /پیام همگانی/.test(c.payload.text || '')), 'راهنمای گام به گام « پیام همگانی » با دکمه لغو فرستاده شد');
+  const tgtPanel = calls('sendMessage').find((c) => /پیام همگانی/.test(c.payload.text || ''));
+  ok(!!tgtPanel && JSON.stringify(tgtPanel.payload.reply_markup || {}).includes('bcT:ch'), 'پنل انتخاب مقصد « پیام همگانی » با دکمه های مقصد آمد');
+  await post(cbQuery('bcT:ch', OWNER));
+  ok(calls('sendMessage').some((c) => /مقصد : <b>فقط چنل ها<\/b>/.test(c.payload.text || '')), 'راهنما با مقصد « فقط چنل ها » فرستاده شد');
   await post(upd({ message: { message_id: 9003, chat: { id: OWNER, type: 'private' }, from: { id: OWNER, first_name: 'O' }, text: 'اعلام عمومی' } }));
   clearCalls();
   await post(cbQuery('bcGo', OWNER));
   const cps = calls('copyMessage');
   ok(cps.some((c) => String(c.payload.chat_id) === String(CID)), 'همگانی → چنل ۱');
   ok(cps.some((c) => String(c.payload.chat_id) === String(CID2)), 'همگانی → چنل ۲');
-  ok(calls('sendMessage').some((c) => /پیام همگانی ارسال شد/.test(c.payload.text || '')), 'گزارش همگانی با شمارنده ۲/۲');
+  ok(cps.every((c) => String(c.payload.chat_id).startsWith('-100')), 'با مقصد « فقط چنل ها » به گروه/پیوی چیزی نرفت');
+  const delsB = calls('deleteMessage').map((c) => c.payload.message_id);
+  ok(delsB.includes(77), 'کارت تأیید بعد از ارسال پاک شد');
+  ok(delsB.length >= 3, 'راهنما + پیش نمایش + کارت تأیید پاک شدن');
+  const resB = calls('sendMessage').find((c) => /پیام همگانی ارسال شد/.test(c.payload.text || ''));
+  ok(!!resB && /چنل ها : ۲ از ۲/.test(resB.payload.text || ''), 'کارت نتیجه: چنل ها ۲ از ۲');
   await env.KV.delete('chat:' + CID2);
 });
 
@@ -1895,6 +1906,8 @@ await section('v2.7 — حذف N پیام آخر: عدد → تأیید → dele
   const dels = calls('deleteMessage').map((c) => c.payload.message_id);
   ok(JSON.stringify(dels) === JSON.stringify([7008, 7009, 7010, 7011, 7012]), 'دقیقاً ۵ پیام آخر deleteMessage شد');
   ok(lastAnswer().includes('۵ پیام پاک شد'), 'گزارش تعداد پاک شده');
+  ok(calls('editMessageText').some((c) => /نتیجه پاک سازی/.test(c.payload.text || '')), 'کارت تأیید به کارت « نتیجه پاک سازی » تبدیل شد');
+  ok(calls('editMessageText').some((c) => JSON.stringify(c.payload.reply_markup || {}).includes('dlN:' + CID + ':5')), 'دکمه های ادامه حذف روی کارت نتیجه هست');
   const left = JSON.parse(await env.KV.get('msgs:' + CID));
   ok(JSON.stringify(left) === JSON.stringify([7001, 7002, 7003, 7004, 7005, 7006, 7007]), 'حلقه بعد از حذف، فقط پیام های باقی را نگه داشت');
   await env.KV.delete('msgs:' + CID);
@@ -1950,7 +1963,7 @@ await section('v2.8 — عزل ادمینِ ساخته ربات قبلی (fallba
 
 /* ───────────────────────── v2.9: گرید ساعت + پریست + دکمه های سریع ───────────────────────── */
 
-await section('v2.9 — گرید انتخاب ساعت با دکمه: شروع → پایان → کارت تأیید → ثبت', async () => {
+await section('v2.9/v3.0 — گرید ساعت + گرید دقیقه: شروع → دقیقه → پایان → دقیقه → تأیید → ثبت', async () => {
   await post(cbQuery('schS:' + CID, OWNER));
   const grid = calls('editMessageText').find((c) => /ساعت شروع قفل زمان دار/.test(c.payload.text || ''));
   ok(!!grid, 'پنل گرید ساعت شروع باز شد');
@@ -1958,15 +1971,24 @@ await section('v2.9 — گرید انتخاب ساعت با دکمه: شروع �
   const flat = JSON.stringify(hourBtns);
   ok(hourBtns.length === 4 && flat.includes('"schH:' + CID + ':S:23"') && flat.includes('"schH:' + CID + ':S:0"'), '۲۴ دکمه ساعت ۰ تا ۲۳ + انصراف');
   await post(cbQuery(`schH:${CID}:S:4`, OWNER));
+  const minG = calls('editMessageText').find((c) => /دقیقه شروع قفل زمان دار/.test(c.payload.text || ''));
+  ok(!!minG, 'بعد از انتخاب ساعت شروع، گرید دقیقه باز شد');
+  const minBtns = ((minG && minG.payload.reply_markup) || {}).inline_keyboard || [];
+  const minFlat = JSON.stringify(minBtns);
+  ok(minBtns.length === 4 && minFlat.includes('"schMn:' + CID + ':S:0"') && minFlat.includes('"schMn:' + CID + ':S:55"'), '۱۲ دکمه دقیقه ( ۰۰ تا ۵۵ ) + انصراف');
+  await post(cbQuery(`schMn:${CID}:S:30`, OWNER));
   const endGrid = calls('editMessageText').find((c) => /ساعت پایان قفل زمان دار/.test(c.payload.text || ''));
-  ok(!!endGrid && (endGrid.payload.text || '').includes('04:00'), 'شروع 04:00 ثبت و گرید پایان باز شد');
+  ok(!!endGrid && (endGrid.payload.text || '').includes('04:30'), 'شروع 04:30 ثبت و گرید ساعت پایان باز شد');
   await post(cbQuery(`schH:${CID}:E:8`, OWNER));
+  const minE = calls('editMessageText').find((c) => /دقیقه پایان قفل زمان دار/.test(c.payload.text || ''));
+  ok(!!minE, 'گرید دقیقه پایان باز شد');
+  await post(cbQuery(`schMn:${CID}:E:15`, OWNER));
   const confirm = calls('editMessageText').find((c) => /ثبت قفل زمان دار/.test(c.payload.text || ''));
   ok(!!confirm && /ثبت کن ✅/.test(JSON.stringify((confirm && confirm.payload.reply_markup) || {})), 'کارت تأیید با دکمه « ثبت کن ✅ » آمد');
-  ok((confirm && confirm.payload.text || '').includes('از ساعت <code>04:00</code> تا <code>08:00</code>'), 'بازه ۴ تا ۸ در کارت تأیید درست است');
+  ok((confirm && confirm.payload.text || '').includes('از ساعت <code>04:30</code> تا <code>08:15</code>'), 'بازه 4:30 تا 8:15 در کارت تأیید درست است');
   await post(cbQuery('schGo:' + CID, OWNER));
   const saved = JSON.parse(await env.KV.get('chat:' + CID));
-  ok(saved.schedule.start === 240 && saved.schedule.end === 480, 'بازه ۴ تا ۸ در KV ثبت شد');
+  ok(saved.schedule.start === 270 && saved.schedule.end === 495, 'بازه دقیقه دار 4:30 تا 8:15 در KV ثبت شد');
   ok(lastAnswer().includes('ثبت شد'), 'تُست ثبت موفق');
   // پاکسازی: خاموش + بازه پیش فرض
   saved.schedule.enabled = false; saved.schedule.start = 240; saved.schedule.end = 1200;
@@ -2011,6 +2033,69 @@ await section('v2.9 — راهنمای تعاملی ناظر و بازگردان
   ok(!!g2 && /\{/.test(g2.payload.text || ''), 'راهنمای بازگردانی بکاپ فرستاده شد');
   await post(cbQuery('bcX', OWNER));
   ok(await env.KV.get('state:' + OWNER) === null, 'state های راهنما پاکسازی شد');
+});
+
+/* ───────────────────────── v3.0: مخاطبین + مقصد « همه » + یادآوری مقصد ───────────────────────── */
+
+await section('v3.0 — ورودی متنی زمان دقیقه دار ( 4:30 → 8:15 )', async () => {
+  await post(cbQuery('schS:' + CID, OWNER));
+  clearCalls();
+  await post(priv('4:30', OWNER));
+  const eg = calls('sendMessage').find((c) => /ساعت پایان قفل زمان دار/.test(c.payload.text || ''));
+  ok(!!eg && (eg.payload.text || '').includes('04:30'), 'ورودی 4:30 → شروع ثبت و گرید ساعت پایان باز شد');
+  await post(priv('8:15', OWNER));
+  const cf = calls('sendMessage').find((c) => /ثبت قفل زمان دار/.test(c.payload.text || ''));
+  ok(!!cf && (cf.payload.text || '').includes('از ساعت <code>04:30</code> تا <code>08:15</code>'), 'ورودی 8:15 → کارت تأیید با دقیقه درست');
+  await post(cbQuery('schGo:' + CID, OWNER));
+  const sv = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(sv.schedule.start === 270 && sv.schedule.end === 495, 'زمان دقیقه دار با تایپ در KV ثبت شد');
+  sv.schedule.enabled = false; sv.schedule.start = 240; sv.schedule.end = 1200;
+  await env.KV.put('chat:' + CID, JSON.stringify(sv));
+});
+
+await section('v3.0 — ثبت خودکار گروه + مقصد « همه »: چنل + گروه + پیوی + پنل مخاطبین', async () => {
+  // پیام معمولی در یک گروه ⇒ گروه خودکار ثبت میشود
+  await post(upd({ message: { message_id: 9100, chat: { id: -1003333, type: 'supergroup', title: 'گروه آزمایشی' }, from: { id: OWNER, first_name: 'O' }, text: 'سلام گروه' } }));
+  const aud0 = JSON.parse(await env.KV.get('aud:index'));
+  ok(aud0['-1003333'] && aud0['-1003333'].t === 'supergroup', 'گروه با پیام معمولی خودکار ثبت شد');
+  await post(cbQuery('bcAll', OWNER));
+  const panel = calls('sendMessage').find((c) => /پیام همگانی/.test(c.payload.text || ''));
+  const pk = JSON.stringify((panel && panel.payload.reply_markup) || {});
+  ok(pk.includes('bcT:gr') && pk.includes('bcT:pv') && pk.includes('bcT:all') && pk.includes('audV'), 'دکمه های مقصد ( چنل/گروه/پیوی/همه ) + مخاطبین روی پنل هست');
+  clearCalls();
+  await post(cbQuery('bcT:all', OWNER));
+  ok(calls('sendMessage').some((c) => /مقصد : <b>همه : چنل ها \+ گروه ها \+ پیوی ها<\/b>/.test(c.payload.text || '')), 'راهنما با مقصد « همه » فرستاده شد');
+  await post(upd({ message: { message_id: 9101, chat: { id: OWNER, type: 'private' }, from: { id: OWNER, first_name: 'O' }, text: 'همگانی همه جا' } }));
+  clearCalls();
+  await post(cbQuery('bcGo', OWNER));
+  const cps = calls('copyMessage').map((c) => String(c.payload.chat_id));
+  ok(cps.includes(String(CID)), 'همگانی « همه » → چنل');
+  ok(cps.includes('-1003333'), 'همگانی « همه » → گروه');
+  ok(cps.includes(String(OWNER)), 'همگانی « همه » → پیوی');
+  const resA = calls('sendMessage').find((c) => /پیام همگانی ارسال شد/.test(c.payload.text || ''));
+  ok(!!resA && /گروه ها : ۱ از ۱/.test(resA.payload.text || ''), 'نتیجه: گروه ها ۱ از ۱');
+  ok(!!resA && /پیوی ها : [۰-۹]+ از [۰-۹]+/.test(resA.payload.text || ''), 'نتیجه: شمارنده پیوی ها هست');
+  const delsA = calls('deleteMessage').map((c) => c.payload.message_id);
+  ok(delsA.includes(77) && delsA.length >= 3, 'پاکسازی: راهنما + پیش نمایش + کارت تأیید پاک شدن');
+  // پنل مخاطبین
+  await post(cbQuery('bcAll', OWNER));
+  clearCalls();
+  await post(cbQuery('audV', OWNER));
+  const av = calls('editMessageText').find((c) => /مخاطبین ثبت شده/.test(c.payload.text || ''));
+  ok(!!av && (av.payload.text || '').includes('گروه آزمایشی'), 'پنل مخاطبین: گروه با نامش نمایش داده شد');
+  ok(JSON.stringify((av && av.payload.reply_markup) || {}).includes('bcBack'), 'دکمه بازگشت پنل مخاطبین هست');
+  await post(cbQuery('bcBack', OWNER));
+  ok(lastEdited().includes('اول مقصد رو انتخاب کن'), 'بازگشت به پنل انتخاب مقصد');
+});
+
+await section('v3.0 — پیام همگانی بدون انتخاب مقصد ⇒ یادآوری ( بدون ارسال )', async () => {
+  await post(cbQuery('bcAll', OWNER));
+  clearCalls();
+  await post(priv('هنوز مقصد انتخاب نشده', OWNER));
+  ok(calls('sendMessage').some((c) => /اول مقصد رو/.test(c.payload.text || '')), 'یادآوری انتخاب مقصد آمد');
+  ok(calls('forwardMessage').length === 0 && calls('copyMessage').length === 0, 'هیچی فوروارد/کپی نشد');
+  await post(cbQuery('bcX', OWNER));
+  ok(await env.KV.get('state:' + OWNER) === null, 'لغو شد و state پاکسازی شد');
 });
 
 /* ---------------------------- جمع بندی ---------------------------- */

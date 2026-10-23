@@ -901,6 +901,48 @@ async function listChats(env) {
   return out;
 }
 
+/* ── 📣 v3.0 — مخاطبین ( گروه ها و پیوی های شناخته شده ) برای مقصد « پیام همگانی » ──
+ *  هر چتی که با ربات حرف بزند ( پیوی ) یا ربات به آن اضافه شود ( گروه ) یک بار در کلید
+ *  « aud:index » ثبت میشود — فقط روی تغییر ( چت تازه یا عوض شدن نام ) نوشتن داریم تا
+ *  سهمیه نوشتن KV هدر نرود. سقف ۳۰۰ مخاطب ( قدیمی ترین ها حذف میشوند ). */
+const AUD_KEY = 'aud:index';
+const audCache = { v: null, exp: 0 };
+const audSeen = new Set(); // چت هایی که این ایزوله مطمئن است ثبت شده اند
+
+async function audIndex(env) {
+  if (audCache.v && audCache.exp > Date.now()) return audCache.v;
+  let v = null;
+  try { const raw = await env.KV.get(AUD_KEY); v = raw ? JSON.parse(raw) : null; } catch (e) { v = null; }
+  audCache.v = (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+  audCache.exp = Date.now() + 60000;
+  return audCache.v;
+}
+
+async function recordAud(env, chat) {
+  if (!chat || !chat.id) return;
+  const t = chat.type;
+  if (t !== 'private' && t !== 'group' && t !== 'supergroup') return;
+  const id = String(chat.id);
+  const idx = await audIndex(env);
+  const cur = idx[id];
+  const title = t === 'private'
+    ? ([chat.first_name, chat.last_name].filter(Boolean).join(' ') || (chat.username ? '@' + chat.username : ('پیوی ' + id)))
+    : (chat.title || ('گروه ' + id));
+  if (cur && cur.t === t && cur.title === title) { audSeen.add(id); return; }
+  if (!cur && audSeen.has(id)) return; // همین ایزوله تازه ثبتش کرده
+  idx[id] = { t, title, at: Date.now() };
+  const ids = Object.keys(idx);
+  if (ids.length > 300) {
+    ids.sort((a, b) => (idx[a].at || 0) - (idx[b].at || 0));
+    for (const k of ids.slice(0, ids.length - 300)) delete idx[k];
+  }
+  try {
+    await env.KV.put(AUD_KEY, JSON.stringify(idx));
+    audCache.v = idx; audCache.exp = Date.now() + 60000;
+    audSeen.add(id);
+  } catch (e) { /* بی اهمیت — دفعه بعد دوباره تلاش میشود */ }
+}
+
 /* ---------------------------- KV: آمار و لاگ تخلفات (یک کلید ادغام شده) ---------------------------- */
 
 /**
@@ -1880,7 +1922,7 @@ function mainText(from, scope = null) {
     `1 ) ربات رو ادمین هر چنل کن ( دسترسی « حذف پیام » لازمه )\n` +
     `2 ) پیام فعال سازی میاد ؛ تأییدش کن : هر چنل جداگانه\n` +
     `3 ) قفل ها رو تنظیم کن ؛ بقیش با من .\n\n` +
-    `<i>ضد خیانت v2.9</i>`
+    `<i>ضد خیانت v3.0</i>`
   ), (
     `🛡️ <b>Anti-Treason Channel Guard</b>\n\n` +
     `Hi <b>${esc(from.first_name || '')}</b>, welcome!\n` +
@@ -2089,7 +2131,7 @@ function schedText(s) {
     `بازه : از <code>${fmtHM(sc.start)}</code> تا <code>${fmtHM(sc.end)}</code>\n` +
     `حالت : ${SCHED_MODES[sc.mode] ? SCHED_MODES[sc.mode].label : sc.mode}\n` +
     `ساعت الان تهران : <code>${tehranHM()}</code>\n\n` +
-    `برای عوض کردن بازه روی « شروع » یا « پایان » بزن و ساعت رو با دکمه های ۰ تا ۲۳ انتخاب کن ؛ تایپ هم جواب میده ( مثلاً 4:30 ) .\n` +
+    `برای عوض کردن بازه روی « شروع » یا « پایان » بزن و ساعت و دقیقه رو با دکمه ها انتخاب کن ؛ تایپ هم جواب میده ( مثلاً 4:30 ) .\n` +
     `اگه شروع و پایان رو یکی بذاری قفل ۲۴ ساعته اعمال میشه . بازه های عبوری از نیمه شب هم اوکیه ( مثلاً 22 تا 6 ) .\n` +
     (s.ann === false
       ? `اعلان قفل خاموشه — با شروع و پایان بازه هیچ پیامی تو چنل ارسال نمیشه .`
@@ -2120,12 +2162,12 @@ function schedKB(s, cid) {
   ]);
 }
 
-/* ── 🕐 v2.9: انتخاب ساعت با دکمه (گرید ۰ تا ۲۳) + کارت تأیید ── */
+/* ── 🕐 v2.9/v3.0: انتخاب ساعت و دقیقه با دکمه (گرید ۰ تا ۲۳ + ۰۰ تا ۵۵) + کارت تأیید ── */
 function hourGridText(which, S = null) {
   return which === 'S'
-    ? L(`<b>ساعت شروع قفل زمان دار</b>\n\nیک ساعت از دکمه های پایین انتخاب کن ( به وقت تهران ) ؛ بعدش ساعت پایان رو هم انتخاب میکنی .\nتایپ هم جواب میده ( مثلاً 4:30 یا 23 ) .`,
+    ? L(`<b>ساعت شروع قفل زمان دار</b>\n\nیک ساعت از دکمه های پایین انتخاب کن ( به وقت تهران ) ؛ بعدش دقیقه اش رو هم انتخاب میکنی .\nتایپ هم جواب میده ( مثلاً 4:30 یا 23 ) .`,
         `<b>Scheduled lock — start hour</b>\n\nPick an hour below (Tehran time); then you'll pick the end hour. Typing works too (e.g. 4:30 or 23).`)
-    : L(`<b>ساعت پایان قفل زمان دار</b>\n\n${S === null ? '' : `شروع ثبت شد : <code>${fmtHM(S)}</code>\n`}حالا ساعت پایان رو از دکمه های پایین انتخاب کن .\nاگه پایان از شروع کمتر باشه ، بازه از نیمه شب عبور میکنه ( مثلاً 22 تا 6 ) .`,
+    : L(`<b>ساعت پایان قفل زمان دار</b>\n\n${S === null ? '' : `شروع ثبت شد : <code>${fmtHM(S)}</code>\n`}حالا ساعت پایان رو از دکمه های پایین انتخاب کن ؛ بعدش دقیقه اش رو .\nاگه پایان از شروع کمتر باشه ، بازه از نیمه شب عبور میکنه ( مثلاً 22 تا 6 ) .`,
         `<b>Scheduled lock — end hour</b>\n\n${S === null ? '' : `Start saved: <code>${fmtHM(S)}</code>\n`}Pick the end hour below. If the end is smaller than the start, the window crosses midnight (e.g. 22 to 6).`);
 }
 
@@ -2134,6 +2176,26 @@ function hourGridKB(cid, which) {
   for (let i = 0; i < 24; i += 8) {
     const row = [];
     for (let j = i; j < i + 8 && j < 24; j++) row.push(BTN(faNum(j), `schH:${cid}:${which}:${j}`));
+    rows.push(row);
+  }
+  rows.push([BTN('انصراف', `schX:${cid}`, 'danger')]);
+  return kb(rows);
+}
+
+/* ── ⏱ v3.0: گرید دقیقه ( ۰۰ تا ۵۵ با گام ۵ ) — مرحله بعد از انتخاب ساعت ── */
+function minGridText(which, hm, S = null) {
+  return which === 'S'
+    ? L(`<b>دقیقه شروع قفل زمان دار</b>\n\nساعت انتخاب شده : <code>${pad2(Math.floor(hm / 60))}</code>\nحالا دقیقه رو از دکمه های پایین انتخاب کن ؛ بعدش ساعت پایان رو هم میگیرم .\nتایپ کامل هم جواب میده ( مثلاً 4:30 ) .`,
+        `<b>Scheduled lock — start minutes</b>\n\nHour picked: <code>${pad2(Math.floor(hm / 60))}</code>\nNow pick the minutes below; then you'll pick the end time.\nTyping the full time works too (e.g. 4:30).`)
+    : L(`<b>دقیقه پایان قفل زمان دار</b>\n\n${S === null ? '' : `شروع ثبت شد : <code>${fmtHM(S)}</code>\n`}ساعت انتخاب شده : <code>${pad2(Math.floor(hm / 60))}</code>\nحالا دقیقه پایان رو از دکمه های پایین انتخاب کن .`,
+        `<b>Scheduled lock — end minutes</b>\n\n${S === null ? '' : `Start saved: <code>${fmtHM(S)}</code>\n`}Hour picked: <code>${pad2(Math.floor(hm / 60))}</code>\nNow pick the end minutes below.`);
+}
+
+function minGridKB(cid, which) {
+  const rows = [];
+  for (let i = 0; i < 60; i += 20) {
+    const row = [];
+    for (let j = i; j < i + 20 && j < 60; j += 5) row.push(BTN(faNum(pad2(j)), `schMn:${cid}:${which}:${j}`));
     rows.push(row);
   }
   rows.push([BTN('انصراف', `schX:${cid}`, 'danger')]);
@@ -2498,12 +2560,25 @@ async function handlePrivate(msg, env, ctx) {
         await clearPanelState(env, msg.from.id);
         return send(env, msg.chat.id, deniedText());
       }
-      await setPanelState(env, msg.from.id, { t: 'bcGo', cid: st.cid || '', sc: msg.chat.id, sm: msg.message_id });
-      await tg(env, 'forwardMessage', { chat_id: msg.chat.id, from_chat_id: msg.chat.id, message_id: msg.message_id }).catch(() => {});
-      let dst = L('مقصد: <b>همه چنل های فعال</b>', 'Destination: <b>all active channels</b>');
+      // 📣 v3.0 — پیام همگانی بدون انتخاب مقصد ⇒ یادآوری ( پیام همگانی منتشر نمیشود )
+      if (st.t === 'bcAllPick' && !st.tgt) {
+        const cntB = await bcCounts(env);
+        return send(env, msg.chat.id,
+          L(`اول مقصد رو از پنل « پیام همگانی » انتخاب کن ( فقط چنل ها ، گروه ها ، پیوی ها یا همه ) .`,
+            `First pick a destination from the "Broadcast" panel (channels only, groups, DMs or all).`),
+          bcTargetKB(cntB));
+      }
+      const fwR = await tg(env, 'forwardMessage', { chat_id: msg.chat.id, from_chat_id: msg.chat.id, message_id: msg.message_id }).catch(() => null);
+      const fw = fwR && fwR.ok && fwR.result && fwR.result.message_id ? fwR.result.message_id : 0;
+      await setPanelState(env, msg.from.id, { t: 'bcGo', cid: st.cid || '', sc: msg.chat.id, sm: msg.message_id, gm: st.gm || 0, fw, tgt: st.tgt || 'ch' });
+      let dst;
       if (st.t === 'bcPick') {
         const sB = await getSettings(env, st.cid);
         dst = L(`مقصد: <b>${esc(sB ? sB.title : st.cid)}</b>`, `Destination: <b>${esc(sB ? sB.title : st.cid)}</b>`);
+      } else {
+        const cntB = await bcCounts(env);
+        dst = L(`مقصد : <b>${bcDstLabel(st.tgt || 'ch')}</b> ( ${faNum(bcDstN(st.tgt || 'ch', cntB))} مقصد )`,
+                `Destination: <b>${bcDstLabelEn(st.tgt || 'ch')}</b> (${bcDstN(st.tgt || 'ch', cntB)} targets)`);
       }
       return send(env, msg.chat.id,
         L(`<b>📣 این پیام ارسال بشه؟</b>
@@ -2611,7 +2686,7 @@ Send it again, or press /start to cancel.`));
   }
 
   /* ── 🕐 v2.9: ورودی متنی ساعت (کنار گرید دکمه ای) + کارت تأیید ── */
-  if (st.t === 'schS' || st.t === 'schE' || st.t === 'schG' || st.t === 'schC') {
+  if (st.t === 'schS' || st.t === 'schE' || st.t === 'schG' || st.t === 'schMn' || st.t === 'schC') {
     if (st.t === 'schC') {
       return send(env, msg.chat.id,
         L(`از دکمه های پیام بالا استفاده کن : « ثبت کن ✅ » یا « از اول » یا « انصراف » . /start = لغو`,
@@ -3021,6 +3096,87 @@ async function scopeView(env, kind, target) {
   return { text: t, markup: kb(rows) };
 }
 
+/* ── 📣 v3.0 — پنل « پیام همگانی »: انتخاب مقصد ( چنل ها / گروه ها / پیوی ها ) ── */
+async function bcCounts(env) {
+  const chats = await listChats(env);
+  let ch = 0;
+  for (const c of chats) if (c.on) ch++;
+  const aud = await audIndex(env);
+  let gr = 0, pv = 0;
+  for (const v of Object.values(aud)) { if (v.t === 'private') pv++; else gr++; }
+  return { ch, gr, pv };
+}
+
+const BC_DST = {
+  ch: { fa: 'فقط چنل ها', en: 'channels only' },
+  gr: { fa: 'چنل ها + گروه ها', en: 'channels + groups' },
+  pv: { fa: 'چنل ها + پیوی ها', en: 'channels + DMs' },
+  all: { fa: 'همه : چنل ها + گروه ها + پیوی ها', en: 'everything: channels + groups + DMs' },
+};
+const bcTgt = (t) => (BC_DST[t] ? t : 'ch');
+const bcDstLabel = (t) => BC_DST[bcTgt(t)].fa;
+const bcDstLabelEn = (t) => BC_DST[bcTgt(t)].en;
+function bcDstN(t, cnt) {
+  t = bcTgt(t);
+  if (t === 'ch') return cnt.ch;
+  if (t === 'gr') return cnt.ch + cnt.gr;
+  if (t === 'pv') return cnt.ch + cnt.pv;
+  return cnt.ch + cnt.gr + cnt.pv;
+}
+
+function bcTargetText(cnt) {
+  return L(
+    `<b>پیام همگانی</b>\n\n` +
+    `هر پیامی که بفرستی عیناً کپی میشه تو مقصدی که همینجا انتخاب میکنی ( الان ${faNum(cnt.ch)} چنل فعال ثبت شده ) .\n` +
+    `اول مقصد رو انتخاب کن ؛ بعدش پیامت رو بفرست تا پیش نمایشش رو نشونت بدم و تأیید بگیرم .`,
+    `<b>Broadcast</b>\n\n` +
+    `Whatever you send gets copied exactly as-is to the destination you pick here (${cnt.ch} active channels registered).\n` +
+    `Pick a destination first; then send your message — you'll get a preview and confirm before it goes out.`);
+}
+
+function bcTargetKB(cnt) {
+  return kb([
+    [BTN(`فقط چنل ها ( ${faNum(cnt.ch)} )`, 'bcT:ch')],
+    [BTN(`چنل ها + گروه ها ( ${faNum(cnt.ch + cnt.gr)} )`, 'bcT:gr'), BTN(`چنل ها + پیوی ها ( ${faNum(cnt.ch + cnt.pv)} )`, 'bcT:pv')],
+    [BTN(`همه : چنل + گروه + پیوی ( ${faNum(cnt.ch + cnt.gr + cnt.pv)} )`, 'bcT:all')],
+    [BTN('مخاطبین ثبت شده', 'audV')],
+    [BTN('❌ لغو', 'bcX', 'danger')],
+  ]);
+}
+
+function bcGuideText(sel, cnt) {
+  const d = BC_DST[bcTgt(sel)];
+  return L(
+    `<b>پیام همگانی</b>\n\n` +
+    `هر پیامی که بفرستی عیناً کپی میشه ( الان ${faNum(cnt.ch)} چنل فعال ثبت شده ) .\n` +
+    `مقصد : <b>${d.fa}</b> ( ${faNum(bcDstN(sel, cnt))} مقصد ) .\n` +
+    `قبل از ارسال ، پیش نمایشش رو نشونت میدم و تأیید میگیری .\n\n` +
+    `هر لحظه پشیمون شدی « لغو » رو بزن .`,
+    `<b>Broadcast</b>\n\n` +
+    `Whatever you send gets copied exactly as-is (${cnt.ch} active channels registered).\n` +
+    `Destination: <b>${d.en}</b> (${bcDstN(sel, cnt)} targets).\n` +
+    `You'll get a preview and confirm before it goes out.\n\n` +
+    `Tap "Cancel" anytime to abort.`);
+}
+
+/** 📣 v3.0 — پنل « مخاطبین ثبت شده » ( گروه ها با نام ، پیوی ها با تعداد ) */
+async function audText(env) {
+  const aud = await audIndex(env);
+  const grs = Object.entries(aud).filter(([, v]) => v.t !== 'private');
+  const pvs = Object.entries(aud).filter(([, v]) => v.t === 'private');
+  return L(
+    `<b>مخاطبین ثبت شده</b>\n\n` +
+    `گروه ها ( ${faNum(grs.length)} ) :\n` +
+    (grs.length ? grs.map(([id, v], i) => `${faNum(i + 1)} ) ${esc(String(v.title || id).slice(0, 40))} — <code>${id}</code>`).join('\n') : '• هنوز گروهی ثبت نشده') +
+    `\n\nپیوی ها ( ${faNum(pvs.length)} نفر ) ثبت شدن .\n` +
+    `هر چتی که با ربات حرف بزنه ( گروه یا پیوی ) خودکار همینجا ثبت میشه و میتونه مقصد « پیام همگانی » باشه .`,
+    `<b>Registered audience</b>\n\n` +
+    `Groups (${grs.length}):\n` +
+    (grs.length ? grs.map(([id, v], i) => `${i + 1}) ${esc(String(v.title || id).slice(0, 40))} — <code>${id}</code>`).join('\n') : '• No groups yet') +
+    `\n\nDMs: ${pvs.length} registered.\n` +
+    `Any chat that talks to the bot (group or DM) is auto-registered here and can receive broadcasts.`);
+}
+
 async function handleCallback(cb, env, ctx) {
   const uid = cb.from && cb.from.id;
   const data = cb.data || '';
@@ -3217,7 +3373,7 @@ After saving, you'll pick their allowed channels right here.`),
     if (act === 'bc1') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
       await setPanelState(env, uid, { t: 'bcPick', cid: a1 });
-      await send(env, msg.chat.id,
+      const sentG = await send(env, msg.chat.id,
         L(`<b>ارسال پیام به چنل</b>
 
 هر پیامی که همین الان بفرستی عیناً تو این چنل منتشر میشه : متن ، عکس ، ویدیو ، آلبوم ؛ بدون هدر فوروارد شده از .
@@ -3229,23 +3385,46 @@ Whatever you send right now gets posted to this channel exactly as-is — text, 
 
 You'll get a preview and confirm before it goes live.`),
         kb([[BTN('❌ لغو', 'bcX')]]));
+      const gm1 = sentG && sentG.ok && sentG.result && sentG.result.message_id ? sentG.result.message_id : 0;
+      await setPanelState(env, uid, { t: 'bcPick', cid: a1, gm: gm1 });
       return answerCb(env, cb.id, L('↓ راهنما رو فرستادم', '↓ Guide sent'));
     }
     if (act === 'bcAll') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
-      const nChats = (await listChats(env)).length;
+      // 🧹 راهنمای قبلی ( اگر باز مانده ) پاک میشود
+      const stPrev = await env.KV.get('state:' + uid);
+      let stP = null; try { stP = stPrev ? JSON.parse(stPrev) : null; } catch (e) { stP = null; }
+      if (stP && stP.gm) await tg(env, 'deleteMessage', { chat_id: msg.chat.id, message_id: stP.gm }).catch(() => null);
       await setPanelState(env, uid, { t: 'bcAllPick' });
-      await send(env, msg.chat.id,
-        L(`<b>پیام همگانی</b>
-
-هر پیامی که بفرستی عیناً به همه چنل های فعال کپی میشه ( الان ${faNum(nChats)} چنل ثبت شده ) .
-قبل از ارسال ، پیش نمایشش رو نشونت میدم و تأیید میگیری .`,
-          `<b>📣 Broadcast</b>
-
-Whatever you send gets copied to all active channels exactly as-is (${nChats} registered).
-You'll get a preview and confirm before it goes out.`),
-        kb([[BTN('❌ لغو', 'bcX')]]));
+      const cntT = await bcCounts(env);
+      await send(env, msg.chat.id, bcTargetText(cntT), bcTargetKB(cntT));
+      return answerCb(env, cb.id, L('↓ مقصد رو انتخاب کن', '↓ Pick the destination'));
+    }
+    /* ── 📣 v3.0: انتخاب مقصد پیام همگانی ( چنل / گروه / پیوی / همه ) ── */
+    if (act === 'bcT') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const sel = ['ch', 'gr', 'pv', 'all'].includes(parts[1]) ? parts[1] : 'ch';
+      // 🧹 راهنمای قبلی با مقصد قدیمی پاک میشود
+      const stPrevT = await env.KV.get('state:' + uid);
+      let stPT = null; try { stPT = stPrevT ? JSON.parse(stPrevT) : null; } catch (e) { stPT = null; }
+      if (stPT && stPT.t === 'bcAllPick' && stPT.gm) await tg(env, 'deleteMessage', { chat_id: msg.chat.id, message_id: stPT.gm }).catch(() => null);
+      const cntT = await bcCounts(env);
+      const sentG = await send(env, msg.chat.id, bcGuideText(sel, cntT), kb([[BTN('❌ لغو', 'bcX')]]));
+      const gm = sentG && sentG.ok && sentG.result && sentG.result.message_id ? sentG.result.message_id : 0;
+      await setPanelState(env, uid, { t: 'bcAllPick', tgt: sel, gm });
       return answerCb(env, cb.id, L('↓ راهنما رو فرستادم', '↓ Guide sent'));
+    }
+    /* ── 📣 v3.0: مخاطبین ثبت شده + بازگشت به پنل مقصد ── */
+    if (act === 'audV') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      await edit(env, msg.chat.id, msg.message_id, await audText(env), kb([[BTN('بازگشت', 'bcBack')]]));
+      return answerCb(env, cb.id, '');
+    }
+    if (act === 'bcBack') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const cntB = await bcCounts(env);
+      await edit(env, msg.chat.id, msg.message_id, bcTargetText(cntB), bcTargetKB(cntB));
+      return answerCb(env, cb.id, '');
     }
     if (act === 'bcGo') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
@@ -3254,41 +3433,76 @@ You'll get a preview and confirm before it goes out.`),
       try { stO = stRaw ? JSON.parse(stRaw) : null; } catch (e) { stO = null; }
       if (!stO || stO.t !== 'bcGo' || !stO.sc) return answerCb(env, cb.id, L('⚠️ اول پیام رو بفرست ( دکمه « ارسال پیام به چنل » ) .', '⚠️ Send the message first.'), true);
       await clearPanelState(env, uid);
+      // 🧹 v3.0 — پاکسازی پیام های اضافه ( راهنما + پیش نمایش )؛ کارت تأیید جای خودش نتیجه میشود
+      const cleanIds = [...new Set([stO.gm, stO.fw].filter(Boolean))];
       if (stO.cid) { // تک چنل
         const r = await tg(env, 'copyMessage', { chat_id: stO.cid, from_chat_id: stO.sc, message_id: stO.sm }).catch(() => null);
         if (r && r.ok && r.result && r.result.message_id) trackMsg(env, ctx, stO.cid, r.result.message_id);
+        const sT = await getSettings(env, stO.cid);
+        for (const mid of cleanIds) await tg(env, 'deleteMessage', { chat_id: msg.chat.id, message_id: mid }).catch(() => null);
+        await edit(env, msg.chat.id, msg.message_id,
+          r && r.ok
+            ? L(`<b>پیام ارسال شد</b>\nچنل : <b>${esc((sT && sT.title) || stO.cid)}</b>`,
+                `<b>Message posted</b>\nChannel: <b>${esc((sT && sT.title) || stO.cid)}</b>`)
+            : L(`<b>ارسال نشد !</b>\nدلیل : ${esc((r && r.description) || 'نامشخص')}\nدسترسی « ارسال پیام » ربات رو تو این چنل چک کن .`,
+                `<b>Failed!</b>\nReason: ${esc((r && r.description) || 'unknown')}\nCheck the bot's "Post Messages" permission in this channel.`),
+          kb([[BTN('بازگشت به چنل', `chat:${stO.cid}`)]]));
         return answerCb(env, cb.id, r && r.ok
           ? L('✅ پیام تو چنل ارسال شد', '✅ Message posted to the channel')
           : L(`❌ ارسال نشد : ${esc((r && r.description) || 'نامشخص')}`, `❌ Failed: ${esc((r && r.description) || 'unknown')}`), !!(r && r.ok));
       }
-      // پیام همگانی
+      /* ── 📣 v3.0 — پیام همگانی با مقصد انتخابی ( چنل ها / گروه ها / پیوی ها ) ── */
+      const tgt = bcTgt(stO.tgt);
       const chats = await listChats(env);
-      const actives = [];
+      const targets = [];
       for (const c of chats) {
         const sb = await getSettings(env, c.cid);
-        if (sb && sb.active !== false) actives.push(c);
+        if (sb && sb.active !== false) targets.push({ id: c.cid, k: 'ch', title: c.title || c.cid });
       }
-      if (!actives.length) return answerCb(env, cb.id, L('⚠️ هیچ چنل فعالی نیست.', '⚠️ No active channels.'), true);
-      if (actives.length > MAX_BC) return answerCb(env, cb.id, L(`⚠️ ${faNum(actives.length)} چنل فعاله ؛ سقف همگانی ${faNum(MAX_BC)} تاست .`, `⚠️ ${actives.length} active channels — broadcast cap is ${MAX_BC}.`), true);
-      let okN = 0; const errs = [];
-      for (const c of actives) {
-        const r = await tg(env, 'copyMessage', { chat_id: c.cid, from_chat_id: stO.sc, message_id: stO.sm }).catch(() => null);
-        if (r && r.ok && r.result && r.result.message_id) trackMsg(env, ctx, c.cid, r.result.message_id);
-        if (r && r.ok) okN++;
-        else errs.push(`${(c.title || c.cid).slice(0, 24)} — ${esc((r && r.description) || 'نامشخص').slice(0, 60)}`);
+      if (tgt === 'gr' || tgt === 'all') {
+        const aud = await audIndex(env);
+        for (const [id, v] of Object.entries(aud)) if (v.t !== 'private') targets.push({ id, k: 'gr', title: v.title || id });
       }
-      await send(env, msg.chat.id,
-        L(`📣 <b>پیام همگانی ارسال شد</b> — ${faNum(okN)} از ${faNum(actives.length)} چنل` +
-          (errs.length ? `
-
-❌ خطاها:
-${errs.join('\n')}` : ''),
-          `📣 <b>Broadcast sent</b> — ${okN}/${actives.length} channels` +
-          (errs.length ? `\n\n❌ Errors:\n${errs.join('\n')}` : '')));
-      return answerCb(env, cb.id, L(`✅ به ${faNum(okN)} چنل ارسال شد`, `✅ Sent to ${okN} channels`));
+      if (tgt === 'pv' || tgt === 'all') {
+        const aud = await audIndex(env);
+        for (const [id, v] of Object.entries(aud)) if (v.t === 'private') targets.push({ id, k: 'pv', title: v.title || id });
+      }
+      if (!targets.length) return answerCb(env, cb.id, L('⚠️ هیچ مقصدی پیدا نشد .', '⚠️ No destinations found.'), true);
+      const cut = Math.max(0, targets.length - MAX_BC);
+      const list = targets.slice(0, MAX_BC);
+      const okBy = { ch: 0, gr: 0, pv: 0 }, totBy = { ch: 0, gr: 0, pv: 0 };
+      const errs = [];
+      for (const t of list) {
+        totBy[t.k]++;
+        const r = await tg(env, 'copyMessage', { chat_id: t.id, from_chat_id: stO.sc, message_id: stO.sm }).catch(() => null);
+        if (r && r.ok && r.result && r.result.message_id) {
+          okBy[t.k]++;
+          if (t.k === 'ch') trackMsg(env, ctx, t.id, r.result.message_id);
+        } else {
+          const tag = t.k === 'gr' ? '[ گروه ] ' : t.k === 'pv' ? '[ پیوی ] ' : '';
+          errs.push(tag + esc(String(t.title || t.id).slice(0, 24)) + ' — ' + esc(String((r && r.description) || 'نامشخص').slice(0, 60)));
+        }
+      }
+      // 🧹 پاکسازی: راهنما + پیش نمایش + کارت تأیید ⇒ فقط کارت نتیجه می ماند
+      cleanIds.push(msg.message_id);
+      for (const mid of cleanIds) await tg(env, 'deleteMessage', { chat_id: msg.chat.id, message_id: mid }).catch(() => null);
+      let res = L('<b>پیام همگانی ارسال شد</b>\n\n', '<b>Broadcast sent</b>\n\n');
+      if (totBy.ch) res += L(`چنل ها : ${faNum(okBy.ch)} از ${faNum(totBy.ch)}\n`, `Channels: ${okBy.ch}/${totBy.ch}\n`);
+      if (totBy.gr) res += L(`گروه ها : ${faNum(okBy.gr)} از ${faNum(totBy.gr)}\n`, `Groups: ${okBy.gr}/${totBy.gr}\n`);
+      if (totBy.pv) res += L(`پیوی ها : ${faNum(okBy.pv)} از ${faNum(totBy.pv)}\n`, `DMs: ${okBy.pv}/${totBy.pv}\n`);
+      if (cut > 0) res += L(`\n⚠️ ${faNum(cut)} مقصد دیگه جا موند ؛ سقف هر بار ${faNum(MAX_BC)} مقصده .`, `\n⚠️ ${cut} more targets skipped — per-run cap is ${MAX_BC}.`);
+      if (errs.length) res += L(`\n❌ خطاها :\n`, `\n❌ Errors:\n`) + errs.slice(0, 8).join('\n');
+      await send(env, msg.chat.id, res);
+      return answerCb(env, cb.id, L(`✅ به ${faNum(okBy.ch + okBy.gr + okBy.pv)} مقصد ارسال شد`, `✅ Sent to ${okBy.ch + okBy.gr + okBy.pv} targets`));
     }
     if (act === 'bcX') {
+      // 🧹 v3.0 — لغو = پاکسازی پیام های راهنما/پیش نمایش/پنل هم
+      const stRawX = await env.KV.get('state:' + uid);
+      let stX = null;
+      try { stX = stRawX ? JSON.parse(stRawX) : null; } catch (e) { stX = null; }
       await clearPanelState(env, uid);
+      const cxIds = [...new Set([stX && stX.gm, stX && stX.fw, msg.message_id].filter(Boolean))];
+      for (const mid of cxIds) await tg(env, 'deleteMessage', { chat_id: msg.chat.id, message_id: mid }).catch(() => null);
       return answerCb(env, cb.id, L('لغو شد', 'Cancelled'));
     }
 
@@ -3344,6 +3558,22 @@ Note: only posts made after v2.7 are tracked; older ones are out of reach for an
         if (r && r.ok) okD++; else failD.push(mid);
       }
       await removeMsgs(env, a1, stO.ids);
+      // 🧹 v3.0 — کارت تأیید به کارت نتیجه تبدیل میشود ( با دکمه های ادامه حذف )
+      const sDR = await getSettings(env, a1);
+      await edit(env, msg.chat.id, msg.message_id,
+        L(`<b>نتیجه پاک سازی</b>\nچنل : <b>${esc((sDR && sDR.title) || a1)}</b>\n\n` +
+          `✅ ${faNum(okD)} پیام پاک شد .` +
+          (failD.length ? `\n⚠️ ${faNum(failD.length)} تا پاک نشد ( قبلاً حذف شده بودن یا قدیمی تر از ۴۸ ساعت بودن ) .` : '') +
+          `\n\nچیز دیگه ای هم پاک کنم ؟`,
+          `<b>Cleanup result</b>\nChannel: <b>${esc((sDR && sDR.title) || a1)}</b>\n\n` +
+          `✅ ${okD} messages deleted.` +
+          (failD.length ? `\n⚠️ ${failD.length} failed (already gone or older than 48h).` : '') +
+          `\n\nDelete more?`),
+        kb([
+          [BTN('۵ پیام دیگه', `dlN:${a1}:5`), BTN('۱۰ پیام دیگه', `dlN:${a1}:10`)],
+          [BTN('۲۰ پیام دیگه', `dlN:${a1}:20`), BTN('عدد دلخواه', `dlC:${a1}`)],
+          [BTN('بازگشت به چنل', `chat:${a1}`)],
+        ]));
       return answerCb(env, cb.id,
         L(`🧹 ${faNum(okD)} پیام پاک شد` + (failD.length ? ` — ${faNum(failD.length)} تا پاک نشد ( قبلاً حذف شده یا قدیمی تر از ۴۸ ساعت )` : ''),
           `🧹 ${okD} messages deleted` + (failD.length ? ` — ${failD.length} failed (already deleted or older than 48h)` : '')), true);
@@ -3431,16 +3661,30 @@ Note: only posts made after v2.7 are tracked; older ones are out of reach for an
       let stO = null; try { stO = stG ? JSON.parse(stG) : null; } catch (e) { stO = null; }
       if (!stO || (stO.t !== 'schG' && stO.t !== 'schS' && stO.t !== 'schE') || String(stO.cid) !== String(a1))
         return answerCb(env, cb.id, L('⚠️ جلسه انتخاب ساعت منقضی شد — دوباره روی « شروع » یا « پایان » بزن.', '⚠️ Session expired — tap Start or End again.'), true);
+      await setPanelState(env, uid, { t: 'schMn', cid: a1, which, hm: h * 60, S: stO.S != null ? stO.S : null });
+      await edit(env, msg.chat.id, msg.message_id, minGridText(which, h * 60, stO.S), minGridKB(a1, which));
+      return answerCb(env, cb.id, L(`ساعت : ${pad2(h)} — حالا دقیقه رو انتخاب کن`, `Hour: ${pad2(h)} — now pick the minutes`));
+    }
+    /* ── ⏱ v3.0: انتخاب دقیقه ( مرحله دوم بعد از ساعت ) ── */
+    if (act === 'schMn') {
+      const which = parts[2] === 'E' ? 'E' : 'S';
+      const mm = parseInt(parts[3], 10);
+      if (isNaN(mm) || mm < 0 || mm > 59) return answerCb(env, cb.id, '⚠️ دقیقه نامعتبر!', true);
+      const stG = await env.KV.get('state:' + uid);
+      let stO = null; try { stO = stG ? JSON.parse(stG) : null; } catch (e) { stO = null; }
+      if (!stO || stO.t !== 'schMn' || String(stO.cid) !== String(a1) || (stO.which || 'S') !== which || !Number.isFinite(stO.hm))
+        return answerCb(env, cb.id, L('⚠️ جلسه انتخاب زمان منقضی شد — دوباره روی « شروع » یا « پایان » بزن.', '⚠️ Session expired — tap Start or End again.'), true);
+      const total = Math.max(0, Math.min(1439, Number(stO.hm) + mm));
       if (which === 'S') {
-        await setPanelState(env, uid, { t: 'schG', cid: a1, which: 'E', S: h * 60 });
-        await edit(env, msg.chat.id, msg.message_id, hourGridText('E', h * 60), hourGridKB(a1, 'E'));
-        return answerCb(env, cb.id, L(`شروع : ${fmtHM(h * 60)} — حالا ساعت پایان رو انتخاب کن`, `Start: ${fmtHM(h * 60)} — now pick the end hour`));
+        await setPanelState(env, uid, { t: 'schG', cid: a1, which: 'E', S: total });
+        await edit(env, msg.chat.id, msg.message_id, hourGridText('E', total), hourGridKB(a1, 'E'));
+        return answerCb(env, cb.id, L(`شروع : ${fmtHM(total)} — حالا ساعت پایان رو انتخاب کن`, `Start: ${fmtHM(total)} — now pick the end hour`));
       }
       const s = await getSettings(env, a1, true);
       if (!s) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
       const S = Number(stO.S != null ? stO.S : s.schedule.start);
-      await setPanelState(env, uid, { t: 'schC', cid: a1, S, E: h * 60 });
-      await edit(env, msg.chat.id, msg.message_id, schedConfirmText(S, h * 60, s), schedConfirmKB(a1));
+      await setPanelState(env, uid, { t: 'schC', cid: a1, S, E: total });
+      await edit(env, msg.chat.id, msg.message_id, schedConfirmText(S, total, s), schedConfirmKB(a1));
       return answerCb(env, cb.id, L('بازه انتخاب شد — تأیید کن', 'Window picked — confirm'));
     }
     if (act === 'schQ') {
@@ -4047,6 +4291,9 @@ async function routeUpdate(u, env, ctx) {
   // 🆕 v2.4 — تایپ های آپدیتِ جدید تلگرام (subscription, managed_bot, guest_message, stopped_message_generation, …)
   // بی صدا و صفر-هزینه رد میشوند (حتی خواندن KV زبان هم انجام نمیشود)
   if (!(u.message || u.channel_post || u.edited_channel_post || u.callback_query || u.my_chat_member)) return;
+  // 📣 v3.0 — ثبت خودکار مخاطبین ( گروه/پیوی ) برای مقصد پیام همگانی
+  const audChat = (u.message && u.message.chat) || (u.my_chat_member && u.my_chat_member.chat) || null;
+  if (audChat) ctx.waitUntil(recordAud(env, audChat).catch(() => {}));
   // 🌐 v2.3 — زبان همین آپدیت: پیوی/دکمه ها = زبان خود کاربر؛ چنل/گزارش = زبان پیش فرض ربات
   if (u.callback_query && u.callback_query.from) CUR_LANG = await langOfUser(env, u.callback_query.from.id);
   else if (u.message && u.message.from) CUR_LANG = await langOfUser(env, u.message.from.id);
@@ -4108,7 +4355,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v2.9 (fully interactive: hour-picker grid + presets + confirm cards for scheduled locks, quick-pick batch delete, guided viewer-add and backup-restore flows + previous-bot fallback for demotions/bans + command menu + post-to-channel + broadcast + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v3.0 (fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast — channels/groups/DMs with auto-registered audience, auto-cleanup of setup messages and result cards everywhere, batch delete with follow-up buttons, guided flows + previous-bot fallback for demotions/bans + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;
