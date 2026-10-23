@@ -152,7 +152,7 @@ if [ -n "${BOT_TOKEN:-}" ]; then
   chmod 600 "$CRED_FILE"
   SETUP_R=$(curl -sS "$URL/?setup=$SECRET" || true)
   case "$SETUP_R" in
-    *\xe2\x9c\x85*|*"وب‌هوک وصل شد"*) good "وب‌هوک خودکار وصل شد ✓" ;;
+    *\xe2\x9c\x85*|*"وب هوک وصل شد"*) good "وب‌هوک خودکار وصل شد ✓" ;;
     *) echo "⚠️  وصل‌کردن خودکار وب‌هوک ناموفق بود — بعداً این آدرس را باز کنید: $URL/?setup=$SECRET" ;;
   esac
 fi

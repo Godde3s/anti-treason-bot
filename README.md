@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare Workers" /></a>
   <a href="README-FA.md"><img src="https://img.shields.io/badge/مستندات-فارسی-0ea5e9?style=for-the-badge" alt="Persian docs" /></a>
-  <img src="https://img.shields.io/badge/tests-475%2F475_passing-22c55e?style=for-the-badge" alt="tests" />
+  <img src="https://img.shields.io/badge/tests-495%2F495_passing-22c55e?style=for-the-badge" alt="tests" />
   <img src="https://img.shields.io/badge/runtime-Cloudflare_Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="runtime" />
 </p>
 
@@ -59,6 +59,9 @@ A full Telegram + KV simulator runs **414 assertions** (`node scripts/test-bot.m
 - 📣 **In-channel lock announcements (v2.5)** — when the instant lock flips or a scheduled window starts/ends (1-minute cron), the bot posts a notice inside the channel itself; per-channel toggle, fires only on state transitions (no spam, minimal KV writes).
 - 📣 **Post to channel / broadcast (v2.7)** — the owner taps "Post to channel" (or "Broadcast" in the main menu), sends any message (text/photo/video/album), previews it, confirms — and it's copied as the bot with no forward header; broadcast goes to every active channel with a per-channel ✅/❌ report.
 - 🧹 **Delete recent messages (v2.7)** — every new channel post is tracked in a 100-item rolling buffer (timer-based KV flush); the owner sends a number 1–40 and that many **latest channel messages** are deleted, with a confirmation step and a success count.
+- 🕐 **Button-based hour picker (v2.9)** — the scheduled-lock flow is now fully interactive: pick start/end hours from a 0–23 button grid (no typing), one-tap presets (nightly 4–8, nightly 22–6, 24-hour) and a confirmation card before saving; typed input (e.g. 4:30) still works.
+- 🧹 **Quick-pick batch delete (v2.9)** — "Delete recent messages" now has 5/10/20/40 buttons plus a custom-number option; adding viewers and restoring backups also got step-by-step guides with cancel buttons.
+- ✍️ **Full Persian copy rewrite (v2.9)** — every Persian text now follows the new house style: no half-spaces, spaced punctuation, "chanel" wording instead of "kanal", no decorative emoji.
 - 🧭 **Guided interactive flows + command menu (v2.8)** — add-admin, promote-in-channel, post/broadcast and delete-recent flows now walk the owner through step-by-step with a cancel button; the person's name shows right after saving; the ☰ menu lists /start like BotFather.
 - 🤝 **Previous-bot fallback (v2.8)** — the legacy bot token can stay as the `LEGACY_BOT_TOKEN` secret: demote/ban/unban automatically retry through the previous bot when Telegram refuses (channel admins promoted by the old bot can only be removed by it).
 - ✍️ **Bold human-style announcements with channel handle (v2.6)** — announcement texts are bold and written the way you talk (e.g. "چنل از این لحظه … قفل میمونه ."), each one ends with the channel's handle (`🗣 t.me/username`, numeric ID for private channels), and a per-channel **lock announcements** switch in the Locks panel turns them off entirely.
