@@ -605,7 +605,7 @@ await section('لینک t.me پیام متخلف: عمومی / خصوصی / یو
   await post(cbQuery('tgl:send_text:' + CID, OWNER)); // روشن ⇒ هر پست متنی تخلف است
   // الف) یوزرنیم ذخیره‌شده در تنظیمات (هنگام ثبت کانال) → لینک عمومی t.me/testchan
   await post(chan({ text: 'پست برای لینک عمومی' }));
-  ok(lastText().includes('🔗 لینک پیام: https://t.me/testchan/'), 'لینک عمومی با یوزرنیم کانال در گزارش حذف موفق');
+  ok(lastText().includes('لینک پیام: https://t.me/testchan/'), 'لینک عمومی با یوزرنیم کانال در گزارش حذف موفق');
   // ب) کانال بدون یوزرنیم (خصوصی) → فرم t.me/c/<داخلی>
   await post(upd({
     my_chat_member: {
@@ -615,7 +615,7 @@ await section('لینک t.me پیام متخلف: عمومی / خصوصی / یو
   }));
   ok(JSON.parse(await env.KV.get('chat:' + CID)).username === '', 'یوزرنیم از تنظیمات پاک شد (شبیه‌سازی کانال خصوصی)');
   await post(chan({ text: 'پست برای لینک خصوصی' }));
-  ok(lastText().includes('🔗 لینک پیام: https://t.me/c/1001/'), 'لینک خصوصی t.me/c/1001/ در گزارش');
+  ok(lastText().includes('لینک پیام: https://t.me/c/1001/'), 'لینک خصوصی t.me/c/1001/ در گزارش');
   // پ) یوزرنیمِ داخل خود آپدیت مقدم است → لینک عمومی با همان
   await post(upd({
     channel_post: {
@@ -623,7 +623,7 @@ await section('لینک t.me پیام متخلف: عمومی / خصوصی / یو
       date: 1700000000, text: 'پست با یوزرنیم در خود آپدیت',
     },
   }));
-  ok(lastText().includes('🔗 لینک پیام: https://t.me/freshuname/861'), 'یوزرنیم آپدیت مقدم بر تنظیمات است');
+  ok(lastText().includes('لینک پیام: https://t.me/freshuname/861'), 'یوزرنیم آپدیت مقدم بر تنظیمات است');
   // ت) برگرداندن یوزرنیم + لینک «باز کردن» در «آخرین تخلف‌ها»
   await post(upd({
     my_chat_member: {
@@ -632,7 +632,7 @@ await section('لینک t.me پیام متخلف: عمومی / خصوصی / یو
     },
   }));
   await post(cbQuery('vlog:' + CID, OWNER));
-  ok(lastEdited().includes('🔗 باز کردن</a>'), 'لینک «باز کردن» در آخرین تخلف‌ها');
+  ok(lastEdited().includes('باز کردن</a>'), 'لینک «باز کردن» در آخرین تخلف‌ها');
   ok(lastEdited().includes('t.me/testchan/'), 'لینک t.me در لاگ تخلف‌ها');
   await setLock('send_text', false); // خاموش برای ادامهٔ تمیز
 });
@@ -791,12 +791,12 @@ await section('v1.8 — دکمهٔ وضعیت: چرخهٔ خاموش → زرد 
   let s = JSON.parse(await env.KV.get('chat:' + CID));
   ok(s.punishMode === 'yellow', 'چرخه: خاموش → زرد');
   ok(lastAnswer().includes('زرد روشن'), 'پیام تأیید زرد آمد');
-  ok(lastEdited().includes('🟡 وضعیت زرد'), 'نمای کانال حالت زرد را نشان داد');
+  ok(lastEdited().includes('وضعیت زرد'), 'نمای کانال حالت زرد را نشان داد');
   await post(cbQuery('redT:' + CID, OWNER)); // yellow → red
   s = JSON.parse(await env.KV.get('chat:' + CID));
   ok(s.punishMode === 'red', 'چرخه: زرد → قرمز');
   ok(lastAnswer().includes('قرمز روشن'), 'پیام تأیید قرمز آمد');
-  ok(lastEdited().includes('🔴 وضعیت قرمز'), 'نمای کانال حالت قرمز را نشان داد');
+  ok(lastEdited().includes('وضعیت قرمز'), 'نمای کانال حالت قرمز را نشان داد');
   await post(cbQuery('redT:' + CID, OWNER)); // red → off
   s = JSON.parse(await env.KV.get('chat:' + CID));
   ok(s.punishMode === 'off', 'چرخه: قرمز → خاموش');
@@ -1287,7 +1287,7 @@ await section('v2.0 — ادمین بدون کانال: نمای خالی + تع
   ok(lastText().includes('هیچ کانالی'), 'ویرایشگر با دامنهٔ خالی باز شد');
   // ادمینِ بدون کانال: لیست کانال‌ها خالی با پیام راهنما
   await post(cbQuery('chats', 62001));
-  ok(lastEdited().includes('هیچ کانالی به شما اختصاص داده نشده'), 'ادمینِ بدون کانال چیزی نمی‌بیند');
+  ok(lastEdited().includes('هیچ کانالی به تو اختصاص داده نشده'), 'ادمینِ بدون کانال چیزی نمی‌بیند');
   await post(cbQuery('chat:' + CID, 62001));
   ok(lastAnswer().includes('اختصاص داده نشده'), 'نمای کانال بدون دسترسی رد شد');
   // مالک کانالش را تعیین می‌کند:
@@ -1562,7 +1562,7 @@ await section('v2.3 — تغییر زبان شخصی با دکمهٔ 🌐', asyn
   await post(cbQuery('home', OWNER));
   ok(lastEdited().includes('Anti-Treason Channel Guard'), 'منوی اصلی حالا انگلیسی است');
   const kbH = lastEditedKB();
-  ok(JSON.stringify(kbH).includes('🌐 فارسی'), 'دکمهٔ 🌐 حالا برچسب فارسی دارد (برای بازگشت)');
+  ok(JSON.stringify(kbH).includes('فارسی'), 'دکمهٔ زبان حالا برچسب فارسی دارد (برای بازگشت)');
 });
 
 await section('v2.3 — جریان‌های پنل به انگلیسی', async () => {
@@ -1592,7 +1592,7 @@ await section('v2.3 — جداسازی زبان کاربران (هر نفر زب
   await post(priv('/start', ADMIN));
   ok(lastText().includes('دسترسی تو'), 'ادمینِ دیگر هنوز فارسی می‌بیند (زبان شخصی جداست)');
   const kbAdm = (calls('sendMessage').slice(-1)[0].payload.reply_markup) || {};
-  ok(JSON.stringify(kbAdm).includes('🌐 English'), 'دکمهٔ 🌐 برای کاربر فارسی‌زبان English نشان می‌دهد');
+  ok(JSON.stringify(kbAdm).includes('English'), 'دکمهٔ زبان برای کاربر فارسی‌زبان English نشان می‌دهد');
 });
 
 await section('v2.3 — /setlang مالک + گاردها', async () => {
@@ -1637,7 +1637,7 @@ await section('v2.4 — هشدار تغییر مالکیت کانال', async ()
   ok(own && /@newowner/.test(own.payload.text) && /555/.test(own.payload.text), 'یوزرنیم و شناسهٔ مالک جدید در هشدار هست');
   ok(delCalls().length === 0, 'پیام سیستمی حذف نشد');
   await post(upd({ channel_post: { message_id: 911, chat: { id: Number(CID), type: 'channel', title: 'تست کانال' }, date: Math.floor(realNow() / 1000), chat_owner_left: {} } }));
-  ok(calls('sendMessage').some((c) => /مالک قبلی کانال را ترک کرد/.test(c.payload.text || '')), 'هشدار ترک مالکیت هم کار می‌کند');
+  ok(calls('sendMessage').some((c) => /مالک قبلی کانال رو ترک کرد/.test(c.payload.text || '')), 'هشدار ترک مالکیت هم کار می‌کند');
 });
 
 await section('v2.4 — پیام‌های سیستمی تایپ‌های جدید + آپدیت ناشناخته', async () => {
@@ -1699,6 +1699,130 @@ await section('v2.4 — استایل رنگی دکمه‌ها + افکت /start'
   await post(priv('/start', OWNER));
   const st = calls('sendMessage').slice(-1)[0];
   ok(st && st.payload.message_effect_id === '5104841245755180586', 'پیام /start با افکت 🔥 ارسال شد');
+});
+
+/* ───────────────────────── v2.5: اعلان قفل‌ها در خودِ کانال ───────────────────────── */
+
+await section('v2.5 — اعلان قفل آنی در خودِ کانال (روشن/خاموش)', async () => {
+  let s = JSON.parse(await env.KV.get('chat:' + CID));
+  s.username = 'testchan'; // 📣 v2.6: برای تولید «🗣 t.me/testchan» در chanLine
+  s.instant = { on: false, at: 0 };
+  await env.KV.put('chat:' + CID, JSON.stringify(s));
+  clearCalls();
+  await post(cbQuery('instT:' + CID, OWNER));
+  const on = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(CID) && /قفل آنی به دستور اونر فعال شد !!/.test(c.payload.text || ''));
+  ok(!!on && /تا باز شدن صبور باشید/.test(on.payload.text) && /<b>/.test(on.payload.text), 'روشن\u200cشدن قفل آنی → اعلان «قفل آنی به دستور اونر فعال شد !!» بولد در خودِ کانال');
+  ok(/🗣 t\.me\//.test(on.payload.text), 'اعلان قفل آنی: خط کانال «🗣 t.me/...» زیر پیام');
+  ok(JSON.parse(await env.KV.get('chat:' + CID)).instant.on === true, 'قفل آنی در KV روشن شد');
+  await post(chan({ text: 'پست در قفل آنی' }));
+  ok(delCalls().length === 1, 'رفتار قفل آنی سر جایش است (حذف فوری)');
+  clearCalls();
+  await post(cbQuery('instT:' + CID, OWNER));
+  const off = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(CID) && /قفل آنی خاموش شد !!/.test(c.payload.text || ''));
+  ok(!!off && /میتونید استارت بزنید/.test(off.payload.text) && /<b>/.test(off.payload.text), 'خاموش\u200cشدن → اعلان «قفل آنی خاموش شد !! ... میتونید استارت بزنید ...» بولد');
+  ok(JSON.parse(await env.KV.get('chat:' + CID)).instant.on === false, 'قفل آنی خاموش شد');
+  await post(chan({ text: 'پست بعد از خاموشی' }));
+  ok(delCalls().length === 0, 'بعد از خاموش\u200cشدن، حذفی نیست');
+});
+
+await section('v2.5 — کرون هر دقیقه: اعلان شروع/پایان بازهٔ قفل زمان\u200cدار (بدون اسپم)', async () => {
+  const st0 = JSON.parse(await env.KV.get('chat:' + CID));
+  st0.username = 'testchan'; // 📣 v2.6: برای تولید «🗣 t.me/testchan» در chanLine
+  st0.schedule = { enabled: true, start: 240, end: 480, mode: 'all' };
+  await env.KV.put('chat:' + CID, JSON.stringify(st0));
+  await env.KV.delete('sched:' + CID);
+  freezeTehran(3, 59); // بیرون بازه
+  clearCalls();
+  await worker.scheduled({ cron: '* * * * *' }, env, ctx);
+  ok(calls('sendMessage').length === 0, 'اولین اجرا (بیرون بازه) → فقط ثبت وضعیت، بدون اعلان');
+  ok(JSON.parse(await env.KV.get('sched:' + CID)).in === 0, 'وضعیت sched در KV ثبت شد (in=0)');
+  freezeTehran(4, 0); // لحظهٔ شروع بازه
+  await worker.scheduled({ cron: '* * * * *' }, env, ctx);
+  const st1 = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(CID) && /قفل میمونه/.test(c.payload.text || ''));
+  ok(!!st1 && /04:00/.test(st1.payload.text) && /08:00/.test(st1.payload.text) && /تا پایان این بازه ؛ فعالیت ممنوع است/.test(st1.payload.text) && /<b>/.test(st1.payload.text), 'شروع بازه → اعلان «چنل از این لحظه ( ساعت 04:00 ) تا پایان قفل ( ساعت 08:00 ) قفل میمونه» بولد');
+  ok(/🗣 t\.me\//.test(st1.payload.text), 'اعلان شروع بازه: خط کانال زیر پیام');
+  ok(JSON.parse(await env.KV.get('sched:' + CID)).in === 1, 'وضعیت داخل بازه ثبت شد (in=1)');
+  clearCalls();
+  freezeTehran(5, 30); // وسط بازه — تیک\u200cهای بعدی
+  await worker.scheduled({ cron: '* * * * *' }, env, ctx);
+  await worker.scheduled({ cron: '* * * * *' }, env, ctx);
+  ok(calls('sendMessage').length === 0, 'تیک\u200cهای وسط بازه → بدون اعلان تکراری (بدون اسپم)');
+  freezeTehran(8, 0); // لحظهٔ پایان بازه (پایان انحصاری)
+  await worker.scheduled({ cron: '* * * * *' }, env, ctx);
+  const st2 = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(CID) && /چنل بازه !! تایم قفل\u200cزماندار تموم شد/.test(c.payload.text || ''));
+  ok(!!st2 && /<b>/.test(st2.payload.text) && /🗣 t\.me\//.test(st2.payload.text), 'پایان بازه → اعلان «چنل بازه !! تایم قفل‌زماندار تموم شد» بولد + خط کانال');
+  ok(JSON.parse(await env.KV.get('sched:' + CID)).in === 0, 'وضعیت بیرون بازه ثبت شد (in=0)');
+  clearCalls();
+  freezeTehran(9, 0);
+  await worker.scheduled({ cron: '* * * * *' }, env, ctx);
+  ok(calls('sendMessage').length === 0, 'تیک بعد از پایان → باز هم بدون اعلان');
+});
+
+await section('v2.5 — فعال/غیرفعال\u200cسازی دستی: داخل بازه = اعلان؛ بیرون بازه = بی\u200cاعلان', async () => {
+  await env.KV.delete('sched:' + CID);
+  freezeTehran(5, 0); // داخل بازهٔ 04:00–08:00
+  const s3 = JSON.parse(await env.KV.get('chat:' + CID));
+  s3.schedule = { enabled: false, start: 240, end: 480, mode: 'edit' };
+  await env.KV.put('chat:' + CID, JSON.stringify(s3));
+  clearCalls();
+  await post(cbQuery('schT:' + CID, OWNER));
+  const a1 = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(CID) && /قفل میمونه/.test(c.payload.text || ''));
+  ok(!!a1 && /فعالیت ممنوع است/.test(a1.payload.text) && /<b>/.test(a1.payload.text), 'فعال\u200cسازی داخل بازه → اعلان شروع فوری + خط «فعالیت ممنوع است» بولد');
+  ok(JSON.parse(await env.KV.get('sched:' + CID)).in === 1, 'وضعیت در KV = داخل بازه');
+  clearCalls();
+  await post(cbQuery('schT:' + CID, OWNER));
+  ok(calls('sendMessage').some((c) => String(c.payload.chat_id) === String(CID) && /چنل بازه !! تایم قفل\u200cزماندار تموم شد/.test(c.payload.text || '')), 'خاموش\u200cکردن داخل بازه → اعلان پایان «چنل بازه !!»');
+  ok(JSON.parse(await env.KV.get('sched:' + CID)).in === 0, 'وضعیت در KV = بیرون بازه');
+  freezeTehran(9, 0); // بیرون بازه
+  clearCalls();
+  await post(cbQuery('schT:' + CID, OWNER));
+  ok(calls('sendMessage').length === 0, 'فعال\u200cسازی بیرون بازه → بدون اعلان (کرون سر وقتش اعلام می\u200cکند)');
+  await post(cbQuery('schT:' + CID, OWNER)); // برگشت به وضعیت قبل: خاموش
+  const fin = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(fin.schedule.enabled === false, 'وضعیت نهایی: قفل زمان\u200cدار خاموش (مثل قبل از تست)');
+  await env.KV.delete('sched:' + CID);
+  unfreeze();
+});
+
+
+/* ───────────────────────── v2.6: toggle اعلان قفل + عدم ارسال ───────────────────────── */
+
+await section('v2.6 — کلید «اعلان قفل»: خاموش‌کردن = بدون اعلان در کانال', async () => {
+  // ابتدا اعلان روشن است (پیش‌فرض)
+  let s = JSON.parse(await env.KV.get('chat:' + CID));
+  s.ann = true;
+  s.instant = { on: false, at: 0 };
+  await env.KV.put('chat:' + CID, JSON.stringify(s));
+  clearCalls();
+  await post(cbQuery('annT:' + CID, OWNER));
+  ok(/اعلان قفل در کانال خاموش شد/.test(lastAnswer()), 'پاسخ دکمه: «اعلان قفل در کانال خاموش شد»');
+  s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.ann === false, 'ann در KV = false (خاموش)');
+  // حالا قفل آنی را روشن کنیم — نباید در کانال اعلان ارسال شود
+  clearCalls();
+  await post(cbQuery('instT:' + CID, OWNER));
+  const leakOn = calls('sendMessage').some((c) => String(c.payload.chat_id) === String(CID) && /قفل آنی/.test(c.payload.text || ''));
+  ok(!leakOn, 'با ann=false → قفل آنی روشن شد ولی در کانال اعلان نشد');
+  // خاموش کردن قفل آنی هم نباید اعلان داشته باشد
+  clearCalls();
+  await post(cbQuery('instT:' + CID, OWNER));
+  const leakOff = calls('sendMessage').some((c) => String(c.payload.chat_id) === String(CID) && /قفل آنی/.test(c.payload.text || ''));
+  ok(!leakOff, 'با ann=false → قفل آنی خاموش شد ولی در کانال اعلان نشد');
+  // روشن کردن دوبارهٔ اعلان
+  await post(cbQuery('annT:' + CID, OWNER));
+  s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.ann === true, 'ann دوباره روشن شد');
+  // حالا قفل آنی روشن شود — باید اعلان برود
+  s.instant = { on: false, at: 0 };
+  await env.KV.put('chat:' + CID, JSON.stringify(s));
+  clearCalls();
+  await post(cbQuery('instT:' + CID, OWNER));
+  const okAnn = calls('sendMessage').some((c) => String(c.payload.chat_id) === String(CID) && /قفل آنی به دستور اونر فعال شد/.test(c.payload.text || ''));
+  ok(okAnn, 'با ann=true → اعلان قفل آنی در کانال ارسال شد');
+  // برگرداندن به حالت اول
+  await post(cbQuery('instT:' + CID, OWNER)); // خاموش
+  s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.instant.on === false, 'قفل آنی خاموش شد (بازگشت به حالت اول)');
 });
 
 /* ---------------------------- جمع‌بندی ---------------------------- */

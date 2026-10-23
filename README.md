@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare Workers" /></a>
   <a href="README-FA.md"><img src="https://img.shields.io/badge/مستندات-فارسی-0ea5e9?style=for-the-badge" alt="Persian docs" /></a>
-  <img src="https://img.shields.io/badge/tests-352%2F352_passing-22c55e?style=for-the-badge" alt="tests" />
+  <img src="https://img.shields.io/badge/tests-443%2F443_passing-22c55e?style=for-the-badge" alt="tests" />
   <img src="https://img.shields.io/badge/runtime-Cloudflare_Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="runtime" />
 </p>
 
@@ -56,6 +56,8 @@ A full Telegram + KV simulator runs **414 assertions** (`node scripts/test-bot.m
 - `wrangler.toml` in the repo ships with placeholders — the deploy flow fills them in.
 - 🌐 **Fully bilingual (v2.3)** — every user picks fa/en with one tap; the owner sets the reports default with `/setlang`.
 - 🧩 **Up to date with the latest Telegram (v2.4)** — whole-album/slideshow deletion, coverage for rich messages, checklists, live photos and paid media, instant channel-ownership alerts, colored (danger/success/primary) buttons and a 🔥 welcome effect.
+- 📣 **In-channel lock announcements (v2.5)** — when the instant lock flips or a scheduled window starts/ends (1-minute cron), the bot posts a notice inside the channel itself; per-channel toggle, fires only on state transitions (no spam, minimal KV writes).
+- ✍️ **Bold human-style announcements with channel handle (v2.6)** — announcement texts are bold and written the way you talk (e.g. "چنل از این لحظه … قفل میمونه ."), each one ends with the channel's handle (`🗣 t.me/username`, numeric ID for private channels), and a per-channel **lock announcements** switch in the Locks panel turns them off entirely.
 
 ## 📄 License
 

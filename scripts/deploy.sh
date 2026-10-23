@@ -113,7 +113,7 @@ UP=$(curl -sS -X PUT \
 [ "$(echo "$UP" | jget success)" = "true" ] || die "آپلود ورکر ناموفق بود: $UP"
 good "ورکر آپلود شد (کد + اتصال KV + WEBHOOK_SECRET)."
 
-step "۶/۶ — فعال‌سازی آدرس workers.dev"
+step "۶/۷ — فعال‌سازی آدرس workers.dev"
 SUB=$(cfget "$API/accounts/$ACC/workers/subdomain" | jget result.subdomain || true)
 if [ -z "$SUB" ]; then
   RSUB="atb-$(node -e 'console.log(require("crypto").randomBytes(4).toString("hex"))')"
@@ -123,6 +123,17 @@ fi
 cfpost -d '{"enabled":true,"previews_enabled":false}' "$API/accounts/$ACC/workers/scripts/$NAME/subdomain" > /dev/null 2>&1 || true
 URL="https://$NAME.$SUB.workers.dev"
 good "آدرس ورکر: $URL"
+
+step "۷/۷ — ثبت زمان‌بندی دقیقه‌ای کرون (اعلان شروع/پایان قفل زمان‌دار — v2.5)"
+CRON_R=$(curl -sS -X PUT -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '[{"cron":"* * * * *"}]' \
+  "$API/accounts/$ACC/workers/scripts/$NAME/schedules")
+if [ "$(echo "$CRON_R" | jget success)" = "true" ]; then
+  good "کرون هر دقیقه ثبت شد — اعلان شروع/پایان قفل زمان‌دار فعال است."
+else
+  echo "⚠️  ثبت کرون ناموفق بود (غیربحرانی — اعلان‌های دستی قفل آنی کار می‌کنند): $CRON_R"
+fi
 
 # ── اگر BOT_TOKEN داشتیم: ذخیره در فایل (برای ردیپلوی‌های بعدی) + وصل‌کردن خودکار وب‌هوک ──
 if [ -n "${BOT_TOKEN:-}" ]; then
