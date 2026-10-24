@@ -3,7 +3,7 @@
 <p align="center">
   <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare Workers" /></a>
   <a href="README-FA.md"><img src="https://img.shields.io/badge/مستندات-فارسی-0ea5e9?style=for-the-badge" alt="Persian docs" /></a>
-  <img src="https://img.shields.io/badge/tests-524%2F524_passing-22c55e?style=for-the-badge" alt="tests" />
+  <img src="https://img.shields.io/badge/tests-539%2F539_passing-22c55e?style=for-the-badge" alt="tests" />
   <img src="https://img.shields.io/badge/runtime-Cloudflare_Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="runtime" />
 </p>
 
@@ -62,6 +62,7 @@ A full Telegram + KV simulator runs **414 assertions** (`node scripts/test-bot.m
 - ⏱ **Minute picker for scheduled locks (v3.0)** — after the hour grid a **minute grid** (00–55, 5-minute steps) completes each side, so windows are now minute-precise (e.g. 4:30–8:15); typing the full time still works.
 - 🎯 **Broadcast destination picker (v3.0)** — pick the destination before sending: **channels only / +groups / +DMs / everything**; every group or DM that talks to the bot is auto-registered (see the "Registered audience" panel) and live counts sit on the buttons (40-target cap per run).
 - 🧹 **Auto-cleanup + result cards (v3.0)** — after confirming a post/broadcast the guide, preview and confirm card are deleted and one clean **result card** remains (channels/groups/DMs counters + error list); batch delete got a result card with "delete more" buttons, and cancelling any flow removes its own clutter.
+- 🕵️ **Dynamic reports (v3.2)** — no more static "anonymous" line: signed posts resolve to the **signing admin** (signature matched against channel admins, with mention + ID), anonymous group admins and unsigned channel posts each get a short explanation with the fix (enable "Sign messages"); edits now show **old text vs new text** from the message ring.
 - 🕐 **Button-based hour picker (v2.9)** — the scheduled-lock flow is now fully interactive: pick start/end hours from a 0–23 button grid (no typing), one-tap presets (nightly 4–8, nightly 22–6, 24-hour) and a confirmation card before saving; typed input (e.g. 4:30) still works.
 - 🧹 **Quick-pick batch delete (v2.9)** — "Delete recent messages" now has 5/10/20/40 buttons plus a custom-number option; adding viewers and restoring backups also got step-by-step guides with cancel buttons.
 - ✍️ **Full Persian copy rewrite (v2.9)** — every Persian text now follows the new house style: no half-spaces, spaced punctuation, "chanel" wording instead of "kanal", no decorative emoji.

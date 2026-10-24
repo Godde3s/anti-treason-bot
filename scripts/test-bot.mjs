@@ -2098,6 +2098,62 @@ await section('v3.0 — پیام همگانی بدون انتخاب مقصد ⇒
   ok(await env.KV.get('state:' + OWNER) === null, 'لغو شد و state پاکسازی شد');
 });
 
+/* ---------------------------- v3.2: گزارش پویا ---------------------------- */
+
+await section('v3.2 — گزارش پویا: پست بی امضای چنل (جایگزین خط ثابت قدیمی)', async () => {
+  await setLock('send_text', true);
+  clearCalls();
+  await post(chan({ message_id: 9301, text: 'پست بی امضا' }));
+  ok(delCalls().some((c) => c.payload.message_id === 9301), 'پست بی امضا زیر قفل متن حذف شد');
+  const rep = lastText();
+  ok(rep.includes('فرستنده : پست خود چنل ( بی امضا )'), 'بلوک پویای فرستنده: پست خود چنل');
+  ok(rep.includes('Sign messages'), 'راه حل امضا در گزارش هست');
+  ok(!rep.includes('تلگرام شناسه عددی فرستنده پست چنل رو نمیفرسته'), 'خط ثابت قدیمی حذف شد');
+  ok(rep.includes('اقدام : ارسال پست جدید'), 'خط اقدام پویا (ارسال)');
+  ok(rep.includes('خلاصه : « پست بی امضا »'), 'خلاصه با برچسب آمد');
+  await setLock('send_text', false);
+});
+
+await section('v3.2 — گزارش پویا: متن قبلی / متن جدید برای ادیت', async () => {
+  await setLock('edit_text', true);
+  clearCalls();
+  await post(chan({ message_id: 9304, text: 'متن اولیه پست' })); // ثبت با متن در حلقه
+  ok(delCalls().length === 0, 'پست اولیه مجاز بود');
+  clearCalls();
+  await post(upd({ edited_channel_post: { message_id: 9304, chat: { id: Number(CID), type: 'channel', title: 'تست چنل' }, date: Math.floor(realNow() / 1000), edit_date: Math.floor(realNow() / 1000), text: 'متن ادیت شده متخلفانه' } }));
+  ok(delCalls().some((c) => c.payload.message_id === 9304), 'ادیت متن حذف شد');
+  const rep = lastText();
+  ok(rep.includes('متن قبلی : « متن اولیه پست »'), 'متن قبلی از حلقه پیام ها آمد');
+  ok(rep.includes('متن جدید : « متن ادیت شده متخلفانه »'), 'متن جدید نشان داده شد');
+  ok(rep.includes('اقدام : ادیتِ پیام قبلی'), 'خط اقدام پویا (ادیت)');
+  await setLock('edit_text', false);
+});
+
+await section('v3.2 — گزارش پویا: پست امضا دار ⇒ ادمین امضاکننده با شناسه', async () => {
+  await setLock('send_text', true);
+  mockB.admins = [
+    { status: 'creator', user: { id: 1000001, first_name: 'مالک' } },
+    { status: 'administrator', user: { id: 2000002, first_name: 'علی' }, custom_title: 'ادارلات' },
+  ];
+  clearCalls();
+  await post(chan({ message_id: 9302, text: 'پست امضا دار', author_signature: 'ادارلات' }));
+  const rep = lastText();
+  ok(rep.includes('ادمین امضاکننده'), 'ادمین امضاکننده در گزارش هست');
+  ok(rep.includes('2000002') && rep.includes('علی'), 'شناسه و نام ادمین امضاکننده آمده');
+  ok(rep.includes('( از تطبیق امضای پست با ادمین های چنل )'), 'روش شناسایی ذکر شد');
+  mockB.admins = null;
+  await setLock('send_text', false);
+});
+
+await section('v3.2 — گزارش پویا: ادمین ناشناس گروه', async () => {
+  await setLock('send_text', true);
+  clearCalls();
+  await post(chan({ message_id: 9303, text: 'پست ناشناس گروه', from: { id: 1087968824, is_bot: true, first_name: 'Telegram' } }));
+  const rep = lastText();
+  ok(rep.includes('ادمین ناشناس گروه ( پست با نام گروه )'), 'ادمین ناشناس گروه تشخیص داده شد');
+  await setLock('send_text', false);
+});
+
 /* ---------------------------- جمع بندی ---------------------------- */
 
 unfreeze();

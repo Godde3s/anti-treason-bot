@@ -23,7 +23,8 @@
  *  • شفاف سازی محدودیت تلگرام: حذف پیام های قدیمی تر از ۴۸ ساعت از سوی تلگرام
  *    ممکن نیست؛ لاگ دقیقاً همین را توضیح میدهد (نه اشکال دسترسی) و لینک پیام را
  *    میدهد تا ادمینِ انسانی — که این محدودیت را ندارد — با یک کلیک بازش کند و دستی حذف کند.
- *  • گزارش تخلف با منشن کلیک پذیر و شناسه عددی متخلف (وقتی تلگرام فرستنده را بفرستد).
+ *  • گزارش پویا (v3.2): هویت فرستنده خودکار حل میشود — پست امضا دار ⇒ « ادمین امضاکننده » با تطبیق امضا و منشن+شناسه ،
+ *    ادمین ناشناس گروه / پست بی امضای چنل با توضیح کوتاه و راه حل ؛ برای ادیت ها « متن قبلی / متن جدید » هم نشان داده میشود.
  *  • لینک مستقیم t.me پیام متخلف در گزارش پیوی و « آخرین تخلف ها » — چنل عمومی
  *    با یوزرنیم، چنل خصوصی به شکل t.me/c/<شناسه داخلی>/<آیدی> (فقط برای اعضا باز میشود).
  *  • نقش « ناظر »: فقط مشاهده تخلف ها (گزارش پیوی + 📜 آخرین تخلف ها + آمار) بدون حق تغییر.
@@ -321,7 +322,7 @@ async function announceChannel(env, cid, text) {
   const r = await tg(env, 'sendMessage', {
     chat_id: cid, text, parse_mode: 'HTML', link_preview_options: { is_disabled: true },
   }).catch(() => null);
-  if (r && r.ok && r.result && r.result.message_id) trackMsg(env, null, cid, r.result.message_id);
+  if (r && r.ok && r.result && r.result.message_id) trackMsg(env, null, cid, r.result.message_id, String(text || '').replace(/<[^>]*>/g, '').slice(0, 120));
   return !!(r && r.ok);
 }
 
@@ -337,7 +338,7 @@ const MSG_FLUSH_N = 20;     // با پُر شدن بافر حافظه تا ای�
 const MAX_DEL = 40;         // سقف حذف دسته ای در هر اجرا (سقف ساب ریکوئست پلن رایگان)
 const MAX_BC = 40;          // سقف چنل برای پیام همگانی (سقف ساب ریکوئست)
 const faNum = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]); // ارقام فارسی برای متن های فارسی
-const pendMsgs = new Map();        // cid -> [message_id, ...] (جدید در انتها)
+const pendMsgs = new Map();        // cid -> [{i: message_id, t: متن ۱۲۰ نویسه}, ...] (جدید در انتها)
 const pendMsgsTimer = new Map();   // cid -> bool (تایمر فلاش فعال است؟)
 
 async function readMsgsRaw(env, cid) {
@@ -346,9 +347,27 @@ async function readMsgsRaw(env, cid) {
 }
 
 /** حلقه کامل پیام های اخیر: KV + بافر حافظه (بدون تکرار، آخرین MSG_KEEP تا) */
+/** شناسه یک رکورد حلقه: ورودی ممکن است عدد (فرمت قدیمی) یا شیء {i,t} باشد */
+const midOf = (e) => (e && typeof e === 'object') ? e.i : e;
+
 async function readMsgs(env, cid) {
-  const pendArr = pendMsgs.get(cid) || [];
-  return [...new Set((await readMsgsRaw(env, cid)).concat(pendArr))].slice(-MSG_KEEP);
+  const pendArr = (pendMsgs.get(cid) || []).map(midOf);
+  return [...new Set((await readMsgsRaw(env, cid)).map(midOf).concat(pendArr))].filter(Boolean).slice(-MSG_KEEP);
+}
+
+/** 🧩 v3.2 — متن ثبت شدهٔ یک پیام (برای گزارش پویای « ادیت »): اول بافر حافظه ، بعد KV */
+function oldTextOfPend(cid, mid) {
+  const e = (pendMsgs.get(cid) || []).find((x) => x && typeof x === 'object' && x.i === mid);
+  return e && e.t ? e.t : null;
+}
+async function oldTextOf(env, cid, mid) {
+  const p = oldTextOfPend(cid, mid);
+  if (p) return p;
+  try {
+    const raw = await readMsgsRaw(env, cid);
+    const e = raw.find((x) => x && typeof x === 'object' && x.i === mid);
+    return e && e.t ? e.t : null;
+  } catch (e) { return null; }
 }
 
 /** ادغام و نوشتن بافر در KV */
@@ -358,17 +377,23 @@ async function flushMsgs(env, cid) {
   pendMsgs.delete(cid); pendMsgsTimer.delete(cid);
   try {
     const old = await readMsgsRaw(env, cid);
-    const merged = [...new Set(old.concat(fresh))].slice(-MSG_KEEP);
+    const map = new Map(); // شناسه → رکورد ؛ رکورد متن دار بر عددی میچربد
+    for (const e of old) map.set(midOf(e), e);
+    for (const e of fresh) {
+      const prev = map.get(e.i);
+      map.set(e.i, (prev && typeof prev === 'object' && prev.t && !e.t) ? prev : e);
+    }
+    const merged = [...map.values()].slice(-MSG_KEEP);
     await env.KV.put(MSGS + cid, JSON.stringify(merged));
   } catch (e) { console.error('flushMsgs', e); }
 }
 
 /** ثبت شناسه یک پیام در حلقه چنل (env میتواند null باشد وقتی فلاش بعدی نیاز نیست) */
-function trackMsg(env, ctx, cid, mid) {
+function trackMsg(env, ctx, cid, mid, text) {
   if (!cid || !mid) return;
   let arr = pendMsgs.get(cid);
   if (!arr) { arr = []; pendMsgs.set(cid, arr); }
-  if (!arr.includes(mid)) arr.push(mid);
+  if (!arr.some((x) => midOf(x) === mid)) arr.push({ i: mid, t: text || null });
   if (!ctx || !env) return;
   if (arr.length >= MSG_FLUSH_N) { ctx.waitUntil(flushMsgs(env, cid)); return; }
   if (!pendMsgsTimer.get(cid)) {
@@ -384,7 +409,7 @@ function trackMsg(env, ctx, cid, mid) {
 async function removeMsgs(env, cid, ids) {
   pendMsgs.delete(cid); pendMsgsTimer.delete(cid);
   try {
-    const keep = (await readMsgsRaw(env, cid)).filter((x) => !ids.includes(x));
+    const keep = (await readMsgsRaw(env, cid)).filter((x) => !ids.includes(midOf(x)));
     await env.KV.put(MSGS + cid, JSON.stringify(keep));
   } catch (e) { console.error('removeMsgs', e); }
 }
@@ -431,6 +456,7 @@ const BTN = (text, data, style) => ({ text: tr(text), callback_data: data, ...(s
 let CUR_LANG = 'fa';
 const L = (fa, en) => (CUR_LANG === 'en' && en != null && en !== '') ? en : fa;
 const EN_MAP = new Map([['قفل کامل', 'Full lock'],
+  ['پست چنل', 'Channel post'], ['ادمین ناشناس', 'Anonymous admin'],
   ['ادیت متن', 'Text edit'],
   ['ادیت مدیا', 'Media edit'],
   ['لینک در ادیت', 'Link in edit'],
@@ -1262,11 +1288,12 @@ function snippet(msg, a) {
 function whoInfo(msg) {
   const f = msg.from;
   if (f && f.id) {
+    if (f.id === 1087968824) return { id: null, nm: 'ادمین ناشناس' }; // GroupAnonymousBot
     const nm = [f.first_name, f.last_name].filter(Boolean).join(' ') || f.username || 'کاربر';
     return { id: f.id, nm: String(nm).slice(0, 60) };
   }
   if (msg.author_signature) return { id: null, nm: 'امضا: ' + String(msg.author_signature).slice(0, 40) };
-  return { id: null, nm: 'ناشناس' };
+  return { id: null, nm: 'پست چنل' };
 }
 
 /* ─────────────── 🧩 v2.4: آلبوم/اسلایدشو — حذف کل آلبوم هنگام تخلف ─────────────── */
@@ -1319,17 +1346,62 @@ function tgMsgLink(username, cid, mid) {
   return null;
 }
 
-/** خط « چه کسی » در گزارش پیوی: منشن کلیک پذیر + شناسه عددی */
-function whoHTML(msg) {
-  const f = msg.from;
-  if (f && f.id) {
+/**
+ * 🧩 v3.2 — تطبیق امضای پست با ادمین های چنل (فقط تطبیق « قطعی » — دقیقاً یک نفر)
+ * امضای پست معمولاً عنوان یا نام ادمین است ؛ با custom_title / نام کامل / یوزرنیم مقایسه میشود.
+ */
+function sigMatchAdmin(admins, sig, meId) {
+  if (!Array.isArray(admins) || !sig) return null;
+  const cands = admins.filter((m) => m && m.status === 'administrator' && m.user &&
+    String(m.user.id) !== String(meId) && (
+    String(m.custom_title || '') === sig ||
+    [m.user.first_name, m.user.last_name].filter(Boolean).join(' ') === sig ||
+    (m.user.username && (sig === m.user.username || sig === '@' + m.user.username))));
+  return cands.length === 1 ? cands[0].user : null;
+}
+
+/**
+ * 🧩 v3.2 — بلوک پویای « فرستنده » در گزارش ها (جایگزین خط ثابت قدیمی):
+ *   ۱ ) کاربر واقعی ⇒ منشن کلیک پذیر + شناسه عددی
+ *   ۲ ) ادمین ناشناس گروه ( پست با نام گروه )
+ *   ۳ ) پست امضا دار ⇒ تطبیق امضا با ادمین ها ⇒ « ادمین امضاکننده » با منشن و شناسه
+ *   ۴ ) پست بی امضای خود چنل ⇒ توضیح کوتاه + راه حل ( Sign messages )
+ * admins/me/cid از قبل داده میشوند تا یک فراخوانی getChatAdministrators هر دو زبان را بسازد.
+ */
+function whoBlock(msg, admins, me, cid, lang) {
+  const EN = lang === 'en';
+  const f = msg.from || null;
+  const sc = msg.sender_chat || null;
+  const chatType = (msg.chat && msg.chat.type) || '';
+  // ۱ ) کاربر واقعی ( نه ناشناسِ گروه ، نه پست با نام چنل )
+  if (f && f.id && f.id !== 1087968824 && String(f.id) !== String(cid)) {
     const name = esc([f.first_name, f.last_name].filter(Boolean).join(' ') || f.username || 'کاربر');
     const uname = f.username ? ' (@' + esc(f.username) + ')' : '';
-    return `<a href="tg://user?id=${f.id}">${name}</a>${uname}\nشناسه : <code>${f.id}</code>`;
+    return EN ? `Sender: <a href="tg://user?id=${f.id}">${name}</a>${uname}\nID: <code>${f.id}</code>`
+              : `فرستنده : <a href="tg://user?id=${f.id}">${name}</a>${uname}\nشناسه : <code>${f.id}</code>`;
   }
-  const w = whoInfo(msg);
-  return L(`${esc(w.nm)}\nتلگرام شناسه عددی فرستنده پست چنل رو نمیفرسته`,
-           `${esc(w.nm)}\nTelegram does not send the numeric ID of channel-post senders`);
+  // ۲ ) ادمین ناشناس گروه ( پست با نام گروه )
+  if ((f && f.id === 1087968824) || (sc && String(sc.id) === String(cid) && chatType && chatType !== 'channel')) {
+    const sig = String(msg.author_signature || '').trim();
+    const sigLine = sig ? (EN ? `\nPost signature: « ${esc(sig)} »` : `\nامضای پست : « ${esc(sig)} »`) : '';
+    return EN ? 'Sender: anonymous group admin (posted as the group)' + sigLine
+              : 'فرستنده : ادمین ناشناس گروه ( پست با نام گروه )' + sigLine;
+  }
+  // ۳ ) پست چنل — امضا دار یا بی امضا
+  const sig = String(msg.author_signature || '').trim();
+  if (sig) {
+    const m = sigMatchAdmin(admins, sig, me && me.id);
+    if (m) {
+      const nm = esc([m.first_name, m.last_name].filter(Boolean).join(' ') || m.username || 'ادمین');
+      return EN ? `Sender: signing admin — <a href="tg://user?id=${m.id}">${nm}</a>\nPost signature: « ${esc(sig)} »\nID: <code>${m.id}</code>\n(matched the post signature against channel admins)`
+                : `فرستنده : ادمین امضاکننده — <a href="tg://user?id=${m.id}">${nm}</a>\nامضای پست : « ${esc(sig)} »\nشناسه : <code>${m.id}</code>\n( از تطبیق امضای پست با ادمین های چنل )`;
+    }
+    return EN ? `Sender: post signature « ${esc(sig)} »\nThis signature did not uniquely match any admin; the numeric ID is not available`
+              : `فرستنده : امضای پست « ${esc(sig)} »\nاین امضا با هیچ ادمینی قطعی تطبیق نکرد ( یا بین چند ادمین مشترکه ) ؛ شناسه عددی در دسترس نیست`;
+  }
+  // ۴ ) پست بی امضای خود چنل — طبیعی ترین حالت پست چنل
+  return EN ? 'Sender: the channel itself (unsigned)\nTelegram does not reveal the author of unsigned channel posts; enable "Sign messages" in the channel settings to sign posts'
+            : 'فرستنده : پست خود چنل ( بی امضا )\nتلگرام هویت نویسنده پست های بی امضا رو نمیفرسته ؛ برای هویت دار شدن پست ها ، گزینه « Sign messages » رو تو تنظیمات چنل روشن کن';
 }
 
 async function enforce(env, ctx, cid, s, msg, a, reason, isEdit) {
@@ -1376,29 +1448,62 @@ async function enforce(env, ctx, cid, s, msg, a, reason, isEdit) {
     }
     // لینک پیام: اولویت با یوزرنیمِ خود آپدیت، بعد تنظیمات، در نهایت فرم خصوصی t.me/c/
     const link = tgMsgLink((msg.chat && msg.chat.username) || s.username || '', cid, msg.message_id);
+    // 🧩 v3.2 — بلوک پویای فرستنده: فقط برای پست امضا دارِ بدون from ، لیست ادمین ها یک بار گرفته میشود
+    const sigPre = String(msg.author_signature || '').trim();
+    const isRealUserFrom = msg.from && msg.from.id && msg.from.id !== 1087968824 && String(msg.from.id) !== String(cid);
+    let sigAdmins = null;
+    if (sigPre && !isRealUserFrom) {
+      try { const r0 = await tg(env, 'getChatAdministrators', { chat_id: cid }); sigAdmins = r0 && r0.ok ? r0.result : null; } catch (e) {}
+    }
+    const me0 = await botInfo(env);
+    const whoFA = whoBlock(msg, sigAdmins, me0, cid, 'fa');
+    const whoEN = whoBlock(msg, sigAdmins, me0, cid, 'en');
+    // 🧩 v3.2 — متن قبلی/جدید برای ادیت ها (از حلقه پیام های اخیر — بدون KV اضافه)
+    const body = msg.text || msg.caption || '';
+    let ctxFA, ctxEN;
+    if (body) {
+      const oldT = isEdit ? await oldTextOf(env, cid, msg.message_id) : null;
+      const newSn = esc(body.slice(0, 80)) + (body.length > 80 ? '…' : '');
+      if (oldT && oldT !== body.slice(0, 120)) {
+        const oldSn = esc(oldT.slice(0, 80)) + (oldT.length > 80 ? '…' : '');
+        ctxFA = `متن قبلی : « ${oldSn} »\nمتن جدید : « ${newSn} »`;
+        ctxEN = `Old text: « ${oldSn} »\nNew text: « ${newSn} »`;
+      } else {
+        ctxFA = 'خلاصه : « ' + newSn + ' »';
+        ctxEN = 'Summary: « ' + newSn + ' »';
+      }
+    } else {
+      ctxFA = ctxEN = snippet(msg, a);
+    }
+    // 🧩 v3.2 — توضیح پویا: در وضعیت زرد/قرمز ، عزل خودکار فقط برای ادیت مدیا اعمال میشود
+    const pmR = s.punishMode || 'off';
+    const noteFA = (isEdit && pmR !== 'off') ? `نکته : عزل خودکار فقط برای « ادیت مدیا » اعمال میشه ؛ ادیت متن فقط حذف میشود .\n` : '';
+    const noteEN = (isEdit && pmR !== 'off') ? `Note: auto-demote applies only to media edits; text edits are just deleted.\n` : '';
     const txt =
       L(`${head}\n\n` +
       `چنل : <b>${esc(s.title)}</b>\n` +
       `${L('دلیل', 'Reason')} : <b>${esc(tr(reason))}</b>\n` +
-      `${isEdit ? 'نوع : ادیت' : 'نوع : ارسال'}\n` +
-      `${whoHTML(msg)}\n` +
-      `${snippet(msg, a)}\n` +
+      `${isEdit ? 'اقدام : ادیتِ پیام قبلی' : 'اقدام : ارسال پست جدید'}\n` +
+      `${whoFA}\n` +
+      `${ctxFA}\n` +
       (albumWiped ? L(`کل آلبوم/اسلایدشو حذف شد — ${albumWiped} پست دیگر\n`, `Entire album/slideshow deleted — ${albumWiped} more post(s)\n`) : '') +
       `پیام : <code>${msg.message_id}</code>\n` +
       (link ? `لینک پیام : ${link}\n` : '') +
       (reason === 'قفل پست ناشناس' ? `برای پست دادن با هویت واقعی ، گزینه « Sign messages » ( امضا ) تو تنظیمات چنل/ادمین باید روشن باشه .\n` : '') +
+      noteFA +
       (isTooOldMsg ? `این پیام برای « حذف خودکار با اکانت » هم به صف رفت ؛ اگه یوزربات همراه وصل باشه خودش حذفش میکنه .\n` : '') +
       `ساعت تهران : <code>${tehranHM()}</code>`,
       `${head}\n\n` +
       `📺 Channel: <b>${esc(s.title)}</b>\n` +
       `⚠️ Reason: <b>${esc(tr(reason))}</b>\n` +
-      `${isEdit ? 'Type: edit' : 'Type: post'}\n` +
-      `${whoHTML(msg)}\n` +
-      `${snippet(msg, a)}\n` +
+      `${isEdit ? 'Action: edited a previous post' : 'Action: posted a new message'}\n` +
+      `${whoEN}\n` +
+      `${ctxEN}\n` +
       (albumWiped ? `Entire album/slideshow deleted — ${albumWiped} more post(s)\n` : '') +
       `Message: <code>${msg.message_id}</code>\n` +
       (link ? `Message link: ${link}\n` : '') +
       (reason === 'قفل پست ناشناس' ? `💡 To post with a real identity, the "Sign messages" option must be enabled in the channel/admin settings.\n` : '') +
+      noteEN +
       (isTooOldMsg ? `This message was also queued for "deletion via user account" — if the companion userbot is connected, it will delete it.\n` : '') +
       `Tehran time: <code>${tehranHM()}</code>`);
     // خط کوتاه برای حالت موجی (وقتی چند گزارش در یک خلاصه ادغام میشوند)
@@ -1470,14 +1575,10 @@ async function redEnforce(env, ctx, cid, s, msg, a, reason) {
     if (sig) {
       const r = await tg(env, 'getChatAdministrators', { chat_id: cid });
       if (r.ok && Array.isArray(r.result)) {
-        const cands = r.result.filter((m) => m && m.status === 'administrator' && m.user &&
-          String(m.user.id) !== String(me.id) && (
-          String(m.custom_title || '') === sig ||
-          [m.user.first_name, m.user.last_name].filter(Boolean).join(' ') === sig ||
-          (m.user.username && (sig === m.user.username || sig === '@' + m.user.username))));
-        if (cands.length === 1) {
-          return { id: cands[0].user.id,
-            name: [cands[0].user.first_name, cands[0].user.last_name].filter(Boolean).join(' ') || cands[0].user.username || L('ادمین', 'Admin'),
+        const m = sigMatchAdmin(r.result, sig, me.id);
+        if (m) {
+          return { id: m.id,
+            name: [m.first_name, m.last_name].filter(Boolean).join(' ') || m.username || L('ادمین', 'Admin'),
             how: L('تطبیق امضای پست با ادمین ها', 'signature matched against channel admins') };
         }
       }
@@ -1922,7 +2023,7 @@ function mainText(from, scope = null) {
     `1 ) ربات رو ادمین هر چنل کن ( دسترسی « حذف پیام » لازمه )\n` +
     `2 ) پیام فعال سازی میاد ؛ تأییدش کن : هر چنل جداگانه\n` +
     `3 ) قفل ها رو تنظیم کن ؛ بقیش با من .\n\n` +
-    `<i>ضد خیانت v3.0</i>`
+    `<i>ضد خیانت v3.2</i>`
   ), (
     `🛡️ <b>Anti-Treason Channel Guard</b>\n\n` +
     `Hi <b>${esc(from.first_name || '')}</b>, welcome!\n` +
@@ -4177,7 +4278,7 @@ async function handleChannelPost(u, env, ctx) {
   if (s.active === false) return; // چنل هنوز از سوی مالک فعال نشده ⇒ هیچ اجرایی
 
   // 🧹 v2.7: هر پست جدید در حلقه « پیام های اخیر » ثبت میشود (برای حذف دسته ای)
-  if (!isEdit) trackMsg(env, ctx, cid, msg.message_id);
+  if (!isEdit) trackMsg(env, ctx, cid, msg.message_id, String(msg.text || msg.caption || '').slice(0, 120));
 
   // 🧩 v2.4 — پست های آلبوم/اسلایدشو برای « حذف کل آلبوم » ثبت میشوند (قبل از تصمیم گیری)
   if (a.album && !isEdit) albumRemember(cid, a.album, msg.message_id);
@@ -4355,7 +4456,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v3.0 (fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast — channels/groups/DMs with auto-registered audience, auto-cleanup of setup messages and result cards everywhere, batch delete with follow-up buttons, guided flows + previous-bot fallback for demotions/bans + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v3.2 (dynamic violation reports: sender identity resolved automatically — signing admin matched via signature, anonymous-admin and unsigned-channel-post cases explained, old vs new text shown for edits + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast — channels/groups/DMs with auto-registered audience, auto-cleanup of setup messages and result cards everywhere, batch delete with follow-up buttons, guided flows + previous-bot fallback for demotions/bans + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;
