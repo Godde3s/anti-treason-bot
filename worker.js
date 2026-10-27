@@ -787,16 +787,81 @@ async function setViewers(env, arr) {
 
 const pcache = { v: null, exp: 0 };
 
-/** شناسه همه چنل های ثبت شده (خواندن سبک — فقط list، بدون خواندن تنظیمات) */
+/* ── 📉 v3.2.1: شاخص چنل ها — پایان بحران سهمیهٔ « list » ──
+ * پلن رایگان KV روزانه فقط ۱۰۰۰ عملیات list می دهد؛ کرونِ هر دقیقه (schedTick) هر روز
+ * ۱۴۴۰ بار list میزد ⇒ هر روز حدود ۲۰:۱۰ تهران سهمیه تمام میشد و از آن پس دکمهٔ « چنل ها »،
+ * برودکست و خودِ قفل زمان دار میمردند. اکنون cid ها در کلید « idx:chats » با فرمت
+ * {"t":<epochMs>,"c":[cid,...]} نگهداری میشوند و همهٔ مسیرها فقط get میزنند
+ * (سهمیهٔ read: ۱۰۰هزار/روز). شاخص حداکثر هر ۳۰ دقیقه یک بار با list بازسازی میشود،
+ * با هر ثبت/حذف چنل بروز میماند و در هیچ حالتی throw نمیکند. */
+const chIdxMap = new WeakMap(); // env -> {v, exp}
+const CH_IDX_KEY = 'idx:chats';
+const CH_IDX_REFRESH_MS = 30 * 60 * 1000;
+
+function chIdxOf(env) {
+  let b = chIdxMap.get(env);
+  if (!b) { b = { v: null, exp: 0 }; chIdxMap.set(env, b); }
+  return b;
+}
+
+/** شناسه همهٔ چنل های ثبت شده — بدون list در حالت عادی (v3.2.1) */
+async function chatsIndex(env) {
+  const B = chIdxOf(env);
+  if (B.v && B.exp > Date.now()) return B.v;
+  let raw = null;
+  try { raw = await env.KV.get(CH_IDX_KEY); } catch (e) { raw = null; }
+  let box = null;
+  if (raw) { try { box = JSON.parse(raw); } catch (e) { box = null; } }
+  let arr = (box && Array.isArray(box.c)) ? box.c.filter((x) => typeof x === 'string' && x) : null;
+  const stale = !box || typeof box.t !== 'number' || (Date.now() - box.t) > CH_IDX_REFRESH_MS;
+  if (!arr || stale) {
+    let built = null;
+    try {
+      built = [];
+      let cursor;
+      do {
+        const page = await env.KV.list({ prefix: 'chat:' });
+        for (const k of ((page && page.keys) || [])) built.push(k.name.slice(5));
+        cursor = (page && page.list_complete) ? null : page.cursor;
+      } while (cursor);
+    } catch (e) { built = null; } // سهمیهٔ list تمام/خطا ⇒ با آرایهٔ فعلی بسنده میکنیم
+    if (built) {
+      arr = built;
+      try { await env.KV.put(CH_IDX_KEY, JSON.stringify({ t: Date.now(), c: arr })); } catch (e) {}
+    } else if (!arr) arr = [];
+  }
+  B.v = arr; B.exp = Date.now() + CACHE_TTL_MS;
+  return arr;
+}
+
+/** افزودن cid به شاخص — بی صدا، هرگز throw نمیکند (v3.2.1) */
+async function idxChatAdd(env, cid) {
+  const S = String(cid || '');
+  if (!S) return;
+  const B = chIdxOf(env);
+  const arr = Array.isArray(B.v) ? B.v.slice() : await chatsIndex(env).catch(() => []);
+  if (arr.includes(S)) { B.v = arr; B.exp = Date.now() + CACHE_TTL_MS; return; }
+  arr.push(S);
+  B.v = arr; B.exp = Date.now() + CACHE_TTL_MS;
+  try { await env.KV.put(CH_IDX_KEY, JSON.stringify({ t: Date.now(), c: arr })); } catch (e) {}
+}
+
+/** حذف cid از شاخص — بی صدا (v3.2.1) */
+async function idxChatDel(env, cid) {
+  const S = String(cid || '');
+  if (!S) return;
+  const B = chIdxOf(env);
+  const arr = Array.isArray(B.v) ? B.v.slice() : await chatsIndex(env).catch(() => []);
+  const nx = arr.filter((x) => x !== S);
+  B.v = nx; B.exp = Date.now() + CACHE_TTL_MS;
+  if (nx.length !== arr.length) {
+    try { await env.KV.put(CH_IDX_KEY, JSON.stringify({ t: Date.now(), c: nx })); } catch (e) {}
+  }
+}
+
+/** (سازگاری) شناسه چنل های ثبت شده — از شاخص، بدون list در حالت عادی */
 async function registeredCids(env) {
-  const out = [];
-  let cursor;
-  do {
-    const page = await env.KV.list({ prefix: 'chat:' });
-    for (const k of page.keys) out.push(k.name.slice(5));
-    cursor = page.list_complete ? null : page.cursor;
-  } while (cursor);
-  return out;
+  return chatsIndex(env);
 }
 
 /** دامنه پیش فرض مهاجرت: چنل های ثبت شده؛ اگر هیچ ⇒ همه ('*') */
@@ -901,29 +966,26 @@ async function saveSettings(env, cid, s) {
   const k = 'chat:' + cid;
   await env.KV.put(k, JSON.stringify(s));
   scache.set(k, { v: s, exp: Date.now() + CACHE_TTL_MS });
+  await idxChatAdd(env, cid); // 📉 v3.2.1 — چنل همیشه در شاخص بماند
 }
 
 async function listChats(env) {
   const out = [];
-  let cursor;
-  do {
-    const page = await env.KV.list({ prefix: 'chat:' });
-    for (const k of page.keys) {
-      const cid = k.name.slice(5);
-      const s = await getSettings(env, cid, true);
-      if (s) {
-        out.push({
-          cid,
-          title: s.title || tr('چنل'),
-          active: Object.values(s.locks || {}).filter(Boolean).length,
-          sched: !!(s.schedule && s.schedule.enabled),
-          inst: !!(s.instant && s.instant.on),
-          on: s.active !== false, // فعال از نظر مالک (تک چنله)
-        });
-      }
-    }
-    cursor = page.list_complete ? null : page.cursor;
-  } while (cursor);
+  const dead = [];
+  for (const cid of await chatsIndex(env)) {
+    const s = await getSettings(env, cid, true);
+    if (s) {
+      out.push({
+        cid,
+        title: s.title || tr('چنل'),
+        active: Object.values(s.locks || {}).filter(Boolean).length,
+        sched: !!(s.schedule && s.schedule.enabled),
+        inst: !!(s.instant && s.instant.on),
+        on: s.active !== false, // فعال از نظر مالک (تک چنله)
+      });
+    } else dead.push(cid); // رکورد حذف/خراب ⇒ از شاخص بیرون کشیده میشود
+  }
+  for (const cid of dead) await idxChatDel(env, cid);
   return out;
 }
 
@@ -2023,7 +2085,7 @@ function mainText(from, scope = null) {
     `1 ) ربات رو ادمین هر چنل کن ( دسترسی « حذف پیام » لازمه )\n` +
     `2 ) پیام فعال سازی میاد ؛ تأییدش کن : هر چنل جداگانه\n` +
     `3 ) قفل ها رو تنظیم کن ؛ بقیش با من .\n\n` +
-    `<i>ضد خیانت v3.2</i>`
+    `<i>ضد خیانت v3.2.1</i>`
   ), (
     `🛡️ <b>Anti-Treason Channel Guard</b>\n\n` +
     `Hi <b>${esc(from.first_name || '')}</b>, welcome!\n` +
@@ -3717,6 +3779,7 @@ Note: only posts made after v2.7 are tracked; older ones are out of reach for an
       await env.KV.delete('stat:' + a1);
       await env.KV.delete('vlog:' + a1);
       await env.KV.delete('msgs:' + a1);
+      await idxChatDel(env, a1); // 📉 v3.2.1
       scache.delete('chat:' + a1);
       pend.delete(a1); pendVlog.delete(a1);
       pendMsgs.delete(a1); pendMsgsTimer.delete(a1);
@@ -4333,6 +4396,7 @@ async function handleMyChatMember(mcm, env) {
     }
   } else if (st === 'kicked' || st === 'left') {
     await env.KV.delete('chat:' + cid);
+    await idxChatDel(env, cid); // 📉 v3.2.1
     await env.KV.delete('stat:' + cid);
     await env.KV.delete('vlog:' + cid);
     await env.KV.delete('msgs:' + cid);
@@ -4355,11 +4419,9 @@ async function handleMyChatMember(mcm, env) {
  * همه چنل های فعال را چک میکند؛ فقط در « لحظه تغییر » (ورود/خروج از بازه) اعلان
  * میدهد و KV مینویسد — یعنی در روز عادی حداکثر ۲ نوشتن برای هر چنل. */
 async function schedTick(env) {
-  let page;
-  try { page = await env.KV.list({ prefix: 'chat:' }); } catch (e) { return; }
-  for (const k of (page && page.keys) || []) {
-    const cid = k.name.slice(5);
-    if (!cid) continue;
+  let cids = null;
+  try { cids = await chatsIndex(env); } catch (e) { return; } // 📉 v3.2.1 — get به جای list
+  for (const cid of (cids || [])) {
     let s = null;
     try { s = await getSettings(env, cid, true); } catch (e) { continue; }
     if (!s || !s.active) continue;
@@ -4456,7 +4518,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v3.2 (dynamic violation reports: sender identity resolved automatically — signing admin matched via signature, anonymous-admin and unsigned-channel-post cases explained, old vs new text shown for edits + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast — channels/groups/DMs with auto-registered audience, auto-cleanup of setup messages and result cards everywhere, batch delete with follow-up buttons, guided flows + previous-bot fallback for demotions/bans + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v3.2.1 (quota-safe channel index — daily KV.list exhaustion that killed the panel & nightly cron on the free plan is fixed + dynamic violation reports: sender identity resolved automatically — signing admin matched via signature, anonymous-admin and unsigned-channel-post cases explained, old vs new text shown for edits + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast — channels/groups/DMs with auto-registered audience, auto-cleanup of setup messages and result cards everywhere, batch delete with follow-up buttons, guided flows + previous-bot fallback for demotions/bans + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;

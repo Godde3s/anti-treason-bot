@@ -1866,7 +1866,9 @@ await section('v2.7 — لغو ارسال پیام', async () => {
 
 await section('v2.7/v3.0 — پیام همگانی: انتخاب مقصد → پیش نمایش → تأیید → پاکسازی + نتیجه', async () => {
   const CID2 = '-1002002';
-  await env.KV.put('chat:' + CID2, JSON.stringify({ title: 'چنل دوم', username: 'chan2', locks: {}, active: true, instant: { on: false, at: 0 }, schedule: { enabled: false, start: 240, end: 1200, mode: 'all' }, punishMode: 'off', banHours: 0, ann: true }));
+  // v3.2.1 — ثبت و فعال سازی از مسیر واقعی ورکر (my_chat_member + enb) تا شاخص چنل ها بروز شود
+  await post(upd({ my_chat_member: { chat: { id: Number(CID2), type: 'channel', title: 'چنل دوم' }, new_chat_member: { status: 'administrator' } } }));
+  await post(cbQuery(`enb:${CID2}`, OWNER));
   await post(cbQuery('bcAll', OWNER));
   const tgtPanel = calls('sendMessage').find((c) => /پیام همگانی/.test(c.payload.text || ''));
   ok(!!tgtPanel && JSON.stringify(tgtPanel.payload.reply_markup || {}).includes('bcT:ch'), 'پنل انتخاب مقصد « پیام همگانی » با دکمه های مقصد آمد');
@@ -1884,7 +1886,7 @@ await section('v2.7/v3.0 — پیام همگانی: انتخاب مقصد → پ
   ok(delsB.length >= 3, 'راهنما + پیش نمایش + کارت تأیید پاک شدن');
   const resB = calls('sendMessage').find((c) => /پیام همگانی ارسال شد/.test(c.payload.text || ''));
   ok(!!resB && /چنل ها : ۲ از ۲/.test(resB.payload.text || ''), 'کارت نتیجه: چنل ها ۲ از ۲');
-  await env.KV.delete('chat:' + CID2);
+  await post(upd({ my_chat_member: { chat: { id: Number(CID2), type: 'channel', title: 'چنل دوم' }, new_chat_member: { status: 'kicked' } } })); // v3.2.1 — حذف از مسیر واقعی
 });
 
 await section('v2.7 — حذف N پیام آخر: عدد → تأیید → deleteMessage + پاکسازی حلقه', async () => {
