@@ -1617,15 +1617,14 @@ function banPay(env, cid, uid, s) {
  * مالک میتواند یک فرد مشخص را « برای مدت مشخص » ( یا همیشه ) سکوت کند:
  *   • از پنل چنل ( دکمه « 🔇 سکوت فرد » ) با شناسه + گرید مدت / دلخواه
  *   • یا با دکمه های سریع « سکوت 24 ساعته / همیشه » روی گزارش های وضعیت زرد/قرمز
- * از لحظه ثبت تا پایان مدت، هر پست یا ادیتِ آن فرد فوراً حذف میشود و در لحظه ثبت هم
- * « پیام های اخیرِ ثبت شده » او پاک سازی میشوند ( حلقه ۱۰۰ پیام اخیر چنل ) .
+ * از لحظه ثبت تا پایان مدت، هر پست یا ادیتِ آن فرد فوراً حذف میشود؛
+ * پیام های « قبل از سکوت » دست نخورده میمانند و هیچ پاکسازی گذشته ای انجام نمیشود .
  * سکوت ها داخل خودِ تنظیمات چنل ذخیره میشوند ( s.mutes ) ⇒ صفر خواندن KV اضافه:
  *   • مسیر پست چنل همان تنظیمات را میخواند ( کش ۱۰ ثانیه ای )
  *   • کرون هر دقیقه هم تنظیمات را میخواند ⇒ اتمام خودکار بدون هیچ خواندن اضافه
  * محدودیت تلگرام: پست « بی امضا » شناسه فرستنده ندارد ⇒ قابل انتساب به فرد نیست؛
  * سکوت روی پست های امضا دار ( و هر پیامی که از شناسه واقعیِ فرستنده آمده ) اعمال میشود. */
 
-const MUTE_WIPE_MAX = 30; // سقف حذفِ پیام های اخیر هنگام ثبت سکوت ( بودجه subrequest )
 
 /** فعال بودن یک سکوت ( u = زمان پایان؛ null = تا ازادسازی دستی ) */
 function muteActive(m, now) {
@@ -1676,21 +1675,6 @@ async function muteFreeAll(env, cid) {
   delete s.mutes;
   await saveSettings(env, cid, s);
   return s;
-}
-
-/** پاکسازی پیام های اخیرِ فرد سکوت شده ( حلقه ۱۰۰ تایی؛ حداکثر ۳۰ درخواست به دلیل سقف subrequest ) */
-async function muteWipeRecent(env, cid, uid) {
-  try {
-    const seen = new Set(), all = [];
-    for (const e of (await readMsgsRaw(env, cid))) { const i = midOf(e); if (i && !seen.has(i)) { seen.add(i); all.push(e); } }
-    for (const e of (pendMsgs.get(cid) || [])) { const i = midOf(e); if (i && !seen.has(i)) { seen.add(i); all.push(e); } }
-    const ids = all.filter((e) => e && typeof e === 'object' && String(e.f) === String(uid))
-      .map((e) => midOf(e)).slice(-MUTE_WIPE_MAX);
-    let n = 0;
-    for (const mid of ids) { const r = await tg(env, 'deleteMessage', { chat_id: cid, message_id: mid }); if (r.ok) n++; }
-    if (ids.length) await removeMsgs(env, cid, ids);
-    return { tried: ids.length, ok: n };
-  } catch (e) { return { tried: 0, ok: 0 }; }
 }
 
 /** اتمام خودکار سکوت ها در کرون — روی همان تنظیمات؛ نوشتن فقط وقتی منقضیِ واقعی وجود دارد */
@@ -1777,11 +1761,11 @@ function muteCenterText(s) {
     `<b>🔇 سکوت فرد — ${esc(s.title)}</b>\n\n` +
     `سکوت های فعال : <b>${keys.length}</b>\n${list}\n` +
     `روی فردِ سکوت شده هر پیامی بفرستد ( پست یا ادیت ) فوراً حذف میشه ؛ تا مدتش تموم بشه یا خودت آزادش کنی .\n` +
-    `با ثبت سکوت ، پیام های اخیرِ ثبت شده اون فرد هم پاک میشن .`,
+    `فقط پیام های « بعد از سکوت » حذف میشن ؛ پیام های قبلیِ اون فرد دست نخورده میمونن .`,
     `<b>🔇 Mute a person — ${esc(s.title)}</b>\n\n` +
     `Active mutes: <b>${keys.length}</b>\n${list}\n` +
     `While muted, everything this person posts or edits is deleted instantly — until the duration ends or you free them.\n` +
-    `When a mute is added, the person's recently tracked messages are wiped too.`);
+    `Only messages sent after the mute are deleted — older messages stay untouched.`);
 }
 
 function muteCenterKB(cid, s) {
@@ -1826,14 +1810,14 @@ function muteConfirmText(s, tu, nm, mins) {
     `کاربر : <a href="tg://user?id=${tu}">${esc(nm)}</a> — شناسه : <code>${tu}</code>\n` +
     `مدت : ${muteDurLabel(mins)}\n` +
     `پایان : ${mins > 0 ? `<code>${jalaliStamp(Date.now() + mins * 60000)}</code>` : '— ( تا ازادسازی دستی )'}\n` +
-    `پاکسازی : پیام های اخیرِ ثبت شده این فرد ( تا ۳۰ پست ) بعد از تأیید حذف میشن .\n\n` +
+    `تأثیر : فقط پست و ادیت های « بعد از تأیید » حذف میشن ؛ پیام های قبلی این فرد حذف نمیشن .\n\n` +
     `ثبت کنم ؟`,
     `<b>Add mute</b>\n\n` +
     `Channel: <b>${esc(s.title)}</b>\n` +
     `User: <a href="tg://user?id=${tu}">${esc(nm)}</a> — ID: <code>${tu}</code>\n` +
     `Duration: ${muteDurLabel(mins)}\n` +
     `Ends: ${mins > 0 ? `<code>${jalaliStamp(Date.now() + mins * 60000)}</code>` : '— (until freed manually)'}\n` +
-    `Cleanup: the person's recently tracked messages (up to 30) are deleted after you confirm.\n\n` +
+    `Effect: only posts/edits sent after your confirmation get deleted — the person's older messages stay.\n\n` +
     `Save it?`);
 }
 
@@ -1858,12 +1842,12 @@ function muteGuideText(s) {
     `<b>📖 راهنمای سکوت</b>\n\n` +
     `« سکوت » یعنی : تا پایان مدت، هر پست یا ادیتِ اون فرد تو این چنل « فوراً حذف میشه » ؛ انقضاش خودکاره ( کرون هر دقیقه چک میکنه ) و خبر آزاد شدن به مالک میره .\n\n` +
     `محدودیت تلگرام : پستِ « بی امضا » شناسه فرستنده نداره ( تلگرام خودش نمیفرسته ) ؛ پس سکوت فقط روی پست های « امضا دار » و ادیت ها اعمال میشه . برای پوشش کامل ، گزینه « Sign messages » رو برای ادمین ها روشن نگه دار .\n\n` +
-    `پیام های قدیمی تر از ۴۸ ساعت به هیچ رباتی قابل حذف نیستن ( محدودیت تلگرام ) ؛ پاکسازی اولیه روی پیام های « اخیرِ ثبت شده » ( تا ۳۰ پست ) اعمال میشه .\n\n` +
+    `سکوت « گذشته پاک کن » نیست : فقط پیام هایی که بعد از ثبت سکوت فرستاده بشن حذف میشن ؛ پیام های قبلی دست نمیخورن .\n\n` +
     `مدیریت : تو همین منو میتونی هر فرد رو جداگانه آزاد کنی یا همه رو یکجا . دکمه های سریع « سکوت 24 ساعته / همیشه » هم روی گزارش های وضعیت زرد/قرمز هست .`,
     `<b>📖 Mute guide</b>\n\n` +
     `"Mute" means: until the duration ends, everything this person posts or edits in this channel is deleted instantly. Expiry is automatic (checked every minute) and the owner is notified when it ends.\n\n` +
     `Telegram limitation: unsigned channel posts carry no sender ID, so mutes apply to signed posts and edits. Keep "Sign messages" enabled for full coverage.\n\n` +
-    `Messages older than 48h can't be deleted by any bot (Telegram limit); the initial wipe applies to recently tracked messages (up to 30).\n\n` +
+    `Muting is not a history cleaner: only messages posted after the mute is saved get deleted — older messages stay untouched.\n\n` +
     `Management: free each person separately or everyone at once in this menu. Quick "Mute 24h / Permanent" buttons are also on yellow/red alerts.`);
 }
 
@@ -2871,7 +2855,7 @@ function helpText() {
     `━━━ Today's stats & test report (v1.9) ━━━\n` +
     `The stats section shows a separate "today" counter in Tehran time. "Bot admins" has a "Test report" button that sends a test message to the owner, all admins and viewers so you can confirm reports reach everyone.\n\n` +
     `━━━ Mute a person (v3.3) ━━━\n` +
-    `Channel menu → "🔇 Mute a person": send their ID + duration (grid or custom); from that moment every post/edit of theirs is deleted instantly and their recently tracked messages are wiped. Expiry is announced automatically and manual release is one tap away; quick "Mute 24h / Permanent" buttons also sit on yellow/red alerts. Unsigned posts carry no sender ID, so they cannot be attributed or muted.\n` +
+    `Channel menu → "🔇 Mute a person": send their ID + duration (grid or custom); from that moment every post/edit of theirs is deleted instantly — only messages after the mute, older ones stay untouched. Expiry is announced automatically and manual release is one tap away; quick "Mute 24h / Permanent" buttons also sit on yellow/red alerts. Unsigned posts carry no sender ID, so they cannot be attributed or muted.\n` +
     `If locks don't work, check "Health" (the delete-messages permission).\n` +
     `Telegram limitation — no bot can delete messages older than 48 hours; edits of such messages are reported but deletion is up to Telegram. Fresh posts are always deleted instantly.\n` +
     `Setting changes apply everywhere within a few seconds. The bot runs on Cloudflare's free plan — fully sufficient for normal channels.`
@@ -4158,7 +4142,6 @@ Note: only posts made after v2.7 are tracked; older ones are out of reach for an
       if (!/^\d{3,}$/.test(tu)) return answerCb(env, cb.id, '⚠️ داده نامعتبر!', true);
       const s = await muteApply(env, a1, tu, mins);
       if (!s || !s.mutes || !s.mutes[tu]) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
-      const wipe = await muteWipeRecent(env, a1, tu);
       const m = s.mutes[tu];
       const owner = await getOwnerId(env);
       if (owner) {
@@ -4168,22 +4151,22 @@ Note: only posts made after v2.7 are tracked; older ones are out of reach for an
             `کاربر : <a href="tg://user?id=${tu}">${esc(m.n)}</a> — شناسه : <code>${tu}</code>\n` +
             `مدت : ${muteDurLabel(mins)}\n` +
             `پایان : ${m.u == null ? '— ( تا ازادسازی دستی )' : `<code>${jalaliStamp(m.u)}</code>`}\n` +
-            `پاکسازی : ${wipe.ok ? `${faNum(wipe.ok)} پیام اخیرش حذف شد` : 'پیام اخیرِ ثبت شده ای ازش نبود'}\n` +
+            `تأثیر : از همین لحظه هر پست/ادیتش فوراً حذف میشه ؛ پیام های قبلیش دست نخورده میمونن\n` +
             `ساعت تهران : <code>${tehranHM()}</code>`,
             `<b>🔇 Mute saved</b>\n\n` +
             `Channel: <b>${esc(s.title)}</b>\n` +
             `User: <a href="tg://user?id=${tu}">${esc(m.n)}</a> — ID: <code>${tu}</code>\n` +
             `Duration: ${muteDurLabel(mins)}\n` +
             `Ends: ${m.u == null ? '— (until freed manually)' : `<code>${jalaliStamp(m.u)}</code>`}\n` +
-            `Cleanup: ${wipe.ok ? `${wipe.ok} recent message(s) deleted` : 'no recent tracked messages of theirs'}\n` +
+            `Effect: from now on every post/edit of theirs is deleted instantly — older messages stay untouched\n` +
             `Tehran time: <code>${tehranHM()}</code>`)).catch(() => {});
       }
       if (act === 'muGo') {
         await edit(env, msg.chat.id, msg.message_id, muteCenterText(s), muteCenterKB(a1, s));
       }
       return answerCb(env, cb.id,
-        L(`🔇 سکوت ${mins ? muteRemain(mins * 60000) : 'همیشه'} ثبت شد` + (wipe.ok ? ` — ${faNum(wipe.ok)} پیام اخیرش هم حذف شد` : ''),
-          `🔇 Mute ${mins ? muteRemain(mins * 60000) : 'permanent'} saved` + (wipe.ok ? ` — ${wipe.ok} recent message(s) deleted` : '')), true);
+        L(`🔇 سکوت ${mins ? muteRemain(mins * 60000) : 'همیشه'} ثبت شد — از همین لحظه پیام هاش حذف میشن`,
+          `🔇 Mute ${mins ? muteRemain(mins * 60000) : 'permanent'} saved — their messages are deleted from now on`), true);
     }
     if (act === 'muF') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
@@ -4943,7 +4926,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v3.3 (manual mute — silence a specific person for a chosen duration or permanently: every post/edit of theirs is deleted instantly, recent tracked messages wiped at save time, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v3.3.1 (manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;

@@ -2244,7 +2244,7 @@ await section('v3.3 — سکوت همیشه + مقاومت در برابر کر�
   ok(!delCalls().some((c) => c.payload.message_id === 9406), 'بعد از آزادسازی پست حذف نمیشود');
 });
 
-await section('v3.3 — پاکسازی پیام های اخیر فرد هنگام ثبت سکوت', async () => {
+await section('v3.3.1 — پیام های قبل از سکوت دست نمیخورند ( بدون پاکسازی گذشته )', async () => {
   clearCalls();
   await post(chan({ message_id: 9410, text: 'قربانی 1', from: { id: 555000, first_name: 'مکار' }, author_signature: 'مکار' }));
   await post(chan({ message_id: 9411, text: 'بیگناه 1', from: { id: 777001, first_name: 'عادی' }, author_signature: 'عادی' }));
@@ -2254,13 +2254,18 @@ await section('v3.3 — پاکسازی پیام های اخیر فرد هنگا�
   await post(priv('555000', OWNER));
   await post(cbQuery(`muD:${CID}:555000:360`, OWNER));
   await post(cbQuery(`muGo:${CID}:555000:360`, OWNER));
+  // v3.3.1: با ثبت سکوت هیچ پیام قبلی ای حذف نمیشود — نه مال فرد سکوت شده و نه دیگران
   const d = delCalls().filter((c) => [9410, 9411, 9412].includes(c.payload.message_id));
-  ok(d.some((c) => c.payload.message_id === 9410), 'پیام اخیر فرد سکوت شده ( 1 ) پاک شد');
-  ok(d.some((c) => c.payload.message_id === 9412), 'پیام اخیر فرد سکوت شده ( 2 ) پاک شد');
-  ok(!d.some((c) => c.payload.message_id === 9411), 'پیام افراد دیگر دست نخورد');
+  ok(d.length === 0, 'پیام های قبلیِ فرد سکوت شده حذف نشدند');
+  ok(!delCalls().some((c) => c.payload.message_id === 9411), 'پیام افراد دیگر هم دست نخورد');
   const s = JSON.parse(await env.KV.get('chat:' + CID));
   ok(s.mutes && s.mutes['555000'], 'سکوت فعال ماند');
-  ok(lastText().includes('پاکسازی'), 'تعداد پاکسازی در اعلان هست');
+  ok(lastText().includes('از همین لحظه'), 'اعلان سکوت تأثیر « از همین لحظه » را میگوید');
+  // اجرای سکوت فقط روی پیام های بعد از ثبت:
+  clearCalls();
+  await post(chan({ message_id: 9413, text: 'پستِ بعد از سکوت', from: { id: 555000, first_name: 'مکار' }, author_signature: 'مکار' }));
+  ok(delCalls().some((c) => c.payload.message_id === 9413), 'پستِ بعد از سکوت فوراً حذف شد');
+  await post(cbQuery(`muF:${CID}:555000`, OWNER));
 });
 
 await section('v3.3 — دکمه سریع روی گزارش زرد/قرمز + گارد غیرمالک + دلخواه', async () => {
