@@ -1,5 +1,5 @@
 /* ============================================================================
- * 🛡️  ربات ضد خیانت کانال  —  نسخه ۲.۹ (همه چیز تعاملی: انتخاب ساعت با دکمه + پریست + تأیید؛ بازنویسی کامل متن ها با سبک جدید)
+ * 🛡️  ربات ضد خیانت کانال  —  نسخه ۳.۳ (تعاملی کامل + گزارش پویا + شاخص سهمیه امن + سکوت دستی فرد)
  * ----------------------------------------------------------------------------
  * اجرا روی: Cloudflare Workers (پلن رایگان) + Cloudflare KV
  * نویسنده: ساخته شده برای مدیریت چنل های تلگرام با دقت حذف لحظه ای
@@ -25,6 +25,9 @@
  *    میدهد تا ادمینِ انسانی — که این محدودیت را ندارد — با یک کلیک بازش کند و دستی حذف کند.
  *  • گزارش پویا (v3.2): هویت فرستنده خودکار حل میشود — پست امضا دار ⇒ « ادمین امضاکننده » با تطبیق امضا و منشن+شناسه ،
  *    ادمین ناشناس گروه / پست بی امضای چنل با توضیح کوتاه و راه حل ؛ برای ادیت ها « متن قبلی / متن جدید » هم نشان داده میشود.
+ *  • 🔇 سکوت دستی (v3.3): مالک یک فرد مشخص را برای مدت مشخص ( یا همیشه ) سکوت میکند؛ از همان لحظه هر پست
+ *    و ادیتِ او فوراً حذف میشود و پیام های اخیرِ ثبت شده اش هم پاک میشوند؛ اتمام خودکار با کرون هر دقیقه
+ *    ( صفر خواندن KV اضافه — سکوت ها داخل خودِ تنظیمات چنل ذخیره میشوند ) .
  *  • لینک مستقیم t.me پیام متخلف در گزارش پیوی و « آخرین تخلف ها » — چنل عمومی
  *    با یوزرنیم، چنل خصوصی به شکل t.me/c/<شناسه داخلی>/<آیدی> (فقط برای اعضا باز میشود).
  *  • نقش « ناظر »: فقط مشاهده تخلف ها (گزارش پیوی + 📜 آخرین تخلف ها + آمار) بدون حق تغییر.
@@ -389,11 +392,11 @@ async function flushMsgs(env, cid) {
 }
 
 /** ثبت شناسه یک پیام در حلقه چنل (env میتواند null باشد وقتی فلاش بعدی نیاز نیست) */
-function trackMsg(env, ctx, cid, mid, text) {
+function trackMsg(env, ctx, cid, mid, text, fromUid) {
   if (!cid || !mid) return;
   let arr = pendMsgs.get(cid);
   if (!arr) { arr = []; pendMsgs.set(cid, arr); }
-  if (!arr.some((x) => midOf(x) === mid)) arr.push({ i: mid, t: text || null });
+  if (!arr.some((x) => midOf(x) === mid)) arr.push(fromUid ? { i: mid, t: text || null, f: String(fromUid) } : { i: mid, t: text || null }); // 🔇 v3.3 — f = فرستنده واقعی برای پاکسازی سکوت
   if (!ctx || !env) return;
   if (arr.length >= MSG_FLUSH_N) { ctx.waitUntil(flushMsgs(env, cid)); return; }
   if (!pendMsgsTimer.get(cid)) {
@@ -457,6 +460,7 @@ let CUR_LANG = 'fa';
 const L = (fa, en) => (CUR_LANG === 'en' && en != null && en !== '') ? en : fa;
 const EN_MAP = new Map([['قفل کامل', 'Full lock'],
   ['پست چنل', 'Channel post'], ['ادمین ناشناس', 'Anonymous admin'],
+  ['سکوت دستی', 'Manual mute'],
   ['ادیت متن', 'Text edit'],
   ['ادیت مدیا', 'Media edit'],
   ['لینک در ادیت', 'Link in edit'],
@@ -1609,6 +1613,260 @@ function banPay(env, cid, uid, s) {
   return p;
 }
 
+/* ── 🔇 v3.3: سکوت دستی فرد — پایان هرج و مرج شخصی ─────────────────────────
+ * مالک میتواند یک فرد مشخص را « برای مدت مشخص » ( یا همیشه ) سکوت کند:
+ *   • از پنل چنل ( دکمه « 🔇 سکوت فرد » ) با شناسه + گرید مدت / دلخواه
+ *   • یا با دکمه های سریع « سکوت 24 ساعته / همیشه » روی گزارش های وضعیت زرد/قرمز
+ * از لحظه ثبت تا پایان مدت، هر پست یا ادیتِ آن فرد فوراً حذف میشود و در لحظه ثبت هم
+ * « پیام های اخیرِ ثبت شده » او پاک سازی میشوند ( حلقه ۱۰۰ پیام اخیر چنل ) .
+ * سکوت ها داخل خودِ تنظیمات چنل ذخیره میشوند ( s.mutes ) ⇒ صفر خواندن KV اضافه:
+ *   • مسیر پست چنل همان تنظیمات را میخواند ( کش ۱۰ ثانیه ای )
+ *   • کرون هر دقیقه هم تنظیمات را میخواند ⇒ اتمام خودکار بدون هیچ خواندن اضافه
+ * محدودیت تلگرام: پست « بی امضا » شناسه فرستنده ندارد ⇒ قابل انتساب به فرد نیست؛
+ * سکوت روی پست های امضا دار ( و هر پیامی که از شناسه واقعیِ فرستنده آمده ) اعمال میشود. */
+
+const MUTE_WIPE_MAX = 30; // سقف حذفِ پیام های اخیر هنگام ثبت سکوت ( بودجه subrequest )
+
+/** فعال بودن یک سکوت ( u = زمان پایان؛ null = تا ازادسازی دستی ) */
+function muteActive(m, now) {
+  return !!m && (m.u == null || m.u > (now || Date.now()));
+}
+
+/** « 2 روز و 3 ساعت » از میلی ثانیه — نمایش مانده/مدت */
+function muteRemain(ms) {
+  const m = Math.max(0, Math.floor(ms / 60000));
+  const h = Math.floor(m / 60), d = Math.floor(h / 24);
+  if (d >= 1) return faNum(d) + ' روز' + (h % 24 ? ' و ' + faNum(h % 24) + ' ساعت' : '');
+  if (h >= 1) return faNum(h) + ' ساعت' + (m % 60 ? ' و ' + faNum(m % 60) + ' دقیقه' : '');
+  return faNum(m) + ' دقیقه';
+}
+
+function muteDurLabel(mins) {
+  if (!mins || mins <= 0) return L('همیشه ( تا ازادسازی دستی )', 'Permanent (until freed manually)');
+  return muteRemain(mins * 60000);
+}
+
+/** ثبت سکوت: {"<uid>": {u, n, at}} داخل تنظیمات چنل — یک نوشتن */
+async function muteApply(env, cid, uid, mins) {
+  const s = await getSettings(env, cid, true);
+  if (!s) return null;
+  const info = await getUserInfo(env, uid);
+  s.mutes = s.mutes || {};
+  s.mutes[String(uid)] = {
+    u: mins > 0 ? Date.now() + mins * 60000 : null,
+    n: info.n || info.u || ('کاربر ' + uid),
+    at: Date.now(),
+  };
+  await saveSettings(env, cid, s);
+  return s;
+}
+
+async function muteFree(env, cid, uid) {
+  const s = await getSettings(env, cid, true);
+  if (!s || !s.mutes || !s.mutes[String(uid)]) return null;
+  delete s.mutes[String(uid)];
+  if (!Object.keys(s.mutes).length) delete s.mutes;
+  await saveSettings(env, cid, s);
+  return s;
+}
+
+async function muteFreeAll(env, cid) {
+  const s = await getSettings(env, cid, true);
+  if (!s || !s.mutes) return null;
+  delete s.mutes;
+  await saveSettings(env, cid, s);
+  return s;
+}
+
+/** پاکسازی پیام های اخیرِ فرد سکوت شده ( حلقه ۱۰۰ تایی؛ حداکثر ۳۰ درخواست به دلیل سقف subrequest ) */
+async function muteWipeRecent(env, cid, uid) {
+  try {
+    const seen = new Set(), all = [];
+    for (const e of (await readMsgsRaw(env, cid))) { const i = midOf(e); if (i && !seen.has(i)) { seen.add(i); all.push(e); } }
+    for (const e of (pendMsgs.get(cid) || [])) { const i = midOf(e); if (i && !seen.has(i)) { seen.add(i); all.push(e); } }
+    const ids = all.filter((e) => e && typeof e === 'object' && String(e.f) === String(uid))
+      .map((e) => midOf(e)).slice(-MUTE_WIPE_MAX);
+    let n = 0;
+    for (const mid of ids) { const r = await tg(env, 'deleteMessage', { chat_id: cid, message_id: mid }); if (r.ok) n++; }
+    if (ids.length) await removeMsgs(env, cid, ids);
+    return { tried: ids.length, ok: n };
+  } catch (e) { return { tried: 0, ok: 0 }; }
+}
+
+/** اتمام خودکار سکوت ها در کرون — روی همان تنظیمات؛ نوشتن فقط وقتی منقضیِ واقعی وجود دارد */
+async function muteSweepSettings(env, cid, s) {
+  if (!s || !s.mutes) return;
+  const now = Date.now();
+  const exp = Object.keys(s.mutes).filter((k) => s.mutes[k] && s.mutes[k].u != null && s.mutes[k].u <= now);
+  if (!exp.length) return;
+  const names = exp.map((k) => String(s.mutes[k].n || ('کاربر ' + k)));
+  for (const k of exp) delete s.mutes[k];
+  if (!Object.keys(s.mutes).length) delete s.mutes;
+  await saveSettings(env, cid, s);
+  CUR_LANG = await langGlobal(env).catch(() => 'fa');
+  const owner = await getOwnerId(env);
+  if (!owner) return;
+  await send(env, owner,
+    L(`<b>🔓 سکوت تمام شد</b>\n\nچنل : <b>${esc(s.title)}</b>\n` +
+      exp.map((k, i) => `• ${esc(names[i])} — شناسه : <code>${k}</code>`).join('\n') +
+      `\n\nاز این لحظه پیام های این افراد حذف نمیشه .`,
+      `<b>🔓 Mute ended</b>\n\nChannel: <b>${esc(s.title)}</b>\n` +
+      exp.map((k, i) => `• ${esc(names[i])} — ID: <code>${k}</code>`).join('\n') +
+      `\n\nTheir messages are no longer deleted from now on.`)).catch(() => {});
+}
+
+/** اجرای سکوت روی یک پست/ادیت: حذف فوری + گزارش به گیرنده های گزارش همان چنل */
+async function muteEnforce(env, ctx, cid, s, msg, a, uid, m, isEdit) {
+  const sentAt = Number(msg.date || 0) * 1000;
+  const tooOld = !!(sentAt && Date.now() - sentAt > AGE_SKIP_MS);
+  const del = tooOld
+    ? { ok: false, description: "Bad Request: message can't be deleted" }
+    : await tg(env, 'deleteMessage', { chat_id: cid, message_id: msg.message_id });
+  const albumWiped = del.ok && a.album ? await albumWipe(env, cid, a.album, msg.message_id) : 0;
+  bumpStats(env, ctx, cid, isEdit, 'سکوت دستی');
+  addVlog(env, cid, msg, a, 'سکوت دستی', isEdit, del.ok);
+  if (s.log_pm === false) return;
+  const link = tgMsgLink((msg.chat && msg.chat.username) || s.username || '', cid, msg.message_id);
+  const body = msg.text || msg.caption || '';
+  const sum = body ? '« ' + esc(body.slice(0, 80)) + (body.length > 80 ? '…' : '') + ' »' : snippet(msg, a);
+  const endFA = m.u == null ? 'تا ازادسازی دستی ( همیشه )' : 'پایان : <code>' + jalaliStamp(m.u) + '</code>';
+  const endEN = m.u == null ? 'Until freed manually (permanent)' : 'Ends: <code>' + jalaliStamp(m.u) + '</code>';
+  const txt =
+    L(`<b>🔇 سکوت فعال — ${isEdit ? 'ادیت' : 'پست'} حذف شد</b>\n\n` +
+    `چنل : <b>${esc(s.title)}</b>\n` +
+    `کاربر : <a href="tg://user?id=${uid}">${esc(m.n || 'کاربر')}</a> — شناسه : <code>${uid}</code>\n` +
+    `${isEdit ? 'اقدام : ادیتِ پیام قبلی' : 'اقدام : ارسال پست جدید'}\n` +
+    `${sum ? 'خلاصه : ' + sum + '\n' : ''}` +
+    `پیام : <code>${msg.message_id}</code>\n` +
+    (link ? `لینک پیام : ${link}\n` : '') +
+    `حذف پیام : ${del.ok ? 'انجام شد ✅' : '❌ ' + esc(del.description || 'ناموفق')}\n` +
+    (albumWiped ? `کل آلبوم/اسلایدشو حذف شد — ${albumWiped} پست دیگر\n` : '') +
+    `${endFA}\n` +
+    `ساعت تهران : <code>${tehranHM()}</code>`,
+    `<b>🔇 Mute active — ${isEdit ? 'edit' : 'post'} deleted</b>\n\n` +
+    `Channel: <b>${esc(s.title)}</b>\n` +
+    `User: <a href="tg://user?id=${uid}">${esc(m.n || 'User')}</a> — ID: <code>${uid}</code>\n` +
+    `${isEdit ? 'Action: edited a previous post' : 'Action: posted a new message'}\n` +
+    `${sum ? 'Summary: ' + sum + '\n' : ''}` +
+    `Message: <code>${msg.message_id}</code>\n` +
+    (link ? `Message link: ${link}\n` : '') +
+    `Deleted: ${del.ok ? 'done ✅' : '❌ ' + esc(del.description || 'failed')}\n` +
+    (albumWiped ? `Entire album/slideshow deleted — ${albumWiped} more post(s)\n` : '') +
+    `${endEN}\n` +
+    `Tehran time: <code>${tehranHM()}</code>`);
+  const line = `🔇 ${L('سکوت دستی', 'Manual mute')} — ${esc(m.n || 'کاربر')} — پیام <code>${msg.message_id}</code>`;
+  await sendOwnerLog(env, ctx, cid, txt, line);
+}
+
+/* ── 🔇 v3.3: نماهای مرکز سکوت ── */
+function muteCenterText(s) {
+  const ms = s.mutes || {};
+  const keys = Object.keys(ms);
+  let list = '';
+  if (keys.length) {
+    list = '\n' + keys.map((k) => {
+      const m = ms[k] || {};
+      const remain = m.u == null
+        ? L('تا ازادسازی دستی ( همیشه )', 'until freed manually (permanent)')
+        : L(`« ${muteRemain(m.u - Date.now())} مانده »`, `"${muteRemain(m.u - Date.now())} left"`);
+      const end = m.u == null ? '' : L(` — پایان : <code>${jalaliStamp(m.u)}</code>`, ` — ends: <code>${jalaliStamp(m.u)}</code>`);
+      return `• ${esc(m.n || ('کاربر ' + k))} — شناسه : <code>${k}</code>\n  ${remain}${end}`;
+    }).join('\n') + '\n';
+  }
+  return L(
+    `<b>🔇 سکوت فرد — ${esc(s.title)}</b>\n\n` +
+    `سکوت های فعال : <b>${keys.length}</b>\n${list}\n` +
+    `روی فردِ سکوت شده هر پیامی بفرستد ( پست یا ادیت ) فوراً حذف میشه ؛ تا مدتش تموم بشه یا خودت آزادش کنی .\n` +
+    `با ثبت سکوت ، پیام های اخیرِ ثبت شده اون فرد هم پاک میشن .`,
+    `<b>🔇 Mute a person — ${esc(s.title)}</b>\n\n` +
+    `Active mutes: <b>${keys.length}</b>\n${list}\n` +
+    `While muted, everything this person posts or edits is deleted instantly — until the duration ends or you free them.\n` +
+    `When a mute is added, the person's recently tracked messages are wiped too.`);
+}
+
+function muteCenterKB(cid, s) {
+  const ms = s.mutes || {};
+  const keys = Object.keys(ms);
+  const rows = [[BTN('➕ افزودن سکوت', `muA:${cid}`, 'primary'), BTN('📖 راهنما', `muH:${cid}`)]];
+  for (let i = 0; i < keys.length; i += 2) {
+    const row = [];
+    for (let j = i; j < i + 2 && j < keys.length; j++) {
+      const k = keys[j];
+      row.push(BTN(`🔓 ${String((ms[k] && ms[k].n) || ('کاربر ' + k)).slice(0, 18)}`, `muF:${cid}:${k}`, 'success'));
+    }
+    rows.push(row);
+  }
+  if (keys.length > 1) rows.push([BTN('آزادسازی همه', `muFAll:${cid}`, 'danger')]);
+  rows.push([BTN('بازگشت', `chat:${cid}`)]);
+  return kb(rows);
+}
+
+function muteIdText() {
+  return L(
+    `<b>➕ افزودن سکوت</b>\n\nشناسه عددی فرد رو بفرست ( مثلاً <code>123456789</code> ) .\n` +
+    `بهترین منبع : شناسه ای که تو گزارش تخلف ها کنار « شناسه » اومده .\n\n` +
+    `نکته : سکوت فقط روی پیام هایی اعمال میشه که تلگرام شناسه فرستنده شون رو بده ( پست های امضا دار ) ؛ پست بی امضا هویت نداره .`,
+    `<b>➕ Add mute</b>\n\nSend the person's numeric ID (e.g. <code>123456789</code>).\n` +
+    `Best source: the ID shown in violation reports.\n\n` +
+    `Note: mutes apply only to messages where Telegram provides the sender's ID (signed posts); unsigned posts carry no identity.`);
+}
+
+function muteCustomText(tu) {
+  return L(
+    `<b>مدت دلخواه سکوت</b>\n\nعدد + واحد بفرست ( مثلاً <code>90 دقیقه</code> یا <code>2 روز</code> یا <code>1 هفته</code> ) .\n` +
+    `فقط عدد بفرستی به « دقیقه » حساب میشه . حداکثر ۱۰ سال .`,
+    `<b>Custom mute duration</b>\n\nSend a number + unit (e.g. <code>90 دقیقه</code> or <code>2 روز</code> or <code>1 هفته</code>).\n` +
+    `A bare number is treated as minutes. Max 10 years.`);
+}
+
+function muteConfirmText(s, tu, nm, mins) {
+  return L(
+    `<b>ثبت سکوت</b>\n\n` +
+    `چنل : <b>${esc(s.title)}</b>\n` +
+    `کاربر : <a href="tg://user?id=${tu}">${esc(nm)}</a> — شناسه : <code>${tu}</code>\n` +
+    `مدت : ${muteDurLabel(mins)}\n` +
+    `پایان : ${mins > 0 ? `<code>${jalaliStamp(Date.now() + mins * 60000)}</code>` : '— ( تا ازادسازی دستی )'}\n` +
+    `پاکسازی : پیام های اخیرِ ثبت شده این فرد ( تا ۳۰ پست ) بعد از تأیید حذف میشن .\n\n` +
+    `ثبت کنم ؟`,
+    `<b>Add mute</b>\n\n` +
+    `Channel: <b>${esc(s.title)}</b>\n` +
+    `User: <a href="tg://user?id=${tu}">${esc(nm)}</a> — ID: <code>${tu}</code>\n` +
+    `Duration: ${muteDurLabel(mins)}\n` +
+    `Ends: ${mins > 0 ? `<code>${jalaliStamp(Date.now() + mins * 60000)}</code>` : '— (until freed manually)'}\n` +
+    `Cleanup: the person's recently tracked messages (up to 30) are deleted after you confirm.\n\n` +
+    `Save it?`);
+}
+
+function muteConfirmKB(cid, tu, mins) {
+  return kb([
+    [BTN(L('ثبت کن ✅', 'Save ✅'), `muGo:${cid}:${tu}:${mins}`, 'success'), BTN('لغو', `muX:${cid}`, 'danger')],
+  ]);
+}
+
+function muteDurKB(cid, tu) {
+  return kb([
+    [BTN('1 ساعت', `muD:${cid}:${tu}:60`), BTN('6 ساعت', `muD:${cid}:${tu}:360`)],
+    [BTN('12 ساعت', `muD:${cid}:${tu}:720`), BTN('1 روز', `muD:${cid}:${tu}:1440`)],
+    [BTN('2 روز', `muD:${cid}:${tu}:2880`), BTN('1 هفته', `muD:${cid}:${tu}:10080`)],
+    [BTN('همیشه', `muD:${cid}:${tu}:0`, 'danger'), BTN('دلخواه ⌨️', `muC:${cid}:${tu}`)],
+    [BTN('انصراف', `muX:${cid}`, 'danger')],
+  ]);
+}
+
+function muteGuideText(s) {
+  return L(
+    `<b>📖 راهنمای سکوت</b>\n\n` +
+    `« سکوت » یعنی : تا پایان مدت، هر پست یا ادیتِ اون فرد تو این چنل « فوراً حذف میشه » ؛ انقضاش خودکاره ( کرون هر دقیقه چک میکنه ) و خبر آزاد شدن به مالک میره .\n\n` +
+    `محدودیت تلگرام : پستِ « بی امضا » شناسه فرستنده نداره ( تلگرام خودش نمیفرسته ) ؛ پس سکوت فقط روی پست های « امضا دار » و ادیت ها اعمال میشه . برای پوشش کامل ، گزینه « Sign messages » رو برای ادمین ها روشن نگه دار .\n\n` +
+    `پیام های قدیمی تر از ۴۸ ساعت به هیچ رباتی قابل حذف نیستن ( محدودیت تلگرام ) ؛ پاکسازی اولیه روی پیام های « اخیرِ ثبت شده » ( تا ۳۰ پست ) اعمال میشه .\n\n` +
+    `مدیریت : تو همین منو میتونی هر فرد رو جداگانه آزاد کنی یا همه رو یکجا . دکمه های سریع « سکوت 24 ساعته / همیشه » هم روی گزارش های وضعیت زرد/قرمز هست .`,
+    `<b>📖 Mute guide</b>\n\n` +
+    `"Mute" means: until the duration ends, everything this person posts or edits in this channel is deleted instantly. Expiry is automatic (checked every minute) and the owner is notified when it ends.\n\n` +
+    `Telegram limitation: unsigned channel posts carry no sender ID, so mutes apply to signed posts and edits. Keep "Sign messages" enabled for full coverage.\n\n` +
+    `Messages older than 48h can't be deleted by any bot (Telegram limit); the initial wipe applies to recently tracked messages (up to 30).\n\n` +
+    `Management: free each person separately or everyone at once in this menu. Quick "Mute 24h / Permanent" buttons are also on yellow/red alerts.`);
+}
+
 /**
  * 🟡🔴 v1.8: ادیتِ پستی که مدیا دارد، وقتی وضعیت زرد/قرمز فعال است ⇒
  * حذف فوری + شناسایی متخلف (موازی با حذف) + عزل ادمینی؛ بن فقط در وضعیت قرمز.
@@ -1732,6 +1990,7 @@ async function redEnforce(env, ctx, cid, s, msg, a, reason) {
   const rows = [];
   if (target && pm === 'red' && ban && ban.ok) rows.push([BTN('لغو بن (بخشیدن)', `ubn:${cid}:${target}`, 'success')]);
   if (target && prev && !ownerSkip) rows.push([BTN('بازگردانی دسترسی های قبلی متخلف', `admU:${cid}:${target}`, 'primary')]);
+  if (target && !ownerSkip) rows.push([BTN(L('🔇 سکوت 24 ساعته', '🔇 Mute 24h'), `muQ:${cid}:${target}:1440`), BTN(L('🔇 همیشه', '🔇 Permanent'), `muQ:${cid}:${target}:0`)]); // 🔇 v3.3
   await sendRedAlert(env, cid, txt, rows.length ? kb(rows) : null);
 }
 
@@ -2080,12 +2339,13 @@ function mainText(from, scope = null) {
     `وضعیت زرد یعنی عزل متخلف ، وضعیت قرمز یعنی عزل + بن با مدت دلخواه\n` +
     `اعلان قفل تو خود چنل با شروع / پایان قفل ها ؛ اگه نخوای از پنل خاموشش کن و گزارش و آمار کامل هر حذف ، همینجا تو پیوی\n` +
     `انتخاب ساعت قفل زمان دار با دکمه ( ۰ تا ۲۳ ) ؛ پیام همگانی و حذف پیام های اخیر هم همه با دکمه و تأیید\n` +
+    `سکوت فرد خاص برای مدت مشخص ( یا همیشه ) : هر پست و ادیتش فوراً حذف میشه تا خودت آزادش کنی\n` +
     `</blockquote>\n\n` +
     `<b>شروع :</b>\n` +
     `1 ) ربات رو ادمین هر چنل کن ( دسترسی « حذف پیام » لازمه )\n` +
     `2 ) پیام فعال سازی میاد ؛ تأییدش کن : هر چنل جداگانه\n` +
     `3 ) قفل ها رو تنظیم کن ؛ بقیش با من .\n\n` +
-    `<i>ضد خیانت v3.2.1</i>`
+    `<i>ضد خیانت v3.3</i>`
   ), (
     `🛡️ <b>Anti-Treason Channel Guard</b>\n\n` +
     `Hi <b>${esc(from.first_name || '')}</b>, welcome!\n` +
@@ -2101,6 +2361,7 @@ function mainText(from, scope = null) {
     `• Lock announcements in the channel — on lock start/end; turn them off from the panel if you don't want them\n` +
     `• Full report and stats for every deletion, right here in DM\n` +
     `• Albums/slideshows — a violation in any part deletes the entire album\n` +
+    `• Manual mute — silence a specific person for a chosen duration; everything they post or edit is deleted until you free them\n` +
     `• Up to date with the latest Telegram — rich messages, checklists, live photos and paid media are covered too\n` +
     `• Instant ownership-change alert — straight to you\n` +
     `</blockquote>\n\n` +
@@ -2108,7 +2369,7 @@ function mainText(from, scope = null) {
     `1) Make the bot an admin of any channel (the "Delete messages" permission is required)\n` +
     `2) An activation message arrives; approve it — each channel separately\n` +
     `3) Set the locks; I'll handle the rest.\n\n` +
-    `<i>Anti-Treason v2.9</i>`
+    `<i>Anti-Treason v3.3</i>`
   ));
 }
 
@@ -2244,6 +2505,7 @@ function chatKB(cid, s = null, viewer = false, isOwner = true) {
   rows.push([BTN(`${L('مدت بن خودکار (قرمز): ', 'Auto-ban duration (red): ')}${tr(BAN_LABEL[bhv] || 'همیشگی')}`, `banH:${cid}`)]);
   rows.push([BTN('قفل ها', `locks:${cid}`), BTN('قفل زمان دار', `sched:${cid}`)]);
   rows.push([BTN('ادمین های چنل', `admC:${cid}`)]);
+  if (isOwner) rows.push([BTN('🔇 سکوت فرد', `muM:${cid}`)]); // 🔇 v3.3 — فقط مالک
   rows.push([BTN('بکاپ تنظیمات', `bakE:${cid}`), BTN('بازگردانی', `bakI:${cid}`)]);
   if (isOwner) rows.push([BTN('ارسال پیام به چنل', `bc1:${cid}`), BTN('حذف پیام های اخیر', `dLM:${cid}`)]);
   rows.push([BTN('آمار تخلفات', `stats:${cid}`), BTN('سلامت', `health:${cid}`)]);
@@ -2546,7 +2808,8 @@ function helpText() {
     `« بکاپ » کل تنظیمات (قفل ها، وضعیت زرد/قرمز، مدت بن، قفل زمان دار، اعلان قفل و…) رو تو یه متن میده و « بازگردانی » همون متن رو میگیره و دقیقاً همون وضعیت رو برمی گردونه — مناسب انتقال تنظیمات بین چنل ها و بازیابی سریع.\n\n` +
     `━━━ آمار امروز و گزارش آزمایشی (v1.9) ━━━\n` +
     `تو « آمار تخلفات » شمارنده « امروز » به وقت تهران جدا نمایش داده میشه. تو « ادمین های ربات » دکمه « گزارش آزمایشی » به مالک و همه ادمین ها و ناظرها پیام تستی میفرسته تا مطمئن شی گزارش ها به همه میرسه.\n\n` +
-    `━━━ نکته ها ━━━\n` +
+    `━━━ سکوت فرد خاص (v3.3) ━━━\n` +
+    `منوی چنل ⇒ « 🔇 سکوت فرد » : شناسه + مدت ( گرید یا دلخواه ) ؛ از همان لحظه هر پست و ادیتِ اون فرد فوراً حذف میشه و پیام های اخیر ثبت شده اش هم پاک میشن . پایان مدت خودکار خبر داده میشه و آزادسازی دستی هم هست ؛ دکمه های سریع « سکوت 24 ساعته / همیشه » روی گزارش های زرد/قرمز هم هست . پست بی امضا شناسه نداره و قابل سکوت نیست .\n` +
     `اگه قفل ها کار نمیکنن، « سلامت » رو چک کن (دسترسی حذف پیام).\n` +
     `محدودیت تلگرام — هیچ رباتی نمیتونه پیام های قدیمی تر از ۴۸ ساعت رو پاک کنه؛ ادیتِ چنین پیام هایی گزارش میشه ولی حذفش با توئه. پست های تازه همیشه فوراً پاک میشن.\n` +
     `تغییر تنظیمات حداکثر چند ثانیه بعد همه جا اعمال میشه. ربات روی پلن رایگان Cloudflare اجرا میشه و برای چنل های عادی کاملاً کافیه.`
@@ -2607,7 +2870,8 @@ function helpText() {
     `"Backup" produces all settings (locks, yellow/red mode, ban duration, scheduled lock, …) as one text, and "Restore" takes that text back and returns exactly that state — great for moving settings between channels and quick recovery.\n\n` +
     `━━━ Today's stats & test report (v1.9) ━━━\n` +
     `The stats section shows a separate "today" counter in Tehran time. "Bot admins" has a "Test report" button that sends a test message to the owner, all admins and viewers so you can confirm reports reach everyone.\n\n` +
-    `━━━ Notes ━━━\n` +
+    `━━━ Mute a person (v3.3) ━━━\n` +
+    `Channel menu → "🔇 Mute a person": send their ID + duration (grid or custom); from that moment every post/edit of theirs is deleted instantly and their recently tracked messages are wiped. Expiry is announced automatically and manual release is one tap away; quick "Mute 24h / Permanent" buttons also sit on yellow/red alerts. Unsigned posts carry no sender ID, so they cannot be attributed or muted.\n` +
     `If locks don't work, check "Health" (the delete-messages permission).\n` +
     `Telegram limitation — no bot can delete messages older than 48 hours; edits of such messages are reported but deletion is up to Telegram. Fresh posts are always deleted instantly.\n` +
     `Setting changes apply everywhere within a few seconds. The bot runs on Cloudflare's free plan — fully sufficient for normal channels.`
@@ -2825,6 +3089,64 @@ async function handleStateInput(msg, env, st) {
   } else if (st.cid && !canCh(scopeNow, st.cid)) {
     await clearPanelState(env, uid);
     return send(env, msg.chat.id, `⛔️ دسترسی شما به این چنل وجود ندارد (یا گرفته شده).`);
+  }
+
+  /* ── 🔇 v3.3: ورودی های سکوت ( فقط مالک ) ── */
+  if (st.t === 'muA') {
+    const scopeM = await accessOf(env, uid);
+    if (!scopeM || scopeM.role !== 'owner') {
+      await clearPanelState(env, uid);
+      return send(env, msg.chat.id, deniedText());
+    }
+    const digits = toEnDigits(text).replace(/[^\d]/g, '');
+    const tu = digits ? String(parseInt(digits, 10)) : '';
+    if (!tu || tu.length < 3) {
+      return send(env, msg.chat.id,
+        L(`⚠️ شناسه عددی پیدا نشد !\nمثلاً <code>123456789</code>\n\nدوباره بفرست یا /start بزن تا لغو بشه .`,
+          `⚠️ No numeric ID found!\nExample: <code>123456789</code>\n\nSend it again, or press /start to cancel.`));
+    }
+    const meM = await botInfo(env);
+    if (meM && String(meM.id) === tu) {
+      return send(env, msg.chat.id,
+        L(`😅 این شناسه خودِ رباته ! کسی دیگه رو سکوت کن .`, `😅 That's the bot itself! Mute someone else.`));
+    }
+    const info = await getUserInfo(env, tu);
+    const nm = info.n || info.u || ('کاربر ' + tu);
+    await setPanelState(env, uid, { t: 'muDur', cid: st.cid, tu });
+    return send(env, msg.chat.id,
+      L(`<b>مدت سکوت برای « ${esc(nm)} »</b>\n\nشناسه : <code>${tu}</code>\n\nیکی از دکمه های پایین رو بزن یا « دلخواه » رو انتخاب کن .`,
+        `<b>Mute duration for "${esc(nm)}"</b>\n\nID: <code>${tu}</code>\n\nPick one of the buttons below, or choose "Custom".`),
+      muteDurKB(st.cid, tu));
+  }
+  if (st.t === 'muDur') {
+    return send(env, msg.chat.id,
+      L(`از دکمه های پیام بالا استفاده کن . /start = لغو`, `Use the buttons above. /start = cancel`));
+  }
+  if (st.t === 'muC') {
+    const scopeM = await accessOf(env, uid);
+    if (!scopeM || scopeM.role !== 'owner') {
+      await clearPanelState(env, uid);
+      return send(env, msg.chat.id, deniedText());
+    }
+    const mM = toEnDigits(text).trim().match(/^(\d{1,6})\s*(دقیقه|ساعت|روز|هفته|ماه|min|minutes?|hours?|days?|weeks?|months?)?$/i);
+    if (!mM) {
+      return send(env, msg.chat.id,
+        L(`⚠️ فرمت درست نیست !\nعدد + واحد بفرست ( مثلاً <code>90 دقیقه</code> یا <code>2 روز</code> ) ؛ فقط عدد = دقیقه .\n\nدوباره بفرست یا /start بزن تا لغو بشه .`,
+          `⚠️ Invalid format!\nSend number + unit (e.g. <code>90 دقیقه</code> or <code>2 روز</code>); a bare number = minutes.\n\nSend it again, or press /start to cancel.`));
+    }
+    let mins = parseInt(mM[1], 10);
+    const unit = (mM[2] || '').toLowerCase();
+    const mult = unit.startsWith('ساعت') || unit.startsWith('hour') ? 60
+      : unit.startsWith('روز') || unit.startsWith('day') ? 1440
+      : unit.startsWith('هفته') || unit.startsWith('week') ? 10080
+      : unit.startsWith('ماه') || unit.startsWith('month') ? 43200 : 1;
+    mins = Math.min(5256000, mins * mult); // سقف ۱۰ سال
+    const s = await getSettings(env, st.cid, true);
+    if (!s) { await clearPanelState(env, uid); return send(env, msg.chat.id, L(`⚠️ این چنل دیگه ثبت نیست.`, `⚠️ This channel is no longer registered.`)); }
+    const info = await getUserInfo(env, st.tu);
+    const nm = info.n || info.u || ('کاربر ' + st.tu);
+    await clearPanelState(env, uid);
+    return send(env, msg.chat.id, muteConfirmText(s, st.tu, nm, mins), muteConfirmKB(st.cid, st.tu, mins));
   }
 
   // 🧹 v2.7 — حذف N پیام آخر چنل: دریافت عدد (فقط مالک)
@@ -3785,6 +4107,99 @@ Note: only posts made after v2.7 are tracked; older ones are out of reach for an
       pendMsgs.delete(a1); pendMsgsTimer.delete(a1);
       return answerCb(env, cb.id, '🗑 چنل رد شد و از لیست حذف شد');
     }
+    /* ── 🔇 v3.3: مرکز سکوت — فقط مالک ── */
+    if (act === 'muM' || act === 'muX') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      if (act === 'muX') await clearPanelState(env, uid);
+      const s = await getSettings(env, a1, true);
+      if (!s) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
+      await edit(env, msg.chat.id, msg.message_id, muteCenterText(s), muteCenterKB(a1, s));
+      return answerCb(env, cb.id);
+    }
+    if (act === 'muH') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const s = await getSettings(env, a1, true);
+      if (!s) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
+      await edit(env, msg.chat.id, msg.message_id, muteGuideText(s), kb([[BTN('بازگشت', `muM:${a1}`)]]));
+      return answerCb(env, cb.id);
+    }
+    if (act === 'muA') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const s = await getSettings(env, a1, true);
+      if (!s) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
+      await setPanelState(env, uid, { t: 'muA', cid: a1 });
+      await edit(env, msg.chat.id, msg.message_id, muteIdText(), kb([[BTN('انصراف', `muX:${a1}`, 'danger')]]));
+      return answerCb(env, cb.id, L('↓ شناسه عددی فرد رو بفرست', "↓ Send the person's numeric ID"));
+    }
+    if (act === 'muD') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const tu = String(parts[2] || ''), mins = parseInt(parts[3], 10);
+      if (!/^\d{3,}$/.test(tu) || !(mins >= 0)) return answerCb(env, cb.id, '⚠️ داده نامعتبر!', true);
+      const s = await getSettings(env, a1, true);
+      if (!s) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
+      const info = await getUserInfo(env, tu);
+      const nm = info.n || info.u || ('کاربر ' + tu);
+      await edit(env, msg.chat.id, msg.message_id, muteConfirmText(s, tu, nm, mins), muteConfirmKB(a1, tu, mins));
+      return answerCb(env, cb.id, L('تأیید کن', 'Confirm'));
+    }
+    if (act === 'muC') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const tu = String(parts[2] || '');
+      if (!/^\d{3,}$/.test(tu)) return answerCb(env, cb.id, '⚠️ داده نامعتبر!', true);
+      const s = await getSettings(env, a1, true);
+      if (!s) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
+      await setPanelState(env, uid, { t: 'muC', cid: a1, tu });
+      await edit(env, msg.chat.id, msg.message_id, muteCustomText(tu), kb([[BTN('انصراف', `muX:${a1}`, 'danger')]]));
+      return answerCb(env, cb.id, L('↓ عدد + واحد بفرست ( مثلاً 90 دقیقه )', '↓ Send number + unit (e.g. 90 minutes)'));
+    }
+    if (act === 'muGo' || act === 'muQ') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const tu = String(parts[2] || ''), mins = Math.max(0, parseInt(parts[3], 10) || 0);
+      if (!/^\d{3,}$/.test(tu)) return answerCb(env, cb.id, '⚠️ داده نامعتبر!', true);
+      const s = await muteApply(env, a1, tu, mins);
+      if (!s || !s.mutes || !s.mutes[tu]) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
+      const wipe = await muteWipeRecent(env, a1, tu);
+      const m = s.mutes[tu];
+      const owner = await getOwnerId(env);
+      if (owner) {
+        await send(env, owner,
+          L(`<b>🔇 سکوت ثبت شد</b>\n\n` +
+            `چنل : <b>${esc(s.title)}</b>\n` +
+            `کاربر : <a href="tg://user?id=${tu}">${esc(m.n)}</a> — شناسه : <code>${tu}</code>\n` +
+            `مدت : ${muteDurLabel(mins)}\n` +
+            `پایان : ${m.u == null ? '— ( تا ازادسازی دستی )' : `<code>${jalaliStamp(m.u)}</code>`}\n` +
+            `پاکسازی : ${wipe.ok ? `${faNum(wipe.ok)} پیام اخیرش حذف شد` : 'پیام اخیرِ ثبت شده ای ازش نبود'}\n` +
+            `ساعت تهران : <code>${tehranHM()}</code>`,
+            `<b>🔇 Mute saved</b>\n\n` +
+            `Channel: <b>${esc(s.title)}</b>\n` +
+            `User: <a href="tg://user?id=${tu}">${esc(m.n)}</a> — ID: <code>${tu}</code>\n` +
+            `Duration: ${muteDurLabel(mins)}\n` +
+            `Ends: ${m.u == null ? '— (until freed manually)' : `<code>${jalaliStamp(m.u)}</code>`}\n` +
+            `Cleanup: ${wipe.ok ? `${wipe.ok} recent message(s) deleted` : 'no recent tracked messages of theirs'}\n` +
+            `Tehran time: <code>${tehranHM()}</code>`)).catch(() => {});
+      }
+      if (act === 'muGo') {
+        await edit(env, msg.chat.id, msg.message_id, muteCenterText(s), muteCenterKB(a1, s));
+      }
+      return answerCb(env, cb.id,
+        L(`🔇 سکوت ${mins ? muteRemain(mins * 60000) : 'همیشه'} ثبت شد` + (wipe.ok ? ` — ${faNum(wipe.ok)} پیام اخیرش هم حذف شد` : ''),
+          `🔇 Mute ${mins ? muteRemain(mins * 60000) : 'permanent'} saved` + (wipe.ok ? ` — ${wipe.ok} recent message(s) deleted` : '')), true);
+    }
+    if (act === 'muF') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const tu = String(parts[2] || '');
+      const s = await muteFree(env, a1, tu);
+      if (!s) return answerCb(env, cb.id, '⚠️ این سکوت پیدا نشد ( شاید قبلاً آزاد شده ).', true);
+      await edit(env, msg.chat.id, msg.message_id, muteCenterText(s), muteCenterKB(a1, s));
+      return answerCb(env, cb.id, L('🔓 سکوت این فرد آزاد شد — پیام هاش از الان حذف نمیشه', '🔓 Mute lifted — their messages are no longer deleted'), true);
+    }
+    if (act === 'muFAll') {
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const s = await muteFreeAll(env, a1);
+      if (!s) return answerCb(env, cb.id, '⚠️ سکوتی برای آزاد کردن نبود.', true);
+      await edit(env, msg.chat.id, msg.message_id, muteCenterText(s), muteCenterKB(a1, s));
+      return answerCb(env, cb.id, L('🔓 همه سکوت ها آزاد شدند', '🔓 All mutes lifted'), true);
+    }
     if (act === 'sched') {
       const s = await getSettings(env, a1, true);
       if (!s) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
@@ -4340,8 +4755,16 @@ async function handleChannelPost(u, env, ctx) {
   if (!s) return; // چنل ثبت نشده ⇒ هیچ کاری نکن
   if (s.active === false) return; // چنل هنوز از سوی مالک فعال نشده ⇒ هیچ اجرایی
 
+  // 🔇 v3.3 — سکوت دستی: پست یا ادیتِ فردِ سکوت شده فوراً حذف میشود ( قبل از هر ثبت و قفلی )
+  const muId = (msg.from && msg.from.id && msg.from.id !== 1087968824 && String(msg.from.id) !== String(cid)) ? msg.from.id : null;
+  if (muId && muteActive(s.mutes && s.mutes[String(muId)])) {
+    await muteEnforce(env, ctx, cid, s, msg, a, muId, s.mutes[String(muId)], isEdit);
+    return;
+  }
+
   // 🧹 v2.7: هر پست جدید در حلقه « پیام های اخیر » ثبت میشود (برای حذف دسته ای)
-  if (!isEdit) trackMsg(env, ctx, cid, msg.message_id, String(msg.text || msg.caption || '').slice(0, 120));
+  if (!isEdit) trackMsg(env, ctx, cid, msg.message_id, String(msg.text || msg.caption || '').slice(0, 120),
+    (msg.from && msg.from.id && msg.from.id !== 1087968824 && String(msg.from.id) !== String(cid)) ? msg.from.id : null); // 🔇 v3.3
 
   // 🧩 v2.4 — پست های آلبوم/اسلایدشو برای « حذف کل آلبوم » ثبت میشوند (قبل از تصمیم گیری)
   if (a.album && !isEdit) albumRemember(cid, a.album, msg.message_id);
@@ -4425,6 +4848,8 @@ async function schedTick(env) {
     let s = null;
     try { s = await getSettings(env, cid, true); } catch (e) { continue; }
     if (!s || !s.active) continue;
+    // 🔇 v3.3 — اتمام خودکار سکوت ها ( با همان تنظیماتِ خوانده شده؛ نوشتن فقط وقتی منقضی وجود دارد )
+    try { await muteSweepSettings(env, cid, s); } catch (e) {}
     const st = await getSchedState(env, cid);
     const sc = s.schedule;
     if (!sc || !sc.enabled) {
@@ -4518,7 +4943,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v3.2.1 (quota-safe channel index — daily KV.list exhaustion that killed the panel & nightly cron on the free plan is fixed + dynamic violation reports: sender identity resolved automatically — signing admin matched via signature, anonymous-admin and unsigned-channel-post cases explained, old vs new text shown for edits + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast — channels/groups/DMs with auto-registered audience, auto-cleanup of setup messages and result cards everywhere, batch delete with follow-up buttons, guided flows + previous-bot fallback for demotions/bans + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v3.3 (manual mute — silence a specific person for a chosen duration or permanently: every post/edit of theirs is deleted instantly, recent tracked messages wiped at save time, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;

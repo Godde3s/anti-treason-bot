@@ -2156,6 +2156,139 @@ await section('v3.2 — گزارش پویا: ادمین ناشناس گروه', 
   await setLock('send_text', false);
 });
 
+/* ═══════════════ 🔇 v3.3 — سکوت دستی فرد ═══════════════ */
+
+await section('v3.3 — سکوت: دکمه پنل + فلو افزودن (شناسه → گرید مدت → کارت تأیید → ثبت)', async () => {
+  await post(cbQuery('all:0:' + CID, OWNER)); // همه قفل ها آزاد تا تداخل نکنند
+  mockB.chatInfo['555000'] = { id: 555000, is_bot: false, first_name: 'مکار', username: 'makar' };
+  await post(cbQuery(`chat:${CID}`, OWNER));
+  const rows = (lastEditedKB().inline_keyboard || []);
+  ok(rows.some((r) => r.some((b) => String(b.callback_data || '').startsWith('muM:'))), 'دکمه « سکوت فرد » در منوی چنل هست');
+  await post(cbQuery(`muM:${CID}`, OWNER));
+  ok(lastEdited().includes('سکوت های فعال'), 'مرکز سکوت باز شد');
+  await post(cbQuery(`muA:${CID}`, OWNER));
+  ok(lastEdited().includes('افزودن سکوت'), 'پرسش شناسه آمد');
+  await post(priv('555000', OWNER));
+  ok(lastText().includes('مدت سکوت'), 'پرسش مدت آمد و نام فرد Resolve شد');
+  ok(lastText().includes('مکار'), 'نام فرد ( از getChat ) در پیام مدت هست');
+  await post(cbQuery(`muD:${CID}:555000:60`, OWNER)); // 1 ساعت
+  ok(lastEdited().includes('ثبت سکوت'), 'کارت تأیید آمد');
+  ok(lastEdited().includes('پایان'), 'زمان پایان در کارت هست');
+  await post(cbQuery(`muGo:${CID}:555000:60`, OWNER));
+  const s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.mutes && s.mutes['555000'] && s.mutes['555000'].u > Date.now(), 'سکوت در تنظیمات چنل ثبت شد');
+  ok(s.mutes['555000'].n === 'مکار', 'نام فرد در سکوت ذخیره شد');
+  ok(lastAnswer().includes('سکوت'), 'توست تأیید ثبت آمد');
+  ok(lastEdited().includes('سکوت های فعال') || lastEdited().includes('سکوت فرد'), 'بعد از ثبت، مرکز سکوت دوباره نمایش داده شد');
+  ok(lastText().includes('سکوت ثبت شد'), 'کارت اعلان سکوت به مالک رفت');
+  // ورودی شناسه نامعتبر:
+  await post(cbQuery(`muA:${CID}`, OWNER));
+  await post(priv('abc', OWNER));
+  ok(lastText().includes('شناسه عددی پیدا نشد'), 'شناسه نامعتبر رد شد');
+  await post(cbQuery(`muX:${CID}`, OWNER)); // لغو و بازگشت
+});
+
+await section('v3.3 — اجرای سکوت: پست و ادیتِ فرد سکوت شده فوراً حذف میشود', async () => {
+  clearCalls();
+  await post(chan({ message_id: 9401, text: 'پست فرد سکوت شده', from: { id: 555000, first_name: 'مکار' }, author_signature: 'مکار' }));
+  ok(delCalls().some((c) => c.payload.message_id === 9401), 'پست فرد سکوت شده حذف شد');
+  ok(lastText().includes('سکوت فعال'), 'گزارش سکوت به مالک رفت');
+  ok(lastText().includes('555000') && lastText().includes('مکار'), 'شناسه و نام فرد در گزارش هست');
+  ok(lastText().includes('ساعت تهران'), 'ساعت تهران در گزارش هست');
+  clearCalls();
+  await post(chan({ message_id: 9402, text: 'پست فرد عادی', from: { id: 777001, first_name: 'عادی' }, author_signature: 'عادی' }));
+  ok(!delCalls().some((c) => c.payload.message_id === 9402), 'پست فرد غیر سکوت شده حذف نشد');
+  clearCalls();
+  await post(chanEdit({ message_id: 9403, text: 'ادیت فرد سکوت شده', from: { id: 555000, first_name: 'مکار' } }));
+  ok(delCalls().some((c) => c.payload.message_id === 9403), 'ادیت فرد سکوت شده هم حذف شد');
+  clearCalls();
+  await post(chan({ message_id: 9404, text: 'پست بی امضا بدون هویت' }));
+  ok(!delCalls().some((c) => c.payload.message_id === 9404), 'پست بی امضا ( بدون هویت ) قابل انتساب و حذف نیست');
+});
+
+await section('v3.3 — انقضای خودکار سکوت در کرون', async () => {
+  freezeTehran(4, 0); // زمان فریز ⇒ پایان ۶۰ دقیقه ای در گذشتهٔ « الان واقعی » میفتد بعد از unfreeze
+  await post(cbQuery(`muA:${CID}`, OWNER));
+  await post(priv('555000', OWNER));
+  await post(cbQuery(`muD:${CID}:555000:60`, OWNER));
+  await post(cbQuery(`muGo:${CID}:555000:60`, OWNER));
+  unfreeze(); // الان واقعی ⇒ سکوت منقضی شده
+  clearCalls();
+  await post(chan({ message_id: 9407, text: 'پست بعد انقضا', from: { id: 555000, first_name: 'مکار' } }));
+  ok(!delCalls().some((c) => c.payload.message_id === 9407), 'بعد انقضا دیگر حذف نمیشود');
+  await worker.scheduled({ cron: '* * * * *' }, env, ctx);
+  const s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(!s.mutes || !s.mutes['555000'], 'سکوت منقضی خودکار پاک شد');
+  ok(lastText().includes('سکوت تمام شد'), 'اعلان اتمام سکوت به مالک رفت');
+  ok(lastText().includes('مکار'), 'نام فرد در اعلان اتمام هست');
+});
+
+await section('v3.3 — سکوت همیشه + مقاومت در برابر کرون + آزادسازی دستی', async () => {
+  await post(cbQuery(`muA:${CID}`, OWNER));
+  await post(priv('555000', OWNER));
+  await post(cbQuery(`muD:${CID}:555000:0`, OWNER)); // همیشه
+  await post(cbQuery(`muGo:${CID}:555000:0`, OWNER));
+  let s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.mutes['555000'].u === null, 'سکوت همیشه ثبت شد ( بدون پایان )');
+  clearCalls();
+  await post(chan({ message_id: 9405, text: 'باز هم پست', from: { id: 555000, first_name: 'مکار' } }));
+  ok(delCalls().some((c) => c.payload.message_id === 9405), 'در سکوت همیشه هم پست حذف میشود');
+  await worker.scheduled({ cron: '* * * * *' }, env, ctx);
+  s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.mutes && s.mutes['555000'], 'سکوت همیشه توسط کرون تمام نمیشود');
+  await post(cbQuery(`muF:${CID}:555000`, OWNER));
+  s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(!s.mutes || !s.mutes['555000'], 'آزادسازی دستی انجام شد');
+  clearCalls();
+  await post(chan({ message_id: 9406, text: 'پست بعد آزادی', from: { id: 555000, first_name: 'مکار' } }));
+  ok(!delCalls().some((c) => c.payload.message_id === 9406), 'بعد از آزادسازی پست حذف نمیشود');
+});
+
+await section('v3.3 — پاکسازی پیام های اخیر فرد هنگام ثبت سکوت', async () => {
+  clearCalls();
+  await post(chan({ message_id: 9410, text: 'قربانی 1', from: { id: 555000, first_name: 'مکار' }, author_signature: 'مکار' }));
+  await post(chan({ message_id: 9411, text: 'بیگناه 1', from: { id: 777001, first_name: 'عادی' }, author_signature: 'عادی' }));
+  await post(chan({ message_id: 9412, text: 'قربانی 2', from: { id: 555000, first_name: 'مکار' }, author_signature: 'مکار' }));
+  ok(delCalls().length === 0, 'هیچ پستی حذف نشد ( فقط در حلقه ثبت شدند )');
+  await post(cbQuery(`muA:${CID}`, OWNER));
+  await post(priv('555000', OWNER));
+  await post(cbQuery(`muD:${CID}:555000:360`, OWNER));
+  await post(cbQuery(`muGo:${CID}:555000:360`, OWNER));
+  const d = delCalls().filter((c) => [9410, 9411, 9412].includes(c.payload.message_id));
+  ok(d.some((c) => c.payload.message_id === 9410), 'پیام اخیر فرد سکوت شده ( 1 ) پاک شد');
+  ok(d.some((c) => c.payload.message_id === 9412), 'پیام اخیر فرد سکوت شده ( 2 ) پاک شد');
+  ok(!d.some((c) => c.payload.message_id === 9411), 'پیام افراد دیگر دست نخورد');
+  const s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.mutes && s.mutes['555000'], 'سکوت فعال ماند');
+  ok(lastText().includes('پاکسازی'), 'تعداد پاکسازی در اعلان هست');
+});
+
+await section('v3.3 — دکمه سریع روی گزارش زرد/قرمز + گارد غیرمالک + دلخواه', async () => {
+  clearCalls();
+  await post(cbQuery(`muM:${CID}`, STRANGER));
+  ok(lastAnswer() !== '', 'غیرمالک روی دکمه سکوت رد شد ( پاسخ رد )');
+  clearCalls();
+  await post(cbQuery(`muQ:${CID}:888111:1440`, OWNER)); // 24 ساعته
+  let s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.mutes && s.mutes['888111'] && s.mutes['888111'].u > Date.now(), 'سکوت 24 ساعته با دکمه سریع ثبت شد');
+  await post(cbQuery(`muF:${CID}:888111`, OWNER));
+  // مدت دلخواه با تایپ:
+  await post(cbQuery(`muA:${CID}`, OWNER));
+  await post(priv('555000', OWNER));
+  await post(cbQuery(`muC:${CID}:555000`, OWNER));
+  ok(lastEdited().includes('مدت دلخواه'), 'پرسش مدت دلخواه آمد');
+  await post(priv('90 دقیقه', OWNER));
+  ok(lastText().includes('ثبت سکوت'), 'کارت تأیید برای ۹۰ دقیقه آمد');
+  await post(cbQuery(`muGo:${CID}:555000:90`, OWNER));
+  s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.mutes && s.mutes['555000'] && s.mutes['555000'].u > Date.now(), 'سکوت ۹۰ دقیقه ای ثبت شد');
+  // آزادسازی همه:
+  await post(cbQuery(`muFAll:${CID}`, OWNER));
+  s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(!s.mutes || !Object.keys(s.mutes).length, 'آزادسازی همه انجام شد');
+  ok(lastAnswer().includes('همه'), 'توست آزادسازی همه');
+});
+
 /* ---------------------------- جمع بندی ---------------------------- */
 
 unfreeze();
