@@ -12,7 +12,7 @@
 # ============================================================
 
 # Paste your Cloudflare account id (Dashboard -> Workers -> Overview).
-account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+account_id = "096c958e2ac463513470d347dcf0472b"
 
 name = "anti-treason-bot"
 main = "worker.js"

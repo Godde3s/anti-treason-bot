@@ -986,6 +986,7 @@ async function listChats(env) {
         sched: !!(s.schedule && s.schedule.enabled),
         inst: !!(s.instant && s.instant.on),
         on: s.active !== false, // فعال از نظر مالک (تک چنله)
+        dis: s.active === false && !!s.disAt, // ⛔ v3.4 — غیرفعال شده توسط مالک
       });
     } else dead.push(cid); // رکورد حذف/خراب ⇒ از شاخص بیرون کشیده میشود
   }
@@ -1851,6 +1852,33 @@ function muteGuideText(s) {
     `Management: free each person separately or everyone at once in this menu. Quick "Mute 24h / Permanent" buttons are also on yellow/red alerts.`);
 }
 
+/* ── ⛔ v3.4: غیرفعال کردن دستی چنل — توقف کامل پردازش تا فعال سازی دوباره ── */
+function disConfirmText(s) {
+  return L(
+    `<b>⛔ غیرفعال کردن چنل — ${esc(s.title)}</b>\n\n` +
+    `با غیرفعال کردن :\n` +
+    `• هیچ پیام یا ادیتی پردازش نمیشه — هیچ چیزی حذف نمیشه\n` +
+    `• قفل آنی و قفل زمان دار هم تا فعال سازی دوباره متوقف میمونن\n` +
+    `• سکوت ها میمونن و سر وقت خودشون عادی تمام میشن\n` +
+    `• تنظیمات و آمار دست نمیخورن\n\n` +
+    `هر وقت بخوای با « فعال سازی این چنل » برش میگردونی .\n\n` +
+    `غیرفعال کنم ؟`,
+    `<b>⛔ Disable channel — ${esc(s.title)}</b>\n\n` +
+    `When disabled:\n` +
+    `• No message or edit is processed — nothing gets deleted\n` +
+    `• Instant and scheduled locks pause until re-enabled\n` +
+    `• Mutes stay and still expire on time\n` +
+    `• Settings and stats stay untouched\n\n` +
+    `Bring it back anytime with "Activate this channel".\n\n` +
+    `Disable it?`);
+}
+
+function disConfirmKB(cid) {
+  return kb([
+    [BTN(L('⛔ بله ، غیرفعال کن', '⛔ Yes, disable it'), `disGo:${cid}`, 'danger'), BTN('لغو', `chat:${cid}`)],
+  ]);
+}
+
 /**
  * 🟡🔴 v1.8: ادیتِ پستی که مدیا دارد، وقتی وضعیت زرد/قرمز فعال است ⇒
  * حذف فوری + شناسایی متخلف (موازی با حذف) + عزل ادمینی؛ بن فقط در وضعیت قرمز.
@@ -2324,12 +2352,13 @@ function mainText(from, scope = null) {
     `اعلان قفل تو خود چنل با شروع / پایان قفل ها ؛ اگه نخوای از پنل خاموشش کن و گزارش و آمار کامل هر حذف ، همینجا تو پیوی\n` +
     `انتخاب ساعت قفل زمان دار با دکمه ( ۰ تا ۲۳ ) ؛ پیام همگانی و حذف پیام های اخیر هم همه با دکمه و تأیید\n` +
     `سکوت فرد خاص برای مدت مشخص ( یا همیشه ) : هر پست و ادیتش فوراً حذف میشه تا خودت آزادش کنی\n` +
+    `غیرفعال کردن هر چنل با یه دکمه : تا فعال سازی دوباره هیچ چیزی پردازش نمیشه ولی تنظیمات و آمار میمونن\n` +
     `</blockquote>\n\n` +
     `<b>شروع :</b>\n` +
     `1 ) ربات رو ادمین هر چنل کن ( دسترسی « حذف پیام » لازمه )\n` +
     `2 ) پیام فعال سازی میاد ؛ تأییدش کن : هر چنل جداگانه\n` +
     `3 ) قفل ها رو تنظیم کن ؛ بقیش با من .\n\n` +
-    `<i>ضد خیانت v3.3</i>`
+    `<i>ضد خیانت v3.4</i>`
   ), (
     `🛡️ <b>Anti-Treason Channel Guard</b>\n\n` +
     `Hi <b>${esc(from.first_name || '')}</b>, welcome!\n` +
@@ -2346,6 +2375,7 @@ function mainText(from, scope = null) {
     `• Full report and stats for every deletion, right here in DM\n` +
     `• Albums/slideshows — a violation in any part deletes the entire album\n` +
     `• Manual mute — silence a specific person for a chosen duration; everything they post or edit is deleted until you free them\n` +
+    `• Per-channel disable — pause the bot on any channel with one button; settings and stats are kept, re-enable anytime\n` +
     `• Up to date with the latest Telegram — rich messages, checklists, live photos and paid media are covered too\n` +
     `• Instant ownership-change alert — straight to you\n` +
     `</blockquote>\n\n` +
@@ -2353,7 +2383,7 @@ function mainText(from, scope = null) {
     `1) Make the bot an admin of any channel (the "Delete messages" permission is required)\n` +
     `2) An activation message arrives; approve it — each channel separately\n` +
     `3) Set the locks; I'll handle the rest.\n\n` +
-    `<i>Anti-Treason v3.3</i>`
+    `<i>Anti-Treason v3.4</i>`
   ));
 }
 
@@ -2396,9 +2426,9 @@ function chatsText(list, isOwner = true) {
             `<b>My channels</b> (${list.length})\n\nTap a channel to manage it:\n`);
   for (const c of list) {
     t += L(`\n<b>${esc(c.title)}</b>${c.inst ? ' — قفل آنی روشن' : ''}\n` +
-         `   ${c.on ? 'فعال' : 'در انتظار فعال سازی'} | قفل ها : ${c.active} | زمان دار : ${c.sched ? 'روشن' : 'خاموش'}`,
+         `   ${c.on ? 'فعال' : (c.dis ? '⛔ غیرفعال ( توسط مالک )' : 'در انتظار فعال سازی')} | قفل ها : ${c.active} | زمان دار : ${c.sched ? 'روشن' : 'خاموش'}`,
       `\n<b>${esc(c.title)}</b>${c.inst ? ' — Instant lock ON' : ''}\n` +
-         `   ${c.on ? 'Active' : 'Awaiting activation'} | Locks: ${c.active} | Scheduled: ${c.sched ? 'ON' : 'OFF'}`);
+         `   ${c.on ? 'Active' : (c.dis ? '⛔ Disabled (by owner)' : 'Awaiting activation')} | Locks: ${c.active} | Scheduled: ${c.sched ? 'ON' : 'OFF'}`);
   }
   return t;
 }
@@ -2439,7 +2469,9 @@ function chatText(s, st, isOwner = true) {
     `<b>${esc(s.title)}</b>\n` +
     `شناسه : <code>${s.cid}</code>${s.username ? `\n@${s.username}` : ''}\n` +
     (s.active === false
-      ? `وضعیت : <b>در انتظار فعال سازی ${isOwner ? 'تو' : 'مالک'}</b> ؛ تا تأیید هیچ قفلی اینجا اجرا نمیشه !!\n\n`
+      ? (s.disAt
+          ? `وضعیت : <b>⛔ غیرفعال ( توسط مالک )</b> — تا « فعال سازی این چنل » هیچ پیامی پردازش یا حذف نمیشه\n\n`
+          : `وضعیت : <b>در انتظار فعال سازی ${isOwner ? 'تو' : 'مالک'}</b> ؛ تا تأیید هیچ قفلی اینجا اجرا نمیشه !!\n\n`)
       : `وضعیت : فعال — تحت پوشش ربات ( همراه بقیه چنل های فعال )\n\n`) +
     `قفل های فعال : <b>${active}</b> از ${LOCK_ORDER.length}  <code>${bar}</code>\n` +
     `قفل زمان دار : ${schedLine}\n` +
@@ -2454,7 +2486,9 @@ function chatText(s, st, isOwner = true) {
     `<b>${esc(s.title)}</b>\n` +
     `ID: <code>${s.cid}</code>${s.username ? `\n@${s.username}` : ''}\n` +
     (s.active === false
-      ? `Status: <b>awaiting activation by ${isOwner ? 'you' : 'the owner'}</b> — until approved, no lock is enforced here!\n\n`
+      ? (s.disAt
+          ? `Status: <b>⛔ disabled (by the owner)</b> — until "Activate this channel", nothing is processed or deleted here\n\n`
+          : `Status: <b>awaiting activation by ${isOwner ? 'you' : 'the owner'}</b> — until approved, no lock is enforced here!\n\n`)
       : `Status: active — under the bot's protection (alongside other active channels)\n\n`) +
     `Active locks: <b>${active}</b> of ${LOCK_ORDER.length}  <code>${bar}</code>\n` +
     `Scheduled lock: ${schedLine}\n` +
@@ -2480,6 +2514,7 @@ function chatKB(cid, s = null, viewer = false, isOwner = true) {
   const instOn = !!(s && s.instant && s.instant.on);
   const rows = [];
   if (isOwner && s && s.active === false) rows.push([BTN('فعال سازی این چنل', `enb:${cid}`, 'success')]);
+  if (isOwner && s && s.active !== false) rows.push([BTN('⛔ غیرفعال کردن چنل', `dis:${cid}`, 'danger')]); // ⛔ v3.4
   rows.push([BTN(instOn ? 'قفل آنی روشن — باز کن' : 'قفل آنی (بستن کامل)', `instT:${cid}`, instOn ? 'success' : 'danger')]);
   const pm = !!(s && s.punishMode) ? s.punishMode : 'off';
   const bhv = (s && Number(s.banHours)) || 0;
@@ -2761,6 +2796,9 @@ function helpText() {
     `مالک کنار هر ادمین/ناظر دکمه « چنل ها » رو داره و دقیقاً تعیین میکنه اون نفر فقط به کدوم چنل ها دسترسی داشته باشه.\n` +
     `ادمین فقط چنل های خودش رو میبینه و مدیریت میکنه؛ تنظیمات ربات و بقیه چنل ها براش در دسترس نیست.\n` +
     `گزارش تخلف هر چنل فقط برای مالک و ادمین ها/ناظرهای همون چنل میره. ادمینی که هنوز چنلی براش تعیین نشده چیزی نمیبینه.\n\n` +
+    `━━━ غیرفعال کردن چنل (v3.4) ━━━\n` +
+    `از منوی هر چنل با « ⛔ غیرفعال کردن چنل » ربات رو روی همون چنل موقتاً خاموش کن : هیچ پیام یا ادیتی پردازش یا حذف نمیشه و قفل آنی و قفل زمان دار هم تا فعال سازی دوباره متوقفن — ولی تنظیمات و آمار و سکوت ها میمونن و سکوت ها سر وقت خودشون تموم میشن.\n` +
+    `چنل غیرفعال تو « چنل های من » با برچسب « ⛔ غیرفعال ( توسط مالک ) » دیده میشه و برگردوندنش یه دکمه است : « فعال سازی این چنل ».\n\n` +
     `━━━ ادمین ها ━━━\n` +
     `مالک از « ادمین های ربات » به دیگران دسترسی میده: شناسه عددی رو بفرست (با <code>/id</code> یا @userinfobot) و تو ویرایشگری که باز میشه چنل هاش رو انتخاب کن.\n` +
     `افزودن گروهی (v2.1) — به جای یه شناسه، لیست بفرست: با کاما یا خط جدید جدا کن (مثال: <code>111, 222, 333</code>؛ حداکثر ۵۰). برای ادمین، ناظر و ادمین سازی داخل چنل کار میکنه.\n` +
@@ -2793,7 +2831,7 @@ function helpText() {
     `━━━ آمار امروز و گزارش آزمایشی (v1.9) ━━━\n` +
     `تو « آمار تخلفات » شمارنده « امروز » به وقت تهران جدا نمایش داده میشه. تو « ادمین های ربات » دکمه « گزارش آزمایشی » به مالک و همه ادمین ها و ناظرها پیام تستی میفرسته تا مطمئن شی گزارش ها به همه میرسه.\n\n` +
     `━━━ سکوت فرد خاص (v3.3) ━━━\n` +
-    `منوی چنل ⇒ « 🔇 سکوت فرد » : شناسه + مدت ( گرید یا دلخواه ) ؛ از همان لحظه هر پست و ادیتِ اون فرد فوراً حذف میشه و پیام های اخیر ثبت شده اش هم پاک میشن . پایان مدت خودکار خبر داده میشه و آزادسازی دستی هم هست ؛ دکمه های سریع « سکوت 24 ساعته / همیشه » روی گزارش های زرد/قرمز هم هست . پست بی امضا شناسه نداره و قابل سکوت نیست .\n` +
+    `منوی چنل ⇒ « 🔇 سکوت فرد » : شناسه + مدت ( گرید یا دلخواه ) ؛ از همان لحظه هر پست و ادیتِ اون فرد فوراً حذف میشه — فقط پیام های « بعد از سکوت » ؛ پیام های قبلی دست نمیخورن . پایان مدت خودکار خبر داده میشه و آزادسازی دستی هم هست ؛ دکمه های سریع « سکوت 24 ساعته / همیشه » روی گزارش های زرد/قرمز هم هست . پست بی امضا شناسه نداره و قابل سکوت نیست .\n` +
     `اگه قفل ها کار نمیکنن، « سلامت » رو چک کن (دسترسی حذف پیام).\n` +
     `محدودیت تلگرام — هیچ رباتی نمیتونه پیام های قدیمی تر از ۴۸ ساعت رو پاک کنه؛ ادیتِ چنین پیام هایی گزارش میشه ولی حذفش با توئه. پست های تازه همیشه فوراً پاک میشن.\n` +
     `تغییر تنظیمات حداکثر چند ثانیه بعد همه جا اعمال میشه. ربات روی پلن رایگان Cloudflare اجرا میشه و برای چنل های عادی کاملاً کافیه.`
@@ -2823,6 +2861,9 @@ function helpText() {
     `Next to each admin/viewer the owner has a "Channels" button defining exactly which channels that person can access.\n` +
     `An admin only sees and manages their own channels; bot settings and other channels are out of their reach.\n` +
     `A channel's violation report goes only to the owner and that channel's admins/viewers. An admin with no channels assigned sees nothing.\n\n` +
+    `━━━ Disable a channel (v3.4) ━━━\n` +
+    `From each channel's menu, "⛔ Disable channel" pauses the bot on that channel: no message or edit is processed or deleted, and instant/scheduled locks pause until re-enabled — while settings, stats and mutes are preserved (mutes still expire on time).\n` +
+    `Disabled channels show "⛔ Disabled (by owner)" in "My channels" and come back with one tap: "Activate this channel".\n\n` +
     `━━━ Admins ━━━\n` +
     `The owner grants access from "Bot admins": send the numeric ID (via <code>/id</code> or @userinfobot) and pick their channels in the editor that opens.\n` +
     `Batch add (v2.1) — send a list instead of one ID: separate with commas or new lines (e.g. <code>111, 222, 333</code>; max 50). Works for admins, viewers and in-channel promotion.\n` +
@@ -4074,10 +4115,32 @@ Note: only posts made after v2.7 are tracked; older ones are out of reach for an
       if (!s) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
       // 📡 v2.0 چندچنله: فعال کردن این چنل، بقیه را غیرفعال « نمیکند »
       s.active = true;
+      delete s.disAt; // ⛔ v3.4 — نشان « غیرفعال توسط مالک » پاک میشود
       await saveSettings(env, a1, s);
       const st = await readStats(env, a1);
       await edit(env, msg.chat.id, msg.message_id, chatText({ ...s, cid: a1 }, st, isOwner), chatKB(a1, s, viewer, isOwner));
       return answerCb(env, cb.id, '✅ این چنل فعال شد — بقیه چنل های فعال هم فعال میمانند (چندچنله)', true);
+    }
+    if (act === 'dis') { // ⛔ v3.4 — غیرفعال کردن دستی چنل ( فقط مالک )
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const s = await getSettings(env, a1, true);
+      if (!s) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
+      if (s.active === false) return answerCb(env, cb.id, '⚠️ این چنل از قبل غیرفعاله.', true);
+      await edit(env, msg.chat.id, msg.message_id, disConfirmText(s), disConfirmKB(a1));
+      return answerCb(env, cb.id);
+    }
+    if (act === 'disGo') { // ⛔ v3.4 — تأیید غیرفعال کردن
+      if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
+      const s = await getSettings(env, a1, true);
+      if (!s) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
+      s.active = false;
+      s.disAt = Date.now(); // نشان « غیرفعال توسط مالک » — از « در انتظار فعال سازی » جداست
+      await saveSettings(env, a1, s);
+      // وضعیت قفل زمان دار ریست میشود تا بعد از فعال سازی، اعلان « پایان » قدیمی نیاید
+      try { const stt = await getSchedState(env, a1); if (stt && stt.in) await putSchedState(env, a1, false); } catch (e) {}
+      const st = await readStats(env, a1);
+      await edit(env, msg.chat.id, msg.message_id, chatText({ ...s, cid: a1 }, st, isOwner), chatKB(a1, s, viewer, isOwner));
+      return answerCb(env, cb.id, L('⛔ چنل غیرفعال شد — تا فعال سازی دوباره هیچ پیامی پردازش نمیشه', '⛔ Channel disabled — nothing is processed until re-enabled'), true);
     }
     if (act === 'rej') {
       if (!isOwner) return answerCb(env, cb.id, '👑 فقط مالک ربات!', true);
@@ -4830,9 +4893,10 @@ async function schedTick(env) {
   for (const cid of (cids || [])) {
     let s = null;
     try { s = await getSettings(env, cid, true); } catch (e) { continue; }
-    if (!s || !s.active) continue;
-    // 🔇 v3.3 — اتمام خودکار سکوت ها ( با همان تنظیماتِ خوانده شده؛ نوشتن فقط وقتی منقضی وجود دارد )
+    if (!s) continue;
+    // 🔇 v3.4 — سکوت ها حتی وقتی چنل غیرفعاله سر وقت خودشون تمام میشن ( نوشتن فقط وقتی منقضی وجود دارد )
     try { await muteSweepSettings(env, cid, s); } catch (e) {}
+    if (!s.active) continue; // ⛔ v3.4 — چنل غیرفعال: قفل زمان دار و اعلانش هم متوقف
     const st = await getSchedState(env, cid);
     const sc = s.schedule;
     if (!sc || !sc.enabled) {
@@ -4926,7 +4990,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v3.3.1 (manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v3.4 (per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;

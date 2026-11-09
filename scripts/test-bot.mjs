@@ -2294,6 +2294,62 @@ await section('v3.3 — دکمه سریع روی گزارش زرد/قرمز + گ
   ok(lastAnswer().includes('همه'), 'توست آزادسازی همه');
 });
 
+await section('v3.4 — غیرفعال کردن چنل با دکمه: هیچ اجرایی، سکوت سر وقتش تمام میشه، فعال سازی دوباره', async () => {
+  // سکوت 1 ساعته برای تست:
+  await post(cbQuery(`muA:${CID}`, OWNER));
+  await post(priv('555000', OWNER));
+  await post(cbQuery(`muD:${CID}:555000:60`, OWNER));
+  await post(cbQuery(`muGo:${CID}:555000:60`, OWNER));
+  let s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.mutes && s.mutes['555000'], 'سکوت 1 ساعته ثبت شد');
+  // کارت تأیید:
+  clearCalls();
+  await post(cbQuery(`dis:${CID}`, OWNER));
+  ok(lastEdited().includes('غیرفعال کنم'), 'کارت تأیید غیرفعال کردن آمد');
+  ok(lastEdited().includes('هیچ پیام یا ادیتی پردازش نمیشه'), 'عواقب غیرفعالی تو کارت هست');
+  // غیرمالک رد شود:
+  clearCalls();
+  await post(cbQuery(`dis:${CID}`, STRANGER));
+  ok(lastAnswer() !== '' && lastEdited() === '', 'غیرمالک روی غیرفعال کردن رد شد ( پاسخ رد، بدون تغییر پنل )');
+  // تأیید غیرفعال کردن:
+  clearCalls();
+  await post(cbQuery(`disGo:${CID}`, OWNER));
+  s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.active === false && s.disAt > 0, 'چنل غیرفعال شد ( نشان مالک )');
+  ok(lastEdited().includes('غیرفعال'), 'پنل وضعیت غیرفعال را نشان میدهد');
+  ok(lastAnswer().includes('غیرفعال شد'), 'توست غیرفعال شدن');
+  // هیچ پیامی پردازش نشود — حتی فرد سکوت شده:
+  clearCalls();
+  await post(chan({ message_id: 9500, text: 'پست موقع غیرفعالی', from: { id: 555000, first_name: 'مکار' }, author_signature: 'مکار' }));
+  ok(delCalls().length === 0, 'موقع غیرفعالی هیچ پیامی حذف نمیشود');
+  // لیست چنل ها برچسب غیرفعال دارد:
+  clearCalls();
+  await post(cbQuery('chats', OWNER));
+  ok(lastEdited().includes('غیرفعال ( توسط مالک )'), 'لیست چنل ها برچسب « غیرفعال ( توسط مالک ) » دارد');
+  // سکوت حتی موقع غیرفعالی سر وقتش تمام میشود + اعلان:
+  s = JSON.parse(await env.KV.get('chat:' + CID));
+  s.mutes['555000'].u = Date.now() - 5000;
+  await env.KV.put('chat:' + CID, JSON.stringify(s));
+  clearCalls();
+  await worker.scheduled({ cron: '* * * * *' }, env, ctx);
+  s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(!s.mutes || !s.mutes['555000'], 'سکوت موقع غیرفعالی هم سر وقتش تمام شد');
+  ok(lastText().includes('سکوت تمام شد'), 'اعلان پایان سکوت آمد');
+  // فعال سازی دوباره:
+  clearCalls();
+  await post(cbQuery(`enb:${CID}`, OWNER));
+  s = JSON.parse(await env.KV.get('chat:' + CID));
+  ok(s.active === true && !s.disAt, 'چنل دوباره فعال شد و نشان غیرفعالی پاک شد');
+  ok(lastAnswer().includes('فعال شد'), 'توست فعال سازی');
+  // بعد از فعال سازی پردازش عادی برمیگردد ( سکوت دیگر فعال نیست ):
+  clearCalls();
+  await post(chan({ message_id: 9501, text: 'پست بعد از فعال سازی', from: { id: 555000, first_name: 'مکار' }, author_signature: 'مکار' }));
+  ok(delCalls().length === 0, 'بعد از فعال سازی سکوت دیگر فعال نیست ( پیام حذف نمیشود )');
+  clearCalls();
+  await post(cbQuery('chats', OWNER));
+  ok(!lastEdited().includes('غیرفعال ( توسط مالک )'), 'لیست چنل ها دیگر برچسب غیرفعال ندارد');
+});
+
 /* ---------------------------- جمع بندی ---------------------------- */
 
 unfreeze();
