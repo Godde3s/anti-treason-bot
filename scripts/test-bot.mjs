@@ -1149,7 +1149,7 @@ await section('v1.9 — بکاپ تنظیمات: خروجی + بازگردانی
   await setMode('off');
   await post(cbQuery('bakI:' + CID, OWNER));
   ok(lastText().includes('بازگردانی بکاپ'), 'راهنمای بازگردانی بکاپ فرستاده شد');
-  const json9 = bakText.match(/<code>([\s\S]*?)<\/code>/)[1]
+  const json9 = bakText.match(/<pre>([\s\S]*?)<\/pre>/)[1] // v3.6 — بکاپ داخل pre تودرتو در نقل قول جمع شونده
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
   await post(priv(json9, OWNER));
   ok(lastText().includes('بکاپ بازگردانی شد'), 'بازگردانی تأیید شد');
@@ -2394,6 +2394,48 @@ await section('v3.5 — تشخیص ادیت واقعی: ادیت فنی ( نظر
   ok(lastText().includes('قفل ادیت متن'), 'گزارش با دلیل قفل ادیت متن');
   await setLock('edit_text', false);
   await setLock('edit_media', false);
+});
+
+/* ---------------------------- v3.6 ظاهر پیام ها ---------------------------- */
+await section('v3.6 — ظاهر پیام ها: نقل قول ادیت ، لیست/بکاپ جمع شونده ، افکت های رسمی', async () => {
+  // الف) خوش آمد: نقل قول جمع شونده + مهر v3.6
+  await post(priv('/start', OWNER));
+  const w6 = lastText();
+  ok(w6.includes('<blockquote expandable>') && w6.includes('v3.6'), 'خوش آمد: نقل قول جمع شونده + مهر v3.6');
+
+  // ب) بکاپ: JSON داخل pre تودرتو در نقل قول جمع شونده + افکت 👍
+  await post(cbQuery('bakE:' + CID, OWNER));
+  const bak6 = lastText();
+  ok(bak6.includes('<blockquote expandable><pre>') && bak6.includes('"punishMode"'), 'بکاپ: JSON داخل pre تودرتو در نقل قول جمع شونده');
+  ok(!!calls('sendMessage').find((c) => c.payload.message_effect_id === '5107584321108051014'), 'بکاپ با افکت 👍 ( Bot API 7.4 ) فرستاده شد');
+
+  // ج) گزارش ادیت: متن قبلی/جدید در دو نقل قول جدا
+  await setLock('edit_text', true);
+  clearCalls();
+  await post(chan({ message_id: 9601, text: 'متن اولیه آزمون ظاهر' }));
+  clearCalls();
+  await post(upd({ edited_channel_post: { message_id: 9601, chat: { id: Number(CID), type: 'channel', title: 'تست چنل' }, date: Math.floor(realNow() / 1000), edit_date: Math.floor(realNow() / 1000), text: 'متن جدید آزمون ظاهر' } }));
+  const rep6 = lastText();
+  ok((rep6.match(/<blockquote>/g) || []).length >= 2 && (rep6.includes('متن قبلی') || rep6.includes('Old text:')), 'گزارش ادیت: متن قبلی/جدید در نقل قول های جدا');
+  await setLock('edit_text', false);
+
+  // د) آخرین تخلف ها: لیست داخل نقل قول جمع شونده
+  await post(cbQuery('vlog:' + CID, OWNER));
+  const v6 = lastEdited();
+  ok(v6.includes('<blockquote expandable>') && v6.includes('</blockquote>'), 'آخرین تخلف ها داخل نقل قول جمع شونده');
+
+  // هـ) سکوت ثبت شد ⇒ اعلان مالک با افکت 🔥
+  clearCalls();
+  await post(cbQuery('muGo:' + CID + ':123456789:60', OWNER));
+  ok(!!calls('sendMessage').find((c) => c.payload.message_effect_id === '5104841245755180586'), 'اعلان سکوت با افکت 🔥 فرستاده شد');
+
+  // و) سیم کشی افکت ها در کد ( ثابت های رسمی + نتیجه همگانی )
+  const fs6 = await import('node:fs');
+  const src6 = await fs6.promises.readFile(new URL('../worker.js', import.meta.url), 'utf8').catch(() => '');
+  ok(src6.includes("EFFECT_PARTY = '5046509860389126442'") && src6.includes("EFFECT_LIKE = '5107584321108051014'") && src6.includes("EFFECT_CLAP = '5170166362592510656'"), 'ثابت های افکت رسمی تلگرام تعریف شده اند');
+  ok(src6.includes('send(env, msg.chat.id, res, null, { effect: EFFECT_PARTY })'), 'نتیجه پیام همگانی با افکت 🎉 سیم کشی شده');
+  // آزادسازی سکوت آزمون تا روی چنل اثری نماند
+  await post(cbQuery('muF:' + CID + ':123456789', OWNER));
 });
 
 /* ---------------------------- جمع بندی ---------------------------- */

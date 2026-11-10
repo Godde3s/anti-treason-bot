@@ -1591,11 +1591,11 @@ async function enforce(env, ctx, cid, s, msg, a, reason, isEdit) {
       const newSn = esc(body.slice(0, 80)) + (body.length > 80 ? '…' : '');
       if (oldT && oldT !== body.slice(0, 120)) {
         const oldSn = esc(oldT.slice(0, 80)) + (oldT.length > 80 ? '…' : '');
-        ctxFA = `متن قبلی : « ${oldSn} »\nمتن جدید : « ${newSn} »`;
-        ctxEN = `Old text: « ${oldSn} »\nNew text: « ${newSn} »`;
+        ctxFA = `<blockquote>متن قبلی : « ${oldSn} »</blockquote>\n<blockquote>متن جدید : « ${newSn} »</blockquote>`;
+        ctxEN = `<blockquote>Old text: « ${oldSn} »</blockquote>\n<blockquote>New text: « ${newSn} »</blockquote>`;
       } else {
-        ctxFA = 'خلاصه : « ' + newSn + ' »';
-        ctxEN = 'Summary: « ' + newSn + ' »';
+        ctxFA = '<blockquote>خلاصه : « ' + newSn + ' »</blockquote>';
+        ctxEN = '<blockquote>Summary: « ' + newSn + ' »</blockquote>';
       }
     } else {
       ctxFA = ctxEN = snippet(msg, a);
@@ -1891,7 +1891,7 @@ function muteDurKB(cid, tu) {
     [BTN('1 ساعت', `muD:${cid}:${tu}:60`), BTN('6 ساعت', `muD:${cid}:${tu}:360`)],
     [BTN('12 ساعت', `muD:${cid}:${tu}:720`), BTN('1 روز', `muD:${cid}:${tu}:1440`)],
     [BTN('2 روز', `muD:${cid}:${tu}:2880`), BTN('1 هفته', `muD:${cid}:${tu}:10080`)],
-    [BTN('همیشه', `muD:${cid}:${tu}:0`, 'danger'), BTN('دلخواه ⌨️', `muC:${cid}:${tu}`)],
+    [BTN('همیشه', `muD:${cid}:${tu}:0`, 'danger'), BTN('دلخواه ⌨️', `muC:${cid}:${tu}`, 'primary')],
     [BTN('انصراف', `muX:${cid}`, 'danger')],
   ]);
 }
@@ -2412,12 +2412,13 @@ function mainText(from, scope = null) {
     `سکوت فرد خاص برای مدت مشخص ( یا همیشه ) : هر پست و ادیتش فوراً حذف میشه تا خودت آزادش کنی\n` +
     `غیرفعال کردن هر چنل با یه دکمه : تا فعال سازی دوباره هیچ چیزی پردازش نمیشه ولی تنظیمات و آمار میمونن\n` +
     `تشخیص ادیت واقعی : رأی نظرسنجی و امثالش که محتوا رو عوض نمیکنن تخلف حساب نمیشن — فقط ادیتِ واقعی پاک میشه\n` +
+    `ظاهر جدید ( v3.6 ) : نقل قول در گزارش ادیت ، لیست جمع شونده تخلف ها و افکت پیام\n` +
     `</blockquote>\n\n` +
     `<b>شروع :</b>\n` +
     `1 ) ربات رو ادمین هر چنل کن ( دسترسی « حذف پیام » لازمه )\n` +
     `2 ) پیام فعال سازی میاد ؛ تأییدش کن : هر چنل جداگانه\n` +
     `3 ) قفل ها رو تنظیم کن ؛ بقیش با من .\n\n` +
-    `<i>ضد خیانت v3.5</i>`
+    `<i>ضد خیانت v3.6</i>`
   ), (
     `🛡️ <b>Anti-Treason Channel Guard</b>\n\n` +
     `Hi <b>${esc(from.first_name || '')}</b>, welcome!\n` +
@@ -2438,12 +2439,13 @@ function mainText(from, scope = null) {
     `• True-edit detection — technical edits (poll votes, live-location ticks) that don't change content are not violations\n` +
     `• Up to date with the latest Telegram — rich messages, checklists, live photos and paid media are covered too\n` +
     `• Instant ownership-change alert — straight to you\n` +
+    `• Fresh look (v3.6) — quote boxes in edit reports, expandable lists, message effects\n` +
     `</blockquote>\n\n` +
     `<b>Getting started:</b>\n` +
     `1) Make the bot an admin of any channel (the "Delete messages" permission is required)\n` +
     `2) An activation message arrives; approve it — each channel separately\n` +
     `3) Set the locks; I'll handle the rest.\n\n` +
-    `<i>Anti-Treason v3.5</i>`
+    `<i>Anti-Treason v3.6</i>`
   ));
 }
 
@@ -2767,8 +2769,8 @@ function vlogText(s, list) {
     return L(`<b>آخرین تخلف ها — ${esc(s.title)}</b>\n\nهنوز چیزی ثبت نشده`,
              `<b>Latest violations — ${esc(s.title)}</b>\n\nNothing recorded yet`);
   }
-  let t = L(`<b>آخرین تخلف ها — ${esc(s.title)}</b> ( ${list.length} مورد اخیر )\n\n`,
-            `<b>Latest violations — ${esc(s.title)}</b> (last ${list.length})\n\n`);
+  let t = L(`<b>آخرین تخلف ها — ${esc(s.title)}</b> ( ${list.length} مورد اخیر )\n\n<blockquote expandable>`,
+            `<b>Latest violations — ${esc(s.title)}</b> (last ${list.length})\n\n<blockquote expandable>`);
   for (const v of [...list].reverse()) {
     const link = tgMsgLink(s.username, s.cid, v.mid);
     const outcome = v.ub ? L('حذف شد (با اکانت)', 'Deleted (via user account)')
@@ -2781,7 +2783,7 @@ function vlogText(s, list) {
          (v.sn ? `   ${esc(v.sn)}\n` : '') +
          `   پیام : <code>${v.mid}</code>${link ? ` — <a href="${link}">باز کردن</a>` : ''}\n\n`;
   }
-  t += L(`برای « جبران » متن و آیدی متخلف رو از همینجا برمیدارید .`, `To make amends, grab the offender's text and ID right from here.`);
+  t += `</blockquote>\n` + L(`برای « جبران » متن و آیدی متخلف رو از همینجا برمیدارید .`, `To make amends, grab the offender's text and ID right from here.`);
   return t;
 }
 
@@ -2862,6 +2864,8 @@ function helpText() {
     `━━━ تشخیص ادیت واقعی (v3.5) ━━━\n` +
     `خیلی از « ادیت ها » اصلاً ادیت نیستن : رأی خوردن پست نظرسنجی، تیک چک لیست، به روز شدن لوکیشن زنده و مارکاپ سرویس های دیگر همه به شکل edited_channel_post میآیند بدون آن که متن یا کپشن عوض بشه.\n` +
     `ربات اثر انگشت محتوای هر پست ( متن + نوع مدیا + پرسش نظرسنجی ) رو نگه میداره و فقط وقتی محتوا واقعاً عوض شده باشه ادیت رو تخلف حساب میکنه — نه حذف اشتباه، نه گزارش بیخودی.\n\n` +
+    `━━━ ظاهر پیام ها (v3.6) ━━━\n` +
+    `رفرش ظاهری بر اساس آخرین Bot API تلگرام : گزارش « ادیت » متن قبلی و متن جدید رو در دو نقل قول جدا نشون میده ؛ بکاپ تنظیمات و « آخرین تخلف ها » داخل نقل قول جمع شونده میان تا چت مرتب بمونه ؛ پیام نتیجه عملیات ها ( سکوت ثبت شد ، بکاپ آماده شد ، پیام همگانی رفت ، گزارش آزمایشی ) با افکت تلگرام در پیوی میاد .\n\n` +
     `━━━ ادمین ها ━━━\n` +
     `مالک از « ادمین های ربات » به دیگران دسترسی میده: شناسه عددی رو بفرست (با <code>/id</code> یا @userinfobot) و تو ویرایشگری که باز میشه چنل هاش رو انتخاب کن.\n` +
     `افزودن گروهی (v2.1) — به جای یه شناسه، لیست بفرست: با کاما یا خط جدید جدا کن (مثال: <code>111, 222, 333</code>؛ حداکثر ۵۰). برای ادمین، ناظر و ادمین سازی داخل چنل کار میکنه.\n` +
@@ -2930,6 +2934,8 @@ function helpText() {
     `━━━ True-edit detection (v3.5) ━━━\n` +
     `Many "edits" aren't edits at all: poll votes, checklist ticks, live-location updates and other services' markup all arrive as edited_channel_post without changing the text or caption.\n` +
     `The bot keeps a content fingerprint (text + media type + poll question) of every post and only treats an edit as a violation when the content actually changed — no false deletes, no noise.\n\n` +
+    `━━━ Message appearance (v3.6) ━━━\n` +
+    `A visual refresh based on the latest Telegram Bot API: edit reports show the old and new text in separate quote boxes; the settings backup and "Latest violations" collapse into expandable quotes to keep the chat tidy; result messages (mute saved, backup ready, broadcast sent, test report) arrive in DM with a Telegram message effect.\n\n` +
     `━━━ Admins ━━━\n` +
     `The owner grants access from "Bot admins": send the numeric ID (via <code>/id</code> or @userinfobot) and pick their channels in the editor that opens.\n` +
     `Batch add (v2.1) — send a list instead of one ID: separate with commas or new lines (e.g. <code>111, 222, 333</code>; max 50). Works for admins, viewers and in-channel promotion.\n` +
@@ -2990,6 +2996,10 @@ async function clearPanelState(env, uid) {
 }
 
 const EFFECT_FIRE = '5104841245755180586'; // ✨ 🔥 افکت موفقیت (فقط چت خصوصی)
+/* 🎨 v3.6 — افکت های بیشتر ( Bot API 7.4 — شناسه های رسمی تلگرام ؛ فقط چت خصوصی ، خطا ⇒ ارسال بدون افکت ) */
+const EFFECT_LIKE = '5107584321108051014';  // 👍 تایید سبک ( بکاپ آماده شد )
+const EFFECT_CLAP = '5170166362592510656';  // 👏 گزارش آزمایشی
+const EFFECT_PARTY = '5046509860389126442'; // 🎉 پیام همگانی ارسال شد
 
 async function cmdStart(msg, env) {
   const from = msg.from || {};
@@ -3856,7 +3866,7 @@ After saving, you'll pick their allowed channels right here.`),
         `🧪 <b>Test report</b>\n\n` +
         `If you can read this, violation reporting is enabled for you ✅\n` +
         `From now on, reports of all violations (deletions, yellow/red mode, account deletion) will reach you too.\n` +
-        `🕘 Tehran time: <code>${tehranHM()}</code>`)).catch(() => {})));
+        `🕘 Tehran time: <code>${tehranHM()}</code>`), null, { effect: EFFECT_CLAP }).catch(() => {})));
       return answerCb(env, cb.id, L(`✅ به ${targets.size} نفر ارسال شد ( مالک + ادمین ها + ناظرها )`,
                                    `✅ Sent to ${targets.size} people (owner + admins + viewers)`));
     }
@@ -4068,7 +4078,7 @@ You'll get a preview and confirm before it goes live.`),
       if (totBy.pv) res += L(`پیوی ها : ${faNum(okBy.pv)} از ${faNum(totBy.pv)}\n`, `DMs: ${okBy.pv}/${totBy.pv}\n`);
       if (cut > 0) res += L(`\n⚠️ ${faNum(cut)} مقصد دیگه جا موند ؛ سقف هر بار ${faNum(MAX_BC)} مقصده .`, `\n⚠️ ${cut} more targets skipped — per-run cap is ${MAX_BC}.`);
       if (errs.length) res += L(`\n❌ خطاها :\n`, `\n❌ Errors:\n`) + errs.slice(0, 8).join('\n');
-      await send(env, msg.chat.id, res);
+      await send(env, msg.chat.id, res, null, { effect: EFFECT_PARTY });
       return answerCb(env, cb.id, L(`✅ به ${faNum(okBy.ch + okBy.gr + okBy.pv)} مقصد ارسال شد`, `✅ Sent to ${okBy.ch + okBy.gr + okBy.pv} targets`));
     }
     if (act === 'bcX') {
@@ -4288,7 +4298,7 @@ Note: only posts made after v2.7 are tracked; older ones are out of reach for an
             `Duration: ${muteDurLabel(mins)}\n` +
             `Ends: ${m.u == null ? '— (until freed manually)' : `<code>${jalaliStamp(m.u)}</code>`}\n` +
             `Effect: from now on every post/edit of theirs is deleted instantly — older messages stay untouched\n` +
-            `Tehran time: <code>${tehranHM()}</code>`)).catch(() => {});
+            `Tehran time: <code>${tehranHM()}</code>`), null, { effect: EFFECT_FIRE }).catch(() => {});
       }
       if (act === 'muGo') {
         await edit(env, msg.chat.id, msg.message_id, muteCenterText(s), muteCenterKB(a1, s));
@@ -4561,13 +4571,13 @@ After saving, tap "Channels" for each person and pick which channels they can se
       const bak = backupOf(s);
       await send(env, msg.chat.id,
         L(`<b>بکاپ تنظیمات — ${esc(s.title)}</b>\n\n` +
-        `<code>${esc(JSON.stringify(bak))}</code>\n\n` +
+        `<blockquote expandable><pre>${esc(JSON.stringify(bak))}</pre></blockquote>\n\n` +
         `برای بازگردانی دکمه « بازگردانی » رو تو پنل چنل بزن و همین متن رو بفرست .\n` +
         `این متن رو جایی نگه دار ؛ اگه تنظیمات اشتباهی عوض شد با همین برمیگردی .`,
         `💾 <b>Settings backup — ${esc(s.title)}</b>\n\n` +
-        `<code>${esc(JSON.stringify(bak))}</code>\n\n` +
+        `<blockquote expandable><pre>${esc(JSON.stringify(bak))}</pre></blockquote>\n\n` +
         `📥 To restore: tap "📥 Restore" in the channel panel and send this exact text.\n` +
-        `💡 Keep this text somewhere safe — if settings get messed up, this brings them back.`));
+        `💡 Keep this text somewhere safe — if settings get messed up, this brings them back.`), null, { effect: EFFECT_LIKE });
       return answerCb(env, cb.id, '💾 بکاپ در پیام بالا آمد');
     }
     if (act === 'bakI') {
@@ -5062,7 +5072,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v3.5 (true-edit detection — technical edits like poll votes / live-location updates / checklist ticks / service markup that leave the content fingerprint (text+caption+media kind+poll question) unchanged are no longer deleted or reported (deterministic content-hash map, one extra KV write per flush only) + per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v3.6 (message appearance refresh per the Bot API changelog — edit reports show old/new text in separate blockquote boxes, settings backup & latest-violations collapse into expandable quotes, official Telegram message effects (fire/like/clap/party) on result cards + true-edit detection — technical edits like poll votes / live-location updates / checklist ticks / service markup that leave the content fingerprint (text+caption+media kind+poll question) unchanged are no longer deleted or reported (deterministic content-hash map, one extra KV write per flush only) + per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;
