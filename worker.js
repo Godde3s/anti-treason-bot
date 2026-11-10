@@ -754,6 +754,11 @@ async function send(env, chatId, text, markup, opts) {
     link_preview_options: { is_disabled: true },
     ...(markup ? { reply_markup: markup } : {}),
   };
+  // ⌨️ v3.7 — تایپ خودکار ( force_reply روی کیبورد اینلاین — Bot API 10.3 ) برای راهنما های ورودی متنی
+  if (opts && opts.forceReply && base.reply_markup) {
+    base.reply_markup = { ...base.reply_markup, force_reply: true };
+    if (opts.placeholder) base.reply_markup.input_field_placeholder = String(opts.placeholder).slice(0, 64);
+  }
   // ✨ v2.4 — افکت پیام (فقط چت خصوصی)؛ اگر افکت پذیرفته نشد، بدون افکت دوباره تلاش میشود
   if (opts && opts.effect) {
     const r = await tg(env, 'sendMessage', { ...base, message_effect_id: opts.effect });
@@ -2412,13 +2417,13 @@ function mainText(from, scope = null) {
     `سکوت فرد خاص برای مدت مشخص ( یا همیشه ) : هر پست و ادیتش فوراً حذف میشه تا خودت آزادش کنی\n` +
     `غیرفعال کردن هر چنل با یه دکمه : تا فعال سازی دوباره هیچ چیزی پردازش نمیشه ولی تنظیمات و آمار میمونن\n` +
     `تشخیص ادیت واقعی : رأی نظرسنجی و امثالش که محتوا رو عوض نمیکنن تخلف حساب نمیشن — فقط ادیتِ واقعی پاک میشه\n` +
-    `ظاهر جدید ( v3.6 ) : نقل قول در گزارش ادیت ، لیست جمع شونده تخلف ها و افکت پیام\n` +
+    `ظاهر جدید ( v3.6+ ) : نقل قول در گزارش ادیت ، لیست جمع شونده ، افکت پیام و تایپ خودکار\n` +
     `</blockquote>\n\n` +
     `<b>شروع :</b>\n` +
     `1 ) ربات رو ادمین هر چنل کن ( دسترسی « حذف پیام » لازمه )\n` +
     `2 ) پیام فعال سازی میاد ؛ تأییدش کن : هر چنل جداگانه\n` +
     `3 ) قفل ها رو تنظیم کن ؛ بقیش با من .\n\n` +
-    `<i>ضد خیانت v3.6</i>`
+    `<i>ضد خیانت v3.7</i>`
   ), (
     `🛡️ <b>Anti-Treason Channel Guard</b>\n\n` +
     `Hi <b>${esc(from.first_name || '')}</b>, welcome!\n` +
@@ -2439,13 +2444,13 @@ function mainText(from, scope = null) {
     `• True-edit detection — technical edits (poll votes, live-location ticks) that don't change content are not violations\n` +
     `• Up to date with the latest Telegram — rich messages, checklists, live photos and paid media are covered too\n` +
     `• Instant ownership-change alert — straight to you\n` +
-    `• Fresh look (v3.6) — quote boxes in edit reports, expandable lists, message effects\n` +
+    `• Fresh look (v3.6+) — quote boxes, expandable lists, message effects, auto-open typing\n` +
     `</blockquote>\n\n` +
     `<b>Getting started:</b>\n` +
     `1) Make the bot an admin of any channel (the "Delete messages" permission is required)\n` +
     `2) An activation message arrives; approve it — each channel separately\n` +
     `3) Set the locks; I'll handle the rest.\n\n` +
-    `<i>Anti-Treason v3.6</i>`
+    `<i>Anti-Treason v3.7</i>`
   ));
 }
 
@@ -2866,6 +2871,8 @@ function helpText() {
     `ربات اثر انگشت محتوای هر پست ( متن + نوع مدیا + پرسش نظرسنجی ) رو نگه میداره و فقط وقتی محتوا واقعاً عوض شده باشه ادیت رو تخلف حساب میکنه — نه حذف اشتباه، نه گزارش بیخودی.\n\n` +
     `━━━ ظاهر پیام ها (v3.6) ━━━\n` +
     `رفرش ظاهری بر اساس آخرین Bot API تلگرام : گزارش « ادیت » متن قبلی و متن جدید رو در دو نقل قول جدا نشون میده ؛ بکاپ تنظیمات و « آخرین تخلف ها » داخل نقل قول جمع شونده میان تا چت مرتب بمونه ؛ پیام نتیجه عملیات ها ( سکوت ثبت شد ، بکاپ آماده شد ، پیام همگانی رفت ، گزارش آزمایشی ) با افکت تلگرام در پیوی میاد .\n\n` +
+    `━━━ تایپ سریع (v3.7) ━━━\n` +
+    `هر جا ربات منتظر ورودی متنی توئه ( متن پیام همگانی ، تعداد حذف دسته ای ، متن بکاپ برای بازگردانی ، شناسه برای ادمین سازی ) کیبورد تایپ خودکار با راهنمای داخل فیلد باز میشه — لازم نیست اول روی پیام کلیک کنی ( force_reply — Bot API 10.3 ).\n\n` +
     `━━━ ادمین ها ━━━\n` +
     `مالک از « ادمین های ربات » به دیگران دسترسی میده: شناسه عددی رو بفرست (با <code>/id</code> یا @userinfobot) و تو ویرایشگری که باز میشه چنل هاش رو انتخاب کن.\n` +
     `افزودن گروهی (v2.1) — به جای یه شناسه، لیست بفرست: با کاما یا خط جدید جدا کن (مثال: <code>111, 222, 333</code>؛ حداکثر ۵۰). برای ادمین، ناظر و ادمین سازی داخل چنل کار میکنه.\n` +
@@ -2936,6 +2943,8 @@ function helpText() {
     `The bot keeps a content fingerprint (text + media type + poll question) of every post and only treats an edit as a violation when the content actually changed — no false deletes, no noise.\n\n` +
     `━━━ Message appearance (v3.6) ━━━\n` +
     `A visual refresh based on the latest Telegram Bot API: edit reports show the old and new text in separate quote boxes; the settings backup and "Latest violations" collapse into expandable quotes to keep the chat tidy; result messages (mute saved, backup ready, broadcast sent, test report) arrive in DM with a Telegram message effect.\n\n` +
+    `━━━ Quick typing (v3.7) ━━━\n` +
+    `Everywhere the bot waits for your text (broadcast message, batch-delete count, backup restore text, promotion ID) the typing keyboard opens automatically with a hint inside the field — no need to tap the message first (force_reply — Bot API 10.3).\n\n` +
     `━━━ Admins ━━━\n` +
     `The owner grants access from "Bot admins": send the numeric ID (via <code>/id</code> or @userinfobot) and pick their channels in the editor that opens.\n` +
     `Batch add (v2.1) — send a list instead of one ID: separate with commas or new lines (e.g. <code>111, 222, 333</code>; max 50). Works for admins, viewers and in-channel promotion.\n` +
@@ -3995,7 +4004,7 @@ You'll get a preview and confirm before it goes live.`),
       let stPT = null; try { stPT = stPrevT ? JSON.parse(stPrevT) : null; } catch (e) { stPT = null; }
       if (stPT && stPT.t === 'bcAllPick' && stPT.gm) await tg(env, 'deleteMessage', { chat_id: msg.chat.id, message_id: stPT.gm }).catch(() => null);
       const cntT = await bcCounts(env);
-      const sentG = await send(env, msg.chat.id, bcGuideText(sel, cntT), kb([[BTN('❌ لغو', 'bcX')]]));
+      const sentG = await send(env, msg.chat.id, bcGuideText(sel, cntT), kb([[BTN('❌ لغو', 'bcX')]]), { forceReply: true, placeholder: L('پیامت رو همینجا بنویس', 'Type your broadcast message') });
       const gm = sentG && sentG.ok && sentG.result && sentG.result.message_id ? sentG.result.message_id : 0;
       await setPanelState(env, uid, { t: 'bcAllPick', tgt: sel, gm });
       return answerCb(env, cb.id, L('↓ راهنما رو فرستادم', '↓ Guide sent'));
@@ -4114,7 +4123,7 @@ Note: only posts made after v2.7 are tracked; older ones are out of reach for an
           [BTN(L('۲۰ پیام', '20 msgs'), `dlN:${a1}:20`), BTN(L('۴۰ پیام', '40 msgs'), `dlN:${a1}:40`)],
           [BTN(L('عدد دلخواه', 'Custom number'), `dlC:${a1}`)],
           [BTN('❌ لغو', 'bcX')],
-        ]));
+        ]), { forceReply: true, placeholder: L('عدد پیام ها را بفرست ( مثلا 10 )', 'Send the number of messages (e.g. 10)') });
       return answerCb(env, cb.id, L('↓ راهنما رو فرستادم', '↓ Guide sent'));
     }
     if (act === 'dlC') {
@@ -4593,7 +4602,7 @@ After saving, tap "Channels" for each person and pick which channels they can se
 
 Send the exact backup text the "Backup" button produced (it starts with {).
 All channel settings return to that state instantly: locks, yellow/red mode, ban duration, scheduled lock and announcements.`),
-        kb([[BTN('❌ لغو', 'bcX')]]));
+        kb([[BTN('❌ لغو', 'bcX')]]), { forceReply: true, placeholder: L('متن بکاپ را بفرست ( با { شروع میشه )', 'Paste the backup text (starts with {)') });
       return answerCb(env, cb.id, L('↓ راهنما رو فرستادم', '↓ Guide sent'));
     }
     /* ── ♻️ لغو بن متخلف (دکمه گزارش قرمز) ── */
@@ -4648,7 +4657,7 @@ All channel settings return to that state instantly: locks, yellow/red mode, ban
 2) Then pick a preset — we recommend "⚡️ Basic admin" — and confirm.
 
 Note: they don't have to be a member yet; they can join via the link after promotion.`),
-        kb([[BTN('❌ لغو', 'bcX')]]));
+        kb([[BTN('❌ لغو', 'bcX')]]), { forceReply: true, placeholder: L('شناسه عددی یا @یوزرنیم را بفرست', 'Send a numeric ID or @username') });
       return answerCb(env, cb.id, L('↓ راهنما رو فرستادم', '↓ Guide sent'));
     }
     /* ── ⚡️ v1.8: پریست ادمین سازی — یک ضربه = تنظیم + ارتقا ── */
@@ -5072,7 +5081,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v3.6 (message appearance refresh per the Bot API changelog — edit reports show old/new text in separate blockquote boxes, settings backup & latest-violations collapse into expandable quotes, official Telegram message effects (fire/like/clap/party) on result cards + true-edit detection — technical edits like poll votes / live-location updates / checklist ticks / service markup that leave the content fingerprint (text+caption+media kind+poll question) unchanged are no longer deleted or reported (deterministic content-hash map, one extra KV write per flush only) + per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v3.7 (auto-open typing via force_reply on text-input guides (Bot API 10.3 — broadcast message, batch-delete count, backup restore, in-channel promotion; input_field_placeholder hints) + message appearance refresh per the Bot API changelog — edit reports show old/new text in separate blockquote boxes, settings backup & latest-violations collapse into expandable quotes, official Telegram message effects (fire/like/clap/party) on result cards + true-edit detection — technical edits like poll votes / live-location updates / checklist ticks / service markup that leave the content fingerprint (text+caption+media kind+poll question) unchanged are no longer deleted or reported (deterministic content-hash map, one extra KV write per flush only) + per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;

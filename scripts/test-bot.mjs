@@ -2438,6 +2438,31 @@ await section('v3.6 — ظاهر پیام ها: نقل قول ادیت ، لیس
   await post(cbQuery('muF:' + CID + ':123456789', OWNER));
 });
 
+/* ---------------------------- v3.7 تایپ خودکار ---------------------------- */
+await section('v3.7 — تایپ خودکار ( force_reply — Bot API 10.3 ) روی راهنما های ورودی', async () => {
+  // بازگردانی بکاپ
+  await post(cbQuery('bakI:' + CID, OWNER));
+  const g1 = calls('sendMessage').filter((c) => /بازگردانی بکاپ/.test(c.payload.text || '')).pop();
+  ok(g1 && g1.payload.reply_markup && g1.payload.reply_markup.force_reply === true && !!g1.payload.reply_markup.input_field_placeholder, 'بازگردانی بکاپ: force_reply + placeholder');
+
+  // حذف دسته ای — تعداد دلخواه
+  await post(cbQuery('dLM:' + CID, OWNER));
+  const g2 = calls('sendMessage').filter((c) => /چند پیام آخر/.test(c.payload.text || '')).pop();
+  ok(g2 && g2.payload.reply_markup && g2.payload.reply_markup.force_reply === true, 'حذف دسته ای: force_reply');
+
+  // ادمین سازی در چنل
+  await post(cbQuery('camA:' + CID, OWNER));
+  const g3 = calls('sendMessage').filter((c) => /ادمین سازی در چنل/.test(c.payload.text || '')).pop();
+  ok(g3 && g3.payload.reply_markup && g3.payload.reply_markup.force_reply === true, 'ادمین سازی: force_reply');
+
+  // پیام همگانی — راهنمای ارسال متن
+  await post(cbQuery('bcAll', OWNER));
+  await post(cbQuery('bcT:ch', OWNER));
+  const g4 = calls('sendMessage').filter((c) => /همگانی/.test(c.payload.text || '')).pop();
+  ok(g4 && g4.payload.reply_markup && g4.payload.reply_markup.force_reply === true, 'همگانی: force_reply');
+  await post(cbQuery('bcX', OWNER)); // پاکسازی state و پیام های راهنما
+});
+
 /* ---------------------------- جمع بندی ---------------------------- */
 
 unfreeze();
