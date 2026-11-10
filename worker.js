@@ -336,13 +336,16 @@ async function announceChannel(env, cid, text) {
  *  • محدودیت: تلگرام به بات اجازه دیدن تاریخچه نمیدهد ⇒ فقط پست های بعد از نصب v2.7
  *    ثبت میشوند؛ « حذف پیام های اخیر » روی همین حلقه کار میکند. */
 const MSGS = 'msgs:';
+const CNT = 'cnt:';         // 🔬 v3.5 — نقشه هش محتوای پیام ها ( تشخیص ادیت واقعی از فنی )
 const MSG_KEEP = 100;       // حداکثر شناسه نگه داشته شده برای هر چنل
+const CNT_KEEP = 500;       // 🔬 v3.5 — سقف رکورد هش محتوا برای هر چنل
 const MSG_FLUSH_N = 20;     // با پُر شدن بافر حافظه تا این تعداد ⇒ فلاش فوری
 const MAX_DEL = 40;         // سقف حذف دسته ای در هر اجرا (سقف ساب ریکوئست پلن رایگان)
 const MAX_BC = 40;          // سقف چنل برای پیام همگانی (سقف ساب ریکوئست)
 const faNum = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]); // ارقام فارسی برای متن های فارسی
 const pendMsgs = new Map();        // cid -> [{i: message_id, t: متن ۱۲۰ نویسه}, ...] (جدید در انتها)
 const pendMsgsTimer = new Map();   // cid -> bool (تایمر فلاش فعال است؟)
+const pendCnt = new Map();         // 🔬 v3.5 — cid -> [{i, h}] هش محتوای پیام های تازه
 
 async function readMsgsRaw(env, cid) {
   try { const raw = await env.KV.get(MSGS + cid); const v = raw ? JSON.parse(raw) : []; return Array.isArray(v) ? v : []; }
@@ -373,30 +376,85 @@ async function oldTextOf(env, cid, mid) {
   } catch (e) { return null; }
 }
 
+/** 🔬 v3.5 — اثر انگشت محتوای پست: متن/کپشن + نوع مدیا + پرسش نظرسنجی/چک لیست
+ * FNV-1a ۳۲ بیتی (Math.imul) — قطعی و سبک؛ تغییرِ صرفِ شمارندهٔ نظرسنجی اثر انگشت را عوض نمیکند */
+function contentHash(msg) {
+  const t = String(msg.text != null ? msg.text : (msg.caption != null ? msg.caption : ''));
+  const kinds = ['photo', 'video', 'animation', 'audio', 'voice', 'video_note', 'document', 'sticker',
+    'poll', 'location', 'venue', 'dice', 'contact', 'story', 'checklist', 'giveaway', 'paid_media']
+    .filter((k) => msg[k] != null).join(',');
+  const str = t + '|' + kinds +
+    (msg.poll ? ('|' + (msg.poll.question || '') + '|' + (msg.poll.type || '')) : '') +
+    (msg.checklist ? ('|' + (msg.checklist.title || '')) : '');
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return h.toString(16).padStart(8, '0') + ':' + t.length.toString(36);
+}
+
+/** 🔬 v3.5 — آیا این ادیت واقعاً محتوا را عوض کرده ؟
+ *  true  = محتوا دست نخورده است ( ادیتِ فنی ⇒ تخلف نیست )
+ *  false = عوض شده یا رکوردی نداریم ( مثل قبل وارد قفل ها میشود ) */
+async function editUnchanged(env, cid, msg) {
+  const mid = msg.message_id;
+  const h = contentHash(msg);
+  const pend = (pendCnt.get(cid) || []).find((x) => x && x.i === mid);
+  if (pend) return pend.h === h;
+  let rec = null;
+  try {
+    const raw = await env.KV.get(CNT + cid);
+    const arr = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(arr)) rec = arr.find((x) => x && x.i === mid) || null;
+  } catch (e) { rec = null; }
+  if (rec) return rec.h === h;
+  // سازگاری قدیمی: اسنیپت ۱۲۰ نویسه ای داخل حلقهٔ msgs
+  const old = await oldTextOf(env, cid, mid);
+  if (old != null) {
+    const cur = String(msg.text != null ? msg.text : (msg.caption != null ? msg.caption : ''));
+    return cur.slice(0, 120) === old;
+  }
+  return false;
+}
+
 /** ادغام و نوشتن بافر در KV */
 async function flushMsgs(env, cid) {
   const fresh = pendMsgs.get(cid);
-  if (!fresh || !fresh.length) return;
-  pendMsgs.delete(cid); pendMsgsTimer.delete(cid);
+  const freshCnt = pendCnt.get(cid);
+  if ((!fresh || !fresh.length) && (!freshCnt || !freshCnt.length)) return;
+  pendMsgs.delete(cid); pendMsgsTimer.delete(cid); pendCnt.delete(cid);
   try {
-    const old = await readMsgsRaw(env, cid);
-    const map = new Map(); // شناسه → رکورد ؛ رکورد متن دار بر عددی میچربد
-    for (const e of old) map.set(midOf(e), e);
-    for (const e of fresh) {
-      const prev = map.get(e.i);
-      map.set(e.i, (prev && typeof prev === 'object' && prev.t && !e.t) ? prev : e);
+    if (fresh && fresh.length) {
+      const old = await readMsgsRaw(env, cid);
+      const map = new Map(); // شناسه → رکورد ؛ رکورد متن دار بر عددی میچربد
+      for (const e of old) map.set(midOf(e), e);
+      for (const e of fresh) {
+        const prev = map.get(e.i);
+        map.set(e.i, (prev && typeof prev === 'object' && prev.t && !e.t) ? prev : e);
+      }
+      const merged = [...map.values()].slice(-MSG_KEEP);
+      await env.KV.put(MSGS + cid, JSON.stringify(merged));
     }
-    const merged = [...map.values()].slice(-MSG_KEEP);
-    await env.KV.put(MSGS + cid, JSON.stringify(merged));
+    // 🔬 v3.5 — فلاش نقشه هش محتوا ( همان زمان بندی ؛ یک نوشتن اضافه در هر فلاش )
+    if (freshCnt && freshCnt.length) {
+      let arr = [];
+      try { const raw = await env.KV.get(CNT + cid); const v = raw ? JSON.parse(raw) : null; if (Array.isArray(v)) arr = v; } catch (e) {}
+      const cmap = new Map(arr.filter((x) => x && x.i).map((x) => [x.i, x]));
+      for (const e of freshCnt) cmap.set(e.i, e);
+      await env.KV.put(CNT + cid, JSON.stringify([...cmap.values()].slice(-CNT_KEEP)));
+    }
   } catch (e) { console.error('flushMsgs', e); }
 }
 
 /** ثبت شناسه یک پیام در حلقه چنل (env میتواند null باشد وقتی فلاش بعدی نیاز نیست) */
-function trackMsg(env, ctx, cid, mid, text, fromUid) {
+function trackMsg(env, ctx, cid, mid, text, fromUid, hash) {
   if (!cid || !mid) return;
   let arr = pendMsgs.get(cid);
   if (!arr) { arr = []; pendMsgs.set(cid, arr); }
   if (!arr.some((x) => midOf(x) === mid)) arr.push(fromUid ? { i: mid, t: text || null, f: String(fromUid) } : { i: mid, t: text || null }); // 🔇 v3.3 — f = فرستنده واقعی برای پاکسازی سکوت
+  if (hash) { // 🔬 v3.5 — اثر انگشت محتوا برای تشخیص ادیت واقعی
+    let hc = pendCnt.get(cid);
+    if (!hc) { hc = []; pendCnt.set(cid, hc); }
+    if (!hc.some((x) => x && x.i === mid)) hc.push({ i: mid, h: hash });
+  }
   if (!ctx || !env) return;
   if (arr.length >= MSG_FLUSH_N) { ctx.waitUntil(flushMsgs(env, cid)); return; }
   if (!pendMsgsTimer.get(cid)) {
@@ -2353,12 +2411,13 @@ function mainText(from, scope = null) {
     `انتخاب ساعت قفل زمان دار با دکمه ( ۰ تا ۲۳ ) ؛ پیام همگانی و حذف پیام های اخیر هم همه با دکمه و تأیید\n` +
     `سکوت فرد خاص برای مدت مشخص ( یا همیشه ) : هر پست و ادیتش فوراً حذف میشه تا خودت آزادش کنی\n` +
     `غیرفعال کردن هر چنل با یه دکمه : تا فعال سازی دوباره هیچ چیزی پردازش نمیشه ولی تنظیمات و آمار میمونن\n` +
+    `تشخیص ادیت واقعی : رأی نظرسنجی و امثالش که محتوا رو عوض نمیکنن تخلف حساب نمیشن — فقط ادیتِ واقعی پاک میشه\n` +
     `</blockquote>\n\n` +
     `<b>شروع :</b>\n` +
     `1 ) ربات رو ادمین هر چنل کن ( دسترسی « حذف پیام » لازمه )\n` +
     `2 ) پیام فعال سازی میاد ؛ تأییدش کن : هر چنل جداگانه\n` +
     `3 ) قفل ها رو تنظیم کن ؛ بقیش با من .\n\n` +
-    `<i>ضد خیانت v3.4</i>`
+    `<i>ضد خیانت v3.5</i>`
   ), (
     `🛡️ <b>Anti-Treason Channel Guard</b>\n\n` +
     `Hi <b>${esc(from.first_name || '')}</b>, welcome!\n` +
@@ -2376,6 +2435,7 @@ function mainText(from, scope = null) {
     `• Albums/slideshows — a violation in any part deletes the entire album\n` +
     `• Manual mute — silence a specific person for a chosen duration; everything they post or edit is deleted until you free them\n` +
     `• Per-channel disable — pause the bot on any channel with one button; settings and stats are kept, re-enable anytime\n` +
+    `• True-edit detection — technical edits (poll votes, live-location ticks) that don't change content are not violations\n` +
     `• Up to date with the latest Telegram — rich messages, checklists, live photos and paid media are covered too\n` +
     `• Instant ownership-change alert — straight to you\n` +
     `</blockquote>\n\n` +
@@ -2383,7 +2443,7 @@ function mainText(from, scope = null) {
     `1) Make the bot an admin of any channel (the "Delete messages" permission is required)\n` +
     `2) An activation message arrives; approve it — each channel separately\n` +
     `3) Set the locks; I'll handle the rest.\n\n` +
-    `<i>Anti-Treason v3.4</i>`
+    `<i>Anti-Treason v3.5</i>`
   ));
 }
 
@@ -2799,6 +2859,9 @@ function helpText() {
     `━━━ غیرفعال کردن چنل (v3.4) ━━━\n` +
     `از منوی هر چنل با « ⛔ غیرفعال کردن چنل » ربات رو روی همون چنل موقتاً خاموش کن : هیچ پیام یا ادیتی پردازش یا حذف نمیشه و قفل آنی و قفل زمان دار هم تا فعال سازی دوباره متوقفن — ولی تنظیمات و آمار و سکوت ها میمونن و سکوت ها سر وقت خودشون تموم میشن.\n` +
     `چنل غیرفعال تو « چنل های من » با برچسب « ⛔ غیرفعال ( توسط مالک ) » دیده میشه و برگردوندنش یه دکمه است : « فعال سازی این چنل ».\n\n` +
+    `━━━ تشخیص ادیت واقعی (v3.5) ━━━\n` +
+    `خیلی از « ادیت ها » اصلاً ادیت نیستن : رأی خوردن پست نظرسنجی، تیک چک لیست، به روز شدن لوکیشن زنده و مارکاپ سرویس های دیگر همه به شکل edited_channel_post میآیند بدون آن که متن یا کپشن عوض بشه.\n` +
+    `ربات اثر انگشت محتوای هر پست ( متن + نوع مدیا + پرسش نظرسنجی ) رو نگه میداره و فقط وقتی محتوا واقعاً عوض شده باشه ادیت رو تخلف حساب میکنه — نه حذف اشتباه، نه گزارش بیخودی.\n\n` +
     `━━━ ادمین ها ━━━\n` +
     `مالک از « ادمین های ربات » به دیگران دسترسی میده: شناسه عددی رو بفرست (با <code>/id</code> یا @userinfobot) و تو ویرایشگری که باز میشه چنل هاش رو انتخاب کن.\n` +
     `افزودن گروهی (v2.1) — به جای یه شناسه، لیست بفرست: با کاما یا خط جدید جدا کن (مثال: <code>111, 222, 333</code>؛ حداکثر ۵۰). برای ادمین، ناظر و ادمین سازی داخل چنل کار میکنه.\n` +
@@ -2864,6 +2927,9 @@ function helpText() {
     `━━━ Disable a channel (v3.4) ━━━\n` +
     `From each channel's menu, "⛔ Disable channel" pauses the bot on that channel: no message or edit is processed or deleted, and instant/scheduled locks pause until re-enabled — while settings, stats and mutes are preserved (mutes still expire on time).\n` +
     `Disabled channels show "⛔ Disabled (by owner)" in "My channels" and come back with one tap: "Activate this channel".\n\n` +
+    `━━━ True-edit detection (v3.5) ━━━\n` +
+    `Many "edits" aren't edits at all: poll votes, checklist ticks, live-location updates and other services' markup all arrive as edited_channel_post without changing the text or caption.\n` +
+    `The bot keeps a content fingerprint (text + media type + poll question) of every post and only treats an edit as a violation when the content actually changed — no false deletes, no noise.\n\n` +
     `━━━ Admins ━━━\n` +
     `The owner grants access from "Bot admins": send the numeric ID (via <code>/id</code> or @userinfobot) and pick their channels in the editor that opens.\n` +
     `Batch add (v2.1) — send a list instead of one ID: separate with commas or new lines (e.g. <code>111, 222, 333</code>; max 50). Works for admins, viewers and in-channel promotion.\n` +
@@ -4810,10 +4876,16 @@ async function handleChannelPost(u, env, ctx) {
 
   // 🧹 v2.7: هر پست جدید در حلقه « پیام های اخیر » ثبت میشود (برای حذف دسته ای)
   if (!isEdit) trackMsg(env, ctx, cid, msg.message_id, String(msg.text || msg.caption || '').slice(0, 120),
-    (msg.from && msg.from.id && msg.from.id !== 1087968824 && String(msg.from.id) !== String(cid)) ? msg.from.id : null); // 🔇 v3.3
+    (msg.from && msg.from.id && msg.from.id !== 1087968824 && String(msg.from.id) !== String(cid)) ? msg.from.id : null, // 🔇 v3.3
+    contentHash(msg)); // 🔬 v3.5 — اثر انگشت محتوا
 
   // 🧩 v2.4 — پست های آلبوم/اسلایدشو برای « حذف کل آلبوم » ثبت میشوند (قبل از تصمیم گیری)
   if (a.album && !isEdit) albumRemember(cid, a.album, msg.message_id);
+
+  // 🔬 v3.5 — ادیتِ « فنی » تخلف نیست : رأی خوردن نظرسنجی، تیک چک لیست، به روز شدن لوکیشن زنده و
+  // مارکاپِ سرویس های دیگر همه به شکل edited_channel_post میآیند بدون آن که محتوا عوض شود؛
+  // تنها وقتی متن/کپشن/نوع محتوا واقعاً تغییر کرده باشد وارد قفل ها و نردبان زرد/قرمز میشود
+  if (isEdit && (await editUnchanged(env, cid, msg))) return;
 
   const reason = matchViolation(s, msg, a, isEdit);
   if (!reason) return;
@@ -4990,7 +5062,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v3.4 (per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v3.5 (true-edit detection — technical edits like poll votes / live-location updates / checklist ticks / service markup that leave the content fingerprint (text+caption+media kind+poll question) unchanged are no longer deleted or reported (deterministic content-hash map, one extra KV write per flush only) + per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;

@@ -2350,6 +2350,52 @@ await section('v3.4 — غیرفعال کردن چنل با دکمه: هیچ ا�
   ok(!lastEdited().includes('غیرفعال ( توسط مالک )'), 'لیست چنل ها دیگر برچسب غیرفعال ندارد');
 });
 
+await section('v3.5 — تشخیص ادیت واقعی: ادیت فنی ( نظرسنجی/لوکیشن ) تخلف نیست', async () => {
+  // وضعیت تمیز + قفل های ادیت روشن:
+  await setMode('off');
+  await setSched(false);
+  await setLock('edit_text', true);
+  await setLock('edit_media', true);
+  await setLock('edit_link', false);
+  await setLock('send_text', false);
+  await setLock('lock_anon', false);
+  // بازتولید دقیق رخداد زنده: پست متنی « بمب » ثبت میشود بعد با همان متن « ادیت » میآید:
+  await post(chan({ message_id: 9603, text: 'بمب' }));
+  clearCalls();
+  await post(chanEdit({ message_id: 9603, text: 'بمب' }));
+  ok(delCalls().length === 0, 'ادیت با متن دست نخورده ( رخداد واقعی چنل ) حذف نکرد');
+  ok(lastText() === '' || !lastText().includes('ادیت'), 'گزارش تخلف هم نیامد');
+  // پست نظرسنجی: رأی خوردن edited_channel_post میفرستد بدون تغییر محتوا:
+  await post(chan({ message_id: 9600, poll: { question: 'کدام بهتره ؟', type: 'regular', total_voter_count: 3, options: [{ text: 'الف', voter_count: 2 }, { text: 'ب', voter_count: 1 }] } }));
+  clearCalls();
+  await post(chanEdit({ message_id: 9600, poll: { question: 'کدام بهتره ؟', type: 'regular', total_voter_count: 57, options: [{ text: 'الف', voter_count: 40 }, { text: 'ب', voter_count: 17 }] } }));
+  ok(delCalls().length === 0, 'ادیت فنی نظرسنجی ( رأی ) حذف نکرد');
+  // تغییر واقعی پرسش نظرسنجی ⇒ حذف با قفل ادیت مدیا ( نظرسنجی جزو مدیاست ):
+  await post(chanEdit({ message_id: 9600, poll: { question: 'تبلیغ کجا ببینید ؟ t.me/spam', type: 'regular', total_voter_count: 57, options: [{ text: 'الف', voter_count: 40 }, { text: 'ب', voter_count: 17 }] } }));
+  ok(delCalls().length === 1 && delCalls()[0].payload.message_id === 9600, 'تغییر واقعی پرسش نظرسنجی حذف شد');
+  // ادیت فنی بعد از فلاش ( خواندن هش از KV ):
+  await post(chan({ message_id: 9601, location: { latitude: 35.7, longitude: 51.4, live_period: 3600 } }));
+  clearCalls();
+  await post(chanEdit({ message_id: 9601, location: { latitude: 35.71, longitude: 51.41, live_period: 3600 } }));
+  ok(delCalls().length === 0, 'به روز شدن لوکیشن زنده بعد از فلاش هم حذف نکرد');
+  // تغییر واقعی کپشن لوکیشن ⇒ حذف:
+  await post(chanEdit({ message_id: 9601, location: { latitude: 35.71, longitude: 51.41, live_period: 3600 }, caption: 'کپشن تبلیغاتی جدید' }));
+  ok(delCalls().length === 1 && delCalls()[0].payload.message_id === 9601, 'تغییر کپشن لوکیشن حذف شد');
+  ok(lastText().includes('قفل ادیت مدیا'), 'گزارش با دلیل قفل ادیت مدیا');
+  // تغییر واقعی متنِ پست ردیابی شده ⇒ حذف:
+  clearCalls();
+  await post(chan({ message_id: 9602, text: 'بمب' }));
+  await post(chanEdit({ message_id: 9602, text: 'بمبِ تبلیغاتی https://spam.example' }));
+  ok(delCalls().length === 1 && delCalls()[0].payload.message_id === 9602, 'ادیت واقعی متن پست ردیابی شده حذف شد');
+  // ادیت پیام بدون رکورد ( قبل از ربات ) ⇒ مثل قبل تخلف:
+  clearCalls();
+  await post(chanEdit({ message_id: 9000, text: 'ادیت پیام خیلی قدیمی' }));
+  ok(delCalls().length === 1 && delCalls()[0].payload.message_id === 9000, 'ادیت پیام بدون رکورد همچنان تخلف است');
+  ok(lastText().includes('قفل ادیت متن'), 'گزارش با دلیل قفل ادیت متن');
+  await setLock('edit_text', false);
+  await setLock('edit_media', false);
+});
+
 /* ---------------------------- جمع بندی ---------------------------- */
 
 unfreeze();
