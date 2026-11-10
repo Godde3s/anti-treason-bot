@@ -31,7 +31,7 @@ const mockB = {
   admins: null,            // آرایه result برای getChatAdministrators (null ⇒ [])
   memberOf: {},            // user_id → ChatMember (برای getChatMember غیر-بات)
   chatInfo: {},            // v2.2: chat_id عددی → پروفایل کاربر (برای نام/منشن getUserInfo)
-  failPromoteFor: [], failBanFor: [],
+  failPromoteFor: [], failBanFor: [], richFail: false, // v4.0: خطای ساختگی sendRichMessage برای تست fallback
 };
 globalThis.fetch = async (url, init) => {
   const u = String(url);
@@ -91,6 +91,10 @@ globalThis.fetch = async (url, init) => {
     // شبیه سازی محدودیت ۴۸ ساعته تلگرام برای حذف پیام خیلی قدیمی
     if (method === 'deleteMessage' && payload.message_id === 777777) {
       return J({ ok: false, description: "Bad Request: message can't be deleted" }, 400);
+    }
+    // v4.0: خطای ساختگی sendRichMessage برای تست fallback به sendMessage
+    if (method === 'sendRichMessage' && mockB.richFail) {
+      return J({ ok: false, description: 'Bad Request: rich message test failure' }, 400);
     }
     return J({
       ok: true,
@@ -171,6 +175,13 @@ const lastText = () => { const s = calls('sendMessage'); return s.length ? s[s.l
 const lastEdited = () => { const e = calls('editMessageText'); return e.length ? e[e.length - 1].payload.text : ''; };
 const lastEditedKB = () => { const e = calls('editMessageText'); return (e.length && e[e.length - 1].payload.reply_markup) || {}; };
 const lastAnswer = () => { const a = calls('answerCallbackQuery'); return a.length ? a[a.length - 1].payload.text || '' : ''; };
+/* v4.0 — اعلان ها اکنون « پیام ریچ » هستند ( sendRichMessage — Bot API 10.1 )؛ helper مشترک */
+const richTextOf = (c) => (c.payload.rich_message && c.payload.rich_message.html) || c.payload.text || '';
+const annCalls = (re) => tgCalls.filter((c) => (c.method === 'sendRichMessage' || c.method === 'sendMessage')
+  && String(c.payload.chat_id) === String(CID) && re.test(richTextOf(c)));
+const annCount = () => annCalls(/[\s\S]/).length;
+/* v4.0 — آخرین « کارت فوری » ( Ephemeral ) — فقط برای زننده دکمه */
+const lastCard = () => { const c = tgCalls.filter((x) => (x.method === 'sendRichMessage' || x.method === 'sendMessage') && x.payload.ephemeral_message_parameters); return c.length ? richTextOf(c[c.length - 1]) : ''; };
 
 /* ---- کنترل زمان تهران ---- */
 const realNow = Date.now;
@@ -334,7 +345,7 @@ await section('قفل کامل (master)', async () => {
 
 await section('قفل آنی (دستی) — حذف فوری همه چیز تا باز کردن', async () => {
   await post(cbQuery('instT:' + CID, OWNER));
-  ok(lastAnswer().includes('قفل آنی فعال شد'), 'فعال سازی قفل آنی');
+  ok(lastCard().includes('قفل آنی فعال شد'), 'فعال سازی قفل آنی: کارت فوری ( Ephemeral ) آمد');
   ok(JSON.parse(await env.KV.get('chat:' + CID)).instant.on === true, 'instant.on در KV ذخیره شد');
   await post(chan({ text: 'پست متنی در قفل آنی' }));
   ok(delCalls().length === 1, 'پست متنی فوراً حذف شد');
@@ -348,7 +359,7 @@ await section('قفل آنی (دستی) — حذف فوری همه چیز تا �
   await post(cbQuery('chat:' + CID, OWNER));
   ok(lastEdited().includes('قفل آنی'), 'وضعیت قفل آنی در پنل چنل دیده میشود');
   await post(cbQuery('instT:' + CID, OWNER));
-  ok(lastAnswer().includes('باز شد'), 'بازکردن قفل آنی');
+  ok(lastCard().includes('قفل آنی باز شد'), 'بازکردن قفل آنی: کارت فوری آمد');
   ok(JSON.parse(await env.KV.get('chat:' + CID)).instant.on === false, 'instant.on خاموش شد');
   await post(chan({ text: 'پست بعد از باز کردن' }));
   ok(delCalls().length === 3, 'بعد از باز کردن، حذفی نیست');
@@ -1686,7 +1697,7 @@ await section('v2.4 — آلبوم/اسلایدشو: حذف کل آلبوم', as
   await setLock('send_photo', false);
 });
 
-await section('v2.4 — استایل رنگی دکمه ها + افکت /start', async () => {
+await section('v2.4 — استایل رنگی دکمه ها', async () => {
   clearCalls();
   await post(upd({ my_chat_member: { chat: { id: -1008888, type: 'channel', title: 'چنل نو' }, new_chat_member: { status: 'administrator' } } }));
   const mk = JSON.stringify(calls('sendMessage').slice(-1)[0].payload.reply_markup || {});
@@ -1702,7 +1713,7 @@ await section('v2.4 — استایل رنگی دکمه ها + افکت /start', 
   clearCalls();
   await post(priv('/start', OWNER));
   const st = calls('sendMessage').slice(-1)[0];
-  ok(st && st.payload.message_effect_id === '5104841245755180586', 'پیام /start با افکت 🔥 ارسال شد');
+  ok(st && st.payload.text.includes('v4.0') && !st.payload.message_effect_id, '/start: مهر v4.0 و بدون message_effect_id');
 });
 
 /* ───────────────────────── v2.5: اعلان قفل ها در خودِ چنل ───────────────────────── */
@@ -1714,16 +1725,17 @@ await section('v2.5 — اعلان قفل آنی در خودِ چنل (روشن/
   await env.KV.put('chat:' + CID, JSON.stringify(s));
   clearCalls();
   await post(cbQuery('instT:' + CID, OWNER));
-  const on = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(CID) && /قفل آنی به دستور اونر فعال شد !!/.test(c.payload.text || ''));
-  ok(!!on && /تا باز شدن صبور باشید/.test(on.payload.text) && /<b>/.test(on.payload.text), 'روشن شدن قفل آنی → اعلان « قفل آنی به دستور اونر فعال شد !! » بولد در خودِ چنل');
-  ok(/🗣 t\.me\//.test(on.payload.text), 'اعلان قفل آنی: خط چنل « 🗣 t.me/... » زیر پیام');
+  const on = annCalls(/قفل آنی به دستور اونر فعال شد !!/)[0];
+  ok(!!on && /تا باز شدن صبور باشید/.test(richTextOf(on)) && /<b>/.test(richTextOf(on)), 'روشن شدن قفل آنی → اعلان « قفل آنی به دستور اونر فعال شد !! » بولد در خودِ چنل');
+  ok(!!calls('sendRichMessage').find((c) => String(c.payload.chat_id) === String(CID)), 'اعلان قفل آنی با « پیام ریچ » ( sendRichMessage — Bot API 10.1 ) فرستاده شد');
+  ok(/🗣 t\.me\//.test(richTextOf(on)), 'اعلان قفل آنی: خط چنل « 🗣 t.me/... » زیر پیام');
   ok(JSON.parse(await env.KV.get('chat:' + CID)).instant.on === true, 'قفل آنی در KV روشن شد');
   await post(chan({ text: 'پست در قفل آنی' }));
   ok(delCalls().length === 1, 'رفتار قفل آنی سر جایش است (حذف فوری)');
   clearCalls();
   await post(cbQuery('instT:' + CID, OWNER));
-  const off = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(CID) && /قفل آنی خاموش شد !!/.test(c.payload.text || ''));
-  ok(!!off && /میتونید استارت بزنید/.test(off.payload.text) && /<b>/.test(off.payload.text), 'خاموش شدن → اعلان « قفل آنی خاموش شد !! ... میتونید استارت بزنید ... » بولد');
+  const off = annCalls(/قفل آنی خاموش شد !!/)[0];
+  ok(!!off && /میتونید استارت بزنید/.test(richTextOf(off)) && /<b>/.test(richTextOf(off)), 'خاموش شدن → اعلان « قفل آنی خاموش شد !! ... میتونید استارت بزنید ... » بولد');
   ok(JSON.parse(await env.KV.get('chat:' + CID)).instant.on === false, 'قفل آنی خاموش شد');
   await post(chan({ text: 'پست بعد از خاموشی' }));
   ok(delCalls().length === 0, 'بعد از خاموش شدن، حذفی نیست');
@@ -1738,28 +1750,29 @@ await section('v2.5 — کرون هر دقیقه: اعلان شروع/پایان
   freezeTehran(3, 59); // بیرون بازه
   clearCalls();
   await worker.scheduled({ cron: '* * * * *' }, env, ctx);
-  ok(calls('sendMessage').length === 0, 'اولین اجرا (بیرون بازه) → فقط ثبت وضعیت، بدون اعلان');
+  ok(annCount() === 0, 'اولین اجرا (بیرون بازه) → فقط ثبت وضعیت، بدون اعلان');
   ok(JSON.parse(await env.KV.get('sched:' + CID)).in === 0, 'وضعیت sched در KV ثبت شد (in=0)');
   freezeTehran(4, 0); // لحظه شروع بازه
   await worker.scheduled({ cron: '* * * * *' }, env, ctx);
-  const st1 = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(CID) && /قفل میمونه/.test(c.payload.text || ''));
-  ok(!!st1 && /04:00/.test(st1.payload.text) && /08:00/.test(st1.payload.text) && /تا پایان این بازه ؛ فعالیت ممنوع است/.test(st1.payload.text) && /<b>/.test(st1.payload.text), 'شروع بازه → اعلان « چنل از این لحظه ( ساعت 04:00 ) تا پایان قفل ( ساعت 08:00 ) قفل میمونه » بولد');
-  ok(/🗣 t\.me\//.test(st1.payload.text), 'اعلان شروع بازه: خط چنل زیر پیام');
+  const st1 = annCalls(/قفل میمونه/)[0];
+  ok(!!st1 && /04:00/.test(richTextOf(st1)) && /08:00/.test(richTextOf(st1)) && /تا پایان این بازه ؛ فعالیت ممنوع است/.test(richTextOf(st1)) && /<b>/.test(richTextOf(st1)), 'شروع بازه → اعلان « چنل از این لحظه ( ساعت 04:00 ) تا پایان قفل ( ساعت 08:00 ) قفل میمونه » بولد');
+  ok(/🗣 t\.me\//.test(richTextOf(st1)), 'اعلان شروع بازه: خط چنل زیر پیام');
+  ok(/<h4>/.test(richTextOf(st1)) && /<footer>/.test(richTextOf(st1)), 'اعلان شروع بازه: ساختار ریچ ( تیتر h4 + پانویس footer )');
   ok(JSON.parse(await env.KV.get('sched:' + CID)).in === 1, 'وضعیت داخل بازه ثبت شد (in=1)');
   clearCalls();
   freezeTehran(5, 30); // وسط بازه — تیک های بعدی
   await worker.scheduled({ cron: '* * * * *' }, env, ctx);
   await worker.scheduled({ cron: '* * * * *' }, env, ctx);
-  ok(calls('sendMessage').length === 0, 'تیک های وسط بازه → بدون اعلان تکراری (بدون اسپم)');
+  ok(annCount() === 0, 'تیک های وسط بازه → بدون اعلان تکراری (بدون اسپم)');
   freezeTehran(8, 0); // لحظه پایان بازه (پایان انحصاری)
   await worker.scheduled({ cron: '* * * * *' }, env, ctx);
-  const st2 = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(CID) && /چنل بازه !! تایم قفل زماندار تموم شد/.test(c.payload.text || ''));
-  ok(!!st2 && /<b>/.test(st2.payload.text) && /🗣 t\.me\//.test(st2.payload.text), 'پایان بازه → اعلان « چنل بازه !! تایم قفل زماندار تموم شد » بولد + خط چنل');
+  const st2 = annCalls(/چنل بازه !! تایم قفل زماندار تموم شد/)[0];
+  ok(!!st2 && /<b>/.test(richTextOf(st2)) && /🗣 t\.me\//.test(richTextOf(st2)), 'پایان بازه → اعلان « چنل بازه !! تایم قفل زماندار تموم شد » بولد + خط چنل');
   ok(JSON.parse(await env.KV.get('sched:' + CID)).in === 0, 'وضعیت بیرون بازه ثبت شد (in=0)');
   clearCalls();
   freezeTehran(9, 0);
   await worker.scheduled({ cron: '* * * * *' }, env, ctx);
-  ok(calls('sendMessage').length === 0, 'تیک بعد از پایان → باز هم بدون اعلان');
+  ok(annCount() === 0, 'تیک بعد از پایان → باز هم بدون اعلان');
 });
 
 await section('v2.5 — فعال/غیرفعال سازی دستی: داخل بازه = اعلان؛ بیرون بازه = بی اعلان', async () => {
@@ -1770,17 +1783,17 @@ await section('v2.5 — فعال/غیرفعال سازی دستی: داخل با
   await env.KV.put('chat:' + CID, JSON.stringify(s3));
   clearCalls();
   await post(cbQuery('schT:' + CID, OWNER));
-  const a1 = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(CID) && /قفل میمونه/.test(c.payload.text || ''));
-  ok(!!a1 && /فعالیت ممنوع است/.test(a1.payload.text) && /<b>/.test(a1.payload.text), 'فعال سازی داخل بازه → اعلان شروع فوری + خط « فعالیت ممنوع است » بولد');
+  const a1 = annCalls(/قفل میمونه/)[0];
+  ok(!!a1 && /فعالیت ممنوع است/.test(richTextOf(a1)) && /<b>/.test(richTextOf(a1)), 'فعال سازی داخل بازه → اعلان شروع فوری + خط « فعالیت ممنوع است » بولد');
   ok(JSON.parse(await env.KV.get('sched:' + CID)).in === 1, 'وضعیت در KV = داخل بازه');
   clearCalls();
   await post(cbQuery('schT:' + CID, OWNER));
-  ok(calls('sendMessage').some((c) => String(c.payload.chat_id) === String(CID) && /چنل بازه !! تایم قفل زماندار تموم شد/.test(c.payload.text || '')), 'خاموش کردن داخل بازه → اعلان پایان « چنل بازه !! »');
+  ok(annCalls(/چنل بازه !! تایم قفل زماندار تموم شد/).length > 0, 'خاموش کردن داخل بازه → اعلان پایان « چنل بازه !! »');
   ok(JSON.parse(await env.KV.get('sched:' + CID)).in === 0, 'وضعیت در KV = بیرون بازه');
   freezeTehran(9, 0); // بیرون بازه
   clearCalls();
   await post(cbQuery('schT:' + CID, OWNER));
-  ok(calls('sendMessage').length === 0, 'فعال سازی بیرون بازه → بدون اعلان (کرون سر وقتش اعلام می کند)');
+  ok(annCount() === 0, 'فعال سازی بیرون بازه → بدون اعلان (کرون سر وقتش اعلام می کند)');
   await post(cbQuery('schT:' + CID, OWNER)); // برگشت به وضعیت قبل: خاموش
   const fin = JSON.parse(await env.KV.get('chat:' + CID));
   ok(fin.schedule.enabled === false, 'وضعیت نهایی: قفل زمان دار خاموش (مثل قبل از تست)');
@@ -1805,12 +1818,12 @@ await section('v2.6 — کلید « اعلان قفل »: خاموش کردن = 
   // حالا قفل آنی را روشن کنیم — نباید در چنل اعلان ارسال شود
   clearCalls();
   await post(cbQuery('instT:' + CID, OWNER));
-  const leakOn = calls('sendMessage').some((c) => String(c.payload.chat_id) === String(CID) && /قفل آنی/.test(c.payload.text || ''));
+  const leakOn = annCalls(/قفل آنی/).length > 0;
   ok(!leakOn, 'با ann=false → قفل آنی روشن شد ولی در چنل اعلان نشد');
   // خاموش کردن قفل آنی هم نباید اعلان داشته باشد
   clearCalls();
   await post(cbQuery('instT:' + CID, OWNER));
-  const leakOff = calls('sendMessage').some((c) => String(c.payload.chat_id) === String(CID) && /قفل آنی/.test(c.payload.text || ''));
+  const leakOff = annCalls(/قفل آنی/).length > 0;
   ok(!leakOff, 'با ann=false → قفل آنی خاموش شد ولی در چنل اعلان نشد');
   // روشن کردن دوباره اعلان
   await post(cbQuery('annT:' + CID, OWNER));
@@ -1821,7 +1834,7 @@ await section('v2.6 — کلید « اعلان قفل »: خاموش کردن = 
   await env.KV.put('chat:' + CID, JSON.stringify(s));
   clearCalls();
   await post(cbQuery('instT:' + CID, OWNER));
-  const okAnn = calls('sendMessage').some((c) => String(c.payload.chat_id) === String(CID) && /قفل آنی به دستور اونر فعال شد/.test(c.payload.text || ''));
+  const okAnn = annCalls(/قفل آنی به دستور اونر فعال شد/).length > 0;
   ok(okAnn, 'با ann=true → اعلان قفل آنی در چنل ارسال شد');
   // برگرداندن به حالت اول
   await post(cbQuery('instT:' + CID, OWNER)); // خاموش
@@ -2291,7 +2304,7 @@ await section('v3.3 — دکمه سریع روی گزارش زرد/قرمز + گ
   await post(cbQuery(`muFAll:${CID}`, OWNER));
   s = JSON.parse(await env.KV.get('chat:' + CID));
   ok(!s.mutes || !Object.keys(s.mutes).length, 'آزادسازی همه انجام شد');
-  ok(lastAnswer().includes('همه'), 'توست آزادسازی همه');
+  ok(lastCard().includes('همه سکوت ها آزاد شدند'), 'آزادسازی همه: کارت فوری آمد');
 });
 
 await section('v3.4 — غیرفعال کردن چنل با دکمه: هیچ اجرایی، سکوت سر وقتش تمام میشه، فعال سازی دوباره', async () => {
@@ -2317,7 +2330,7 @@ await section('v3.4 — غیرفعال کردن چنل با دکمه: هیچ ا�
   s = JSON.parse(await env.KV.get('chat:' + CID));
   ok(s.active === false && s.disAt > 0, 'چنل غیرفعال شد ( نشان مالک )');
   ok(lastEdited().includes('غیرفعال'), 'پنل وضعیت غیرفعال را نشان میدهد');
-  ok(lastAnswer().includes('غیرفعال شد'), 'توست غیرفعال شدن');
+  ok(lastCard().includes('چنل غیرفعال شد'), 'غیرفعال شدن: کارت فوری آمد');
   // هیچ پیامی پردازش نشود — حتی فرد سکوت شده:
   clearCalls();
   await post(chan({ message_id: 9500, text: 'پست موقع غیرفعالی', from: { id: 555000, first_name: 'مکار' }, author_signature: 'مکار' }));
@@ -2340,7 +2353,7 @@ await section('v3.4 — غیرفعال کردن چنل با دکمه: هیچ ا�
   await post(cbQuery(`enb:${CID}`, OWNER));
   s = JSON.parse(await env.KV.get('chat:' + CID));
   ok(s.active === true && !s.disAt, 'چنل دوباره فعال شد و نشان غیرفعالی پاک شد');
-  ok(lastAnswer().includes('فعال شد'), 'توست فعال سازی');
+  ok(lastCard().includes('چنل فعال شد'), 'فعال سازی: کارت فوری آمد');
   // بعد از فعال سازی پردازش عادی برمیگردد ( سکوت دیگر فعال نیست ):
   clearCalls();
   await post(chan({ message_id: 9501, text: 'پست بعد از فعال سازی', from: { id: 555000, first_name: 'مکار' }, author_signature: 'مکار' }));
@@ -2396,20 +2409,15 @@ await section('v3.5 — تشخیص ادیت واقعی: ادیت فنی ( نظر
   await setLock('edit_media', false);
 });
 
-/* ---------------------------- v3.6 ظاهر پیام ها ---------------------------- */
-await section('v3.6 — ظاهر پیام ها: نقل قول ادیت ، لیست/بکاپ جمع شونده ، افکت های رسمی', async () => {
-  // الف) خوش آمد: نقل قول جمع شونده + مهر v3.6
-  await post(priv('/start', OWNER));
-  const w6 = lastText();
-  ok(w6.includes('<blockquote expandable>') && w6.includes('v3.6'), 'خوش آمد: نقل قول جمع شونده + مهر v3.6');
-
-  // ب) بکاپ: JSON داخل pre تودرتو در نقل قول جمع شونده + افکت 👍
+/* ---------------------------- نقل قول ها ( بکاپ/ادیت/تخلف ها ) ---------------------------- */
+await section('نقل قول ها: بکاپ جمع شونده + نقل قول های گزارش ادیت + لیست تخلف ها', async () => {
+  // الف) بکاپ: JSON داخل pre تودرتو در نقل قول جمع شونده ( بدون افکت — اثر v3.6 حذف شد )
   await post(cbQuery('bakE:' + CID, OWNER));
   const bak6 = lastText();
   ok(bak6.includes('<blockquote expandable><pre>') && bak6.includes('"punishMode"'), 'بکاپ: JSON داخل pre تودرتو در نقل قول جمع شونده');
-  ok(!!calls('sendMessage').find((c) => c.payload.message_effect_id === '5107584321108051014'), 'بکاپ با افکت 👍 ( Bot API 7.4 ) فرستاده شد');
+  ok(!calls('sendMessage').some((c) => c.payload.message_effect_id), 'بکاپ: بدون message_effect_id');
 
-  // ج) گزارش ادیت: متن قبلی/جدید در دو نقل قول جدا
+  // ب) گزارش ادیت: متن قبلی/جدید در دو نقل قول جدا
   await setLock('edit_text', true);
   clearCalls();
   await post(chan({ message_id: 9601, text: 'متن اولیه آزمون ظاهر' }));
@@ -2417,50 +2425,79 @@ await section('v3.6 — ظاهر پیام ها: نقل قول ادیت ، لیس
   await post(upd({ edited_channel_post: { message_id: 9601, chat: { id: Number(CID), type: 'channel', title: 'تست چنل' }, date: Math.floor(realNow() / 1000), edit_date: Math.floor(realNow() / 1000), text: 'متن جدید آزمون ظاهر' } }));
   const rep6 = lastText();
   ok((rep6.match(/<blockquote>/g) || []).length >= 2 && (rep6.includes('متن قبلی') || rep6.includes('Old text:')), 'گزارش ادیت: متن قبلی/جدید در نقل قول های جدا');
+  ok(rep6.includes('<tg-time'), 'گزارش ادیت: زمان با tg-time ( Bot API 10.4 )');
   await setLock('edit_text', false);
 
-  // د) آخرین تخلف ها: لیست داخل نقل قول جمع شونده
+  // ج) آخرین تخلف ها: لیست داخل نقل قول جمع شونده + tg-time
   await post(cbQuery('vlog:' + CID, OWNER));
   const v6 = lastEdited();
   ok(v6.includes('<blockquote expandable>') && v6.includes('</blockquote>'), 'آخرین تخلف ها داخل نقل قول جمع شونده');
+  ok(v6.includes('<tg-time'), 'آخرین تخلف ها: زمان با tg-time');
 
-  // هـ) سکوت ثبت شد ⇒ اعلان مالک با افکت 🔥
+  // د) ثبت سکوت: اعلان مالک بدون افکت + پایان با tg-time
   clearCalls();
   await post(cbQuery('muGo:' + CID + ':123456789:60', OWNER));
-  ok(!!calls('sendMessage').find((c) => c.payload.message_effect_id === '5104841245755180586'), 'اعلان سکوت با افکت 🔥 فرستاده شد');
-
-  // و) سیم کشی افکت ها در کد ( ثابت های رسمی + نتیجه همگانی )
-  const fs6 = await import('node:fs');
-  const src6 = await fs6.promises.readFile(new URL('../worker.js', import.meta.url), 'utf8').catch(() => '');
-  ok(src6.includes("EFFECT_PARTY = '5046509860389126442'") && src6.includes("EFFECT_LIKE = '5107584321108051014'") && src6.includes("EFFECT_CLAP = '5170166362592510656'"), 'ثابت های افکت رسمی تلگرام تعریف شده اند');
-  ok(src6.includes('send(env, msg.chat.id, res, null, { effect: EFFECT_PARTY })'), 'نتیجه پیام همگانی با افکت 🎉 سیم کشی شده');
+  const mu6 = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(OWNER) && /سکوت ثبت شد/.test(c.payload.text || ''));
+  ok(!!mu6 && !mu6.payload.message_effect_id, 'اعلان « سکوت ثبت شد »: بدون افکت');
+  ok(!!mu6 && /<tg-time unix=/.test(mu6.payload.text), 'اعلان « سکوت ثبت شد »: پایان با tg-time');
   // آزادسازی سکوت آزمون تا روی چنل اثری نماند
   await post(cbQuery('muF:' + CID + ':123456789', OWNER));
 });
 
-/* ---------------------------- v3.7 تایپ خودکار ---------------------------- */
-await section('v3.7 — تایپ خودکار ( force_reply — Bot API 10.3 ) روی راهنما های ورودی', async () => {
-  // بازگردانی بکاپ
-  await post(cbQuery('bakI:' + CID, OWNER));
-  const g1 = calls('sendMessage').filter((c) => /بازگردانی بکاپ/.test(c.payload.text || '')).pop();
-  ok(g1 && g1.payload.reply_markup && g1.payload.reply_markup.force_reply === true && !!g1.payload.reply_markup.input_field_placeholder, 'بازگردانی بکاپ: force_reply + placeholder');
+/* ---------------------------- v4.0 همگام با نوامبر 2026 ---------------------------- */
+await section('v4.0 — همگام با Bot API 10.4: پیام ریچ ، کارت فوری ، tg-time ، دکمه غیرفعال', async () => {
+  const fs4 = await import('node:fs');
+  const src4 = await fs4.promises.readFile(new URL('../worker.js', import.meta.url), 'utf8').catch(() => '');
 
-  // حذف دسته ای — تعداد دلخواه
-  await post(cbQuery('dLM:' + CID, OWNER));
-  const g2 = calls('sendMessage').filter((c) => /چند پیام آخر/.test(c.payload.text || '')).pop();
-  ok(g2 && g2.payload.reply_markup && g2.payload.reply_markup.force_reply === true, 'حذف دسته ای: force_reply');
+  // الف) سیم کشی جدید + پاک شدن کامل اثر قبلی
+  ok(src4.includes('sendRichMessage') && src4.includes('ephemeral_message_parameters'), 'sendRichMessage + ephemeral_message_parameters سیم کشی شده اند');
+  ok(!src4.includes('EFFECT_') && !src4.includes('force_reply') && !src4.includes('message_effect_id'), 'اثری از افکت و force_reply نمانده');
+  ok(src4.includes('<tg-time') && src4.includes('disabled: true'), 'tg-time و دکمه disabled سیم کشی شده اند');
+  ok(!src4.includes('ظاهر پیام ها') && !src4.includes('تایپ سریع') && !src4.includes('Fresh look') && !src4.includes('Quick typing'), 'عنوان بخش های v3.6/v3.7 از کل کد حذف شده');
 
-  // ادمین سازی در چنل
-  await post(cbQuery('camA:' + CID, OWNER));
-  const g3 = calls('sendMessage').filter((c) => /ادمین سازی در چنل/.test(c.payload.text || '')).pop();
-  ok(g3 && g3.payload.reply_markup && g3.payload.reply_markup.force_reply === true, 'ادمین سازی: force_reply');
+  // ب) خوش آمد: مهر v4.0
+  await post(priv('/start', OWNER));
+  const w4 = lastText();
+  ok(w4.includes('v4.0') && w4.includes('Bot API 10.4') && !w4.includes('v3.7') && !w4.includes('v3.6'), 'خوش آمد: مهر v4.0 + ارجاع Bot API 10.4 و بدون مهر های قبلی');
 
-  // پیام همگانی — راهنمای ارسال متن
-  await post(cbQuery('bcAll', OWNER));
-  await post(cbQuery('bcT:ch', OWNER));
-  const g4 = calls('sendMessage').filter((c) => /همگانی/.test(c.payload.text || '')).pop();
-  ok(g4 && g4.payload.reply_markup && g4.payload.reply_markup.force_reply === true, 'همگانی: force_reply');
-  await post(cbQuery('bcX', OWNER)); // پاکسازی state و پیام های راهنما
+  // ج) راهنما: بخش جدید جای بخش های قبلی
+  await post(cbQuery('help', OWNER));
+  const h4 = lastEdited();
+  ok(h4.includes('همگام با نوامبر 2026 (v4.0)'), 'راهنما: بخش « همگام با نوامبر 2026 (v4.0) »');
+  ok(!h4.includes('ظاهر پیام ها') && !h4.includes('تایپ سریع') && !h4.includes('Quick typing') && !h4.includes('Message appearance'), 'راهنما: بخش های v3.6/v3.7 حذف شده');
+
+  // د) fallback: خطای sendRichMessage ⇒ اعلان با sendMessage معمولی و تبدیل تگ ها
+  mockB.richFail = true;
+  clearCalls();
+  await post(cbQuery('instT:' + CID, OWNER)); // روشن شدن قفل آنی → اعلان چنل
+  const fb = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(CID) && /قفل آنی به دستور اونر فعال شد/.test(c.payload.text || ''));
+  ok(!!fb && !/<h4>/.test(fb.payload.text) && /<b>/.test(fb.payload.text), 'خطای ریچ ⇒ اعلان با sendMessage معمولی ( h4 به b تبدیل شد )');
+  ok(!!fb && !/<p>/.test(fb.payload.text) && /نگهبان خودکار چنل/.test(fb.payload.text), 'fallback: p حذف و footer به i تبدیل شد');
+  mockB.richFail = false;
+
+  // هـ) چنل غیرفعال ⇒ دکمه های اقدام disabled + کارت فوری
+  await post(cbQuery('chat:' + CID, OWNER));
+  const kbOn = JSON.stringify(lastEditedKB());
+  ok(!kbOn.includes('"disabled":true'), 'چنل فعال: هیچ دکمه ای disabled نیست');
+  await post(cbQuery('dis:' + CID, OWNER));
+  await post(cbQuery('disGo:' + CID, OWNER));
+  ok(calls('sendRichMessage').some((c) => c.payload.ephemeral_message_parameters && /چنل غیرفعال شد/.test((c.payload.rich_message || {}).html || '')), 'غیرفعال سازی: کارت فوری ( Ephemeral ) فرستاده شد');
+  ok(calls('answerCallbackQuery').length > 0, 'answerCallbackQuery طبق مستندات در کنار کارت فوری زده شد');
+  await post(cbQuery('chat:' + CID, OWNER));
+  const kbOff = JSON.stringify(lastEditedKB());
+  ok((kbOff.match(/"disabled":true/g) || []).length >= 8, 'چنل غیرفعال: همه دکمه های اقدام disabled اند ( Bot API 10.3 )');
+  await post(cbQuery('locks:' + CID, OWNER));
+  ok((JSON.stringify(lastEditedKB()).match(/"disabled":true/g) || []).length >= 20, 'پنل قفل ها: دکمه های قفل هم روی چنل غیرفعال disabled اند');
+
+  // و) کارت فوری ریست آمار + فعال سازی دوباره + آزاد شدن دکمه ها
+  await post(cbQuery('chat:' + CID, OWNER));
+  await post(cbQuery('rstS:' + CID, OWNER));
+  ok(calls('sendRichMessage').some((c) => c.payload.ephemeral_message_parameters && /آمار ریست شد/.test((c.payload.rich_message || {}).html || '')), 'ریست آمار: کارت فوری فرستاده شد');
+  await post(cbQuery('chat:' + CID, OWNER));
+  await post(cbQuery('enb:' + CID, OWNER));
+  ok(calls('sendRichMessage').some((c) => c.payload.ephemeral_message_parameters && /چنل فعال شد/.test((c.payload.rich_message || {}).html || '')), 'فعال سازی چنل: کارت فوری فرستاده شد');
+  await post(cbQuery('chat:' + CID, OWNER));
+  ok(!JSON.stringify(lastEditedKB()).includes('"disabled":true'), 'بعد از فعال سازی، دکمه ها آزاد شدند');
 });
 
 /* ---------------------------- جمع بندی ---------------------------- */
