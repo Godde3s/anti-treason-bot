@@ -1719,7 +1719,7 @@ await section('v2.4 — استایل رنگی دکمه ها', async () => {
   clearCalls();
   await post(priv('/start', OWNER));
   const st = outgoing().slice(-1)[0];
-  ok(st && txtOf(st).includes('v5.0') && !st.payload.message_effect_id, '/start: مهر v5.0 و بدون message_effect_id');
+  ok(st && txtOf(st).includes('v5.1') && !txtOf(st).includes('v5.0') && !st.payload.message_effect_id, '/start: مهر v5.1 و بدون message_effect_id');
 });
 
 /* ───────────────────────── v2.5: اعلان قفل ها در خودِ چنل ───────────────────────── */
@@ -2450,8 +2450,8 @@ await section('نقل قول ها: بکاپ جمع شونده + نقل قول ه
   await post(cbQuery('muF:' + CID + ':123456789', OWNER));
 });
 
-/* ---------------------------- v5.0 نمایش ریچ کامل ( نوامبر 2026 ) ---------------------------- */
-await section('v5.0 — نمایش ریچ کامل: جدول پرمیوم ، تیتر و پانویس ، کارت فوری ، tg-time ، دکمه غیرفعال', async () => {
+/* ---------------------------- v5.1 راست چینی رسمی و نمایش ریچ کامل ( نوامبر 2026 ) ---------------------------- */
+await section('v5.1 — راست چینی رسمی is_rtl + نمایش ریچ کامل: جدول پرمیوم ، کارت فوری ، tg-time ، دکمه غیرفعال', async () => {
   const fs4 = await import('node:fs');
   const src4 = await fs4.promises.readFile(new URL('../worker.js', import.meta.url), 'utf8').catch(() => '');
 
@@ -2461,10 +2461,25 @@ await section('v5.0 — نمایش ریچ کامل: جدول پرمیوم ، ت�
   ok(src4.includes('<tg-time') && src4.includes('disabled: true'), 'tg-time و دکمه disabled سیم کشی شده اند');
   ok(!src4.includes('ظاهر پیام ها') && !src4.includes('تایپ سریع') && !src4.includes('Fresh look') && !src4.includes('Quick typing'), 'عنوان بخش های v3.6/v3.7 از کل کد حذف شده');
 
-  // ب) خوش آمد: مهر v5.0
+  // ب) خوش آمد: مهر v5.1
   await post(priv('/start', OWNER));
   const w4 = lastText();
-  ok(w4.includes('v5.0') && w4.includes('Bot API 10.4') && !w4.includes('v4.0') && !w4.includes('v3.7') && !w4.includes('v3.6'), 'خوش آمد: مهر v5.0 + ارجاع Bot API 10.4 و بدون مهر های قبلی');
+  ok(w4.includes('v5.1') && w4.includes('Bot API 10.4') && !w4.includes('v5.0') && !w4.includes('v4.0') && !w4.includes('v3.7') && !w4.includes('v3.6'), 'خوش آمد: مهر v5.1 + ارجاع Bot API 10.4 و بدون مهر های قبلی');
+
+  // پ) راست چینی رسمی is_rtl ( Bot API 10.4 )
+  ok((src4.match(/rich_message: richMeta\(html\)/g) || []).length === 3 && src4.includes('is_rtl: true'), 'is_rtl در هر سه مسیر ریچ ( send/edit/کارت ) سیم کشی شد');
+  const ul0 = await env.KV.get('ulang:' + OWNER);
+  if (ul0 === 'en') await post(cbQuery('lang', OWNER)); // اطمینان: شروع از فارسی
+  clearCalls();
+  await post(priv('/start', OWNER));
+  const wrFa = calls('sendRichMessage').filter((c) => /ضد خیانت v5\.1/.test((c.payload.rich_message || {}).html || ''));
+  ok(wrFa.length > 0 && wrFa[wrFa.length - 1].payload.rich_message.is_rtl === true, 'خوش آمد فارسی: پیام ریچ با is_rtl: true فرستاده شد');
+  await post(cbQuery('lang', OWNER)); // تعویض به انگلیسی
+  clearCalls();
+  await post(priv('/start', OWNER));
+  const wrEn = calls('sendRichMessage').filter((c) => /Anti-Treason v5\.1/.test((c.payload.rich_message || {}).html || ''));
+  ok(wrEn.length > 0 && wrEn[wrEn.length - 1].payload.rich_message.is_rtl === undefined, 'خوش آمد انگلیسی: بدون is_rtl ( چپ چین )');
+  await post(cbQuery('lang', OWNER)); // برگشت به فارسی برای ادامه تست ها
 
   // ج) راهنما: بخش جدید جای بخش های قبلی
   await post(cbQuery('help', OWNER));

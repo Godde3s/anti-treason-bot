@@ -1,10 +1,12 @@
 /* ============================================================================
- * 🛡️  ربات ضد خیانت کانال  —  نسخه ۵.۰ (همگام با Bot API 10.4 نوامبر 2026 — جدول پرمیوم + پیام ریچ کامل + کارت فوری + tg-time + دکمه غیرفعال)
+ * 🛡️  ربات ضد خیانت کانال  —  نسخه ۵.۱ (همگام با Bot API 10.4 نوامبر 2026 — راست چین رسمی + جدول پرمیوم + پیام ریچ کامل + کارت فوری + tg-time + دکمه غیرفعال)
  * ----------------------------------------------------------------------------
  * اجرا روی: Cloudflare Workers (پلن رایگان) + Cloudflare KV
  * نویسنده: ساخته شده برای مدیریت چنل های تلگرام با دقت حذف لحظه ای
  *
- * ── تازه در نسخه ۵.۰ (Bot API 10.4 — نوامبر 2026) ──────────────────────────
+ * ── تازه در نسخه ۵.۰ و ۵.۱ (Bot API 10.4 — نوامبر 2026) ──────────────────────────
+ *  • 🧭 راست چینی رسمی ( Bot API 10.4 — is_rtl ): همه پیام های فارسی با is_rtl: true
+ *    ارسال میشوند تا هر کلاینت متن و جدول ها را راست به چپ بچیند؛ انگلیسی چپ چین میماند.
  *  • 🎨 نمایش ریچ کامل — « همه » پیام ها ( پنل ، گزارش ، اعلان ، راهنما ) با HTML ریچ
  *    ( sendRichMessage — Bot API 10.1/10.4 ): جدول پرمیوم واقعی ( <table> ) ، تیتر
  *    ( <h3>/<h4> ) ، دسته جمع شونده ( <details> ) ، پانویس ( <footer> ) و هایلایت ( <mark> )؛
@@ -587,11 +589,17 @@ function plainify(h) {
 /** تشخیص محتوای ریچ: تگ هایی که HTML معمولی پشتیبانی نمیکند ⇒ مسیر sendRichMessage */
 const RICH_RE = /<(h[1-6]|table|tbody|thead|tr|td|th|caption|details|summary|footer|aside|hr|ul|ol|li|input|mark|tg-time)\b/;
 
+/** 🧭 v5.1 — راست چینی رسمی ( Bot API 10.4 — فیلد is_rtl در InputRichMessage ) :
+ *  زبان فارسی ( پیش فرض ) ⇒ is_rtl: true تا متن و جدول ها راست به چپ چیده شوند ؛
+ *  زبان انگلیسی ⇒ بدون is_rtl ( چپ چین میماند ). ارسال معمولی ( sendMessage ) گزینه
+ *  RTL ندارد ؛ fallback نادر هم همان مسیر معمولی میماند. */
+const richMeta = (html) => ({ html, ...(CUR_LANG === 'en' ? {} : { is_rtl: true }) });
+
 /** پیام ریچ ( Bot API 10.1 ) — خطا ⇒ ارسال معمولی با همان محتوا */
 async function sendRich(env, chatId, html, markup) {
   const r = await tg(env, 'sendRichMessage', {
     chat_id: chatId,
-    rich_message: { html },
+    rich_message: richMeta(html),
     ...(markup ? { reply_markup: markup } : {}),
   });
   if (r && r.ok) return r;
@@ -603,7 +611,7 @@ async function sendRich(env, chatId, html, markup) {
 async function editRich(env, chatId, mid, html, markup) {
   const r = await tg(env, 'editMessageText', {
     chat_id: chatId, message_id: mid,
-    rich_message: { html },
+    rich_message: richMeta(html),
     ...(markup ? { reply_markup: markup } : {}),
   });
   if (r && r.ok) return r;
@@ -632,7 +640,7 @@ const tgE = (k, alt) => `<tg-emoji emoji-id="${EMO[k] || EMO.star}">${alt}</tg-e
 /** کارت فوری — فقط برای زننده دکمه؛ خطا ⇒ sendMessage با ephemeral_message_parameters */
 async function card(env, cbId, html) {
   const r = await tg(env, 'sendRichMessage', {
-    rich_message: { html },
+    rich_message: richMeta(html),
     ephemeral_message_parameters: { callback_query_id: String(cbId) },
   });
   if (r && r.ok) return r;
@@ -2557,8 +2565,8 @@ function isDup(updateId) {
  *  پنل فارسی — متن ها و کیبوردها
  * ==========================================================================*/
 
-const FOOT = () => L('<footer>ضد خیانت v5.0 — همگام با Bot API 10.4 ( نوامبر 2026 )</footer>',
-  '<footer>Anti-Treason v5.0 — in sync with Bot API 10.4 (Nov 2026)</footer>');
+const FOOT = () => L('<footer>ضد خیانت v5.1 — همگام با Bot API 10.4 ( نوامبر 2026 )</footer>',
+  '<footer>Anti-Treason v5.1 — in sync with Bot API 10.4 (Nov 2026)</footer>');
 
 function mainText(from, scope = null) {
   const viewer = !!(scope && scope.role === 'viewer');
@@ -3092,6 +3100,7 @@ function helpText() {
     D(`همگام با Bot API 10.4 ( نوامبر 2026 )`,
       `<ul>` +
       `<li>ظاهر همه پیام ها با « پیام ریچ » بازنویسی شده : <b>جدول های پرمیومی</b> ، تیتر ، دسته های جمع شدن و پانویس — به جای متن ساده .</li>` +
+      `<li>همه پیام ها با <b>is_rtl</b> راست چین ارسال میشن : متن و جدول ها برای فارسی راست به چپ چیده میشن و انگلیسی چپ به راست میمونه .</li>` + +
       `<li>تأیید عملیات های مهم ( باز/بستن قفل آنی ، فعال/غیرفعال کردن چنل ، ریست آمار ، آزادسازی سکوت ) با « کارت فوری » میاد : پیامی که فقط برای خودت نمایش داده میشه و بعد از لحظاتی خودش محو میشه ؛ هیچ اثری تو چت نمی مونه ( Ephemeral ) .</li>` +
       `<li>زمان ها با tg-time ارسال میشن : پایان سکوت و تاریخ تخلف ها برای هر کس به ساعت و زبان محلی خودش نمایش داده میشه .</li>` +
       `<li>ایموجی های پرمیوم ( tg-emoji ) تو پنل ها و گزارش ها وقتی مالک ربات پرمیوم داشته باشه نمایش داده میشن .</li>` +
@@ -3166,6 +3175,7 @@ function helpText() {
       `<p>The bot keeps a content fingerprint (text + media type + poll question) of every post and only treats an edit as a violation when the content actually changed — no false deletes, no noise.</p>`) +
     D(`In sync with Bot API 10.4 (Nov 2026)`,
       `<ul><li>The look of every message is rebuilt with rich messages: <b>premium tables</b>, headings, collapsible sections and footers — instead of plain text.</li>` +
+      `<li>Every message goes out with <b>is_rtl</b>: Persian text and tables lay out right-to-left, English stays left-to-right.</li>` + +
       `<li>Key action confirmations (instant lock open/close, channel enable/disable, stats reset, mute release) arrive as ephemeral cards: visible only to you and auto-disappearing after a few moments — nothing is left behind in the chat.</li>` +
       `<li>Times use tg-time: mute endings and violation timestamps render in every viewer's own locale and timezone.</li>` +
       `<li>Premium emoji (tg-emoji) render in panels and reports when the bot owner has Telegram Premium.</li>` +
@@ -5347,7 +5357,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v5.0 (full rich display rebuilt on Bot API 10.4 — November 9, 2026: every panel, report and guide is a rich message with premium tables, headings, collapsible sections, footers and mark highlights via sendRichMessage + editMessageText rich_message, premium custom emoji (tg-emoji — verified IDs, rendered when the bot owner has Telegram Premium), client-localized tg-time stamps everywhere, ephemeral confirmation cards visible only to the button presser, truly disabled action buttons on paused channels (Bot API 10.3), edit reports show old/new text in expandable quotes + true-edit detection — technical edits like poll votes / live-location updates / checklist ticks / service markup that leave the content fingerprint (text+caption+media kind+poll question) unchanged are no longer deleted or reported (deterministic content-hash map, one extra KV write per flush only) + per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';;
+          : 'anti-treason bot v5.1 (full rich display rebuilt on Bot API 10.4 — November 9, 2026: right-to-left is_rtl rendering — Persian text and tables lay out RTL while English stays LTR, every panel, report and guide is a rich message with premium tables, headings, collapsible sections, footers and mark highlights via sendRichMessage + editMessageText rich_message, premium custom emoji (tg-emoji — verified IDs, rendered when the bot owner has Telegram Premium), client-localized tg-time stamps everywhere, ephemeral confirmation cards visible only to the button presser, truly disabled action buttons on paused channels (Bot API 10.3), edit reports show old/new text in expandable quotes + true-edit detection — technical edits like poll votes / live-location updates / checklist ticks / service markup that leave the content fingerprint (text+caption+media kind+poll question) unchanged are no longer deleted or reported (deterministic content-hash map, one extra KV write per flush only) + per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';;
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;
