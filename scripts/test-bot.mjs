@@ -13,7 +13,10 @@ const worker = workerMod.default;
 class MockKV {
   constructor() { this.m = new Map(); }
   async get(k) { return this.m.has(k) ? this.m.get(k) : null; }
-  async put(k, v) { this.m.set(k, String(v)); }
+  async put(k, v) {
+    if (mockB.kvQuota) throw new Error('(10048) your account has reached the free usage limit for this operation for today'); // v5.2
+    this.m.set(k, String(v));
+  }
   async delete(k) { this.m.delete(k); }
   async list({ prefix = '' } = {}) {
     const keys = [...this.m.keys()].filter((k) => k.startsWith(prefix)).map((name) => ({ name }));
@@ -32,6 +35,7 @@ const mockB = {
   memberOf: {},            // user_id → ChatMember (برای getChatMember غیر-بات)
   chatInfo: {},            // v2.2: chat_id عددی → پروفایل کاربر (برای نام/منشن getUserInfo)
   failPromoteFor: [], failBanFor: [], richFail: false, // v4.0: خطای ساختگی sendRichMessage برای تست fallback
+  kvQuota: false, // v5.2: خطای ساختگی پر بودن سهمیهٔ نوشتن KV
 };
 globalThis.fetch = async (url, init) => {
   const u = String(url);
@@ -117,7 +121,7 @@ const SECRET = 'S3CRET_test';
 const OWNER = 111, ADMIN = 22222, STRANGER = 999;
 const CID = '-1001001';
 const env = { BOT_TOKEN: 'TESTTOKEN', WEBHOOK_SECRET: SECRET, KV: new MockKV(), FLUSH_MS: '30',
-  MIN_FLUSH_GAP_MS: '0', REPORT_WINDOW_MS: '0' }; // در بیشتر تست ها: فلاش/گزارش بی تاخیر (رفتار v1.4)
+  MIN_FLUSH_GAP_MS: '0', MIN_MSGS_GAP_MS: '0', REPORT_WINDOW_MS: '0' }; // در بیشتر تست ها: فلاش/گزارش بی تاخیر (رفتار v1.4)
 const wu = [];
 const ctx = { waitUntil(p) { wu.push(Promise.resolve(p).catch(() => {})); } };
 async function drain() { let guard = 0; while (wu.length && guard++ < 50) await Promise.all(wu.splice(0)); }
@@ -1719,7 +1723,7 @@ await section('v2.4 — استایل رنگی دکمه ها', async () => {
   clearCalls();
   await post(priv('/start', OWNER));
   const st = outgoing().slice(-1)[0];
-  ok(st && txtOf(st).includes('v5.1') && !txtOf(st).includes('v5.0') && !st.payload.message_effect_id, '/start: مهر v5.1 و بدون message_effect_id');
+  ok(st && txtOf(st).includes('v5.2') && !txtOf(st).includes('v5.1') && !st.payload.message_effect_id, '/start: مهر v5.2 و بدون message_effect_id');
 });
 
 /* ───────────────────────── v2.5: اعلان قفل ها در خودِ چنل ───────────────────────── */
@@ -2450,8 +2454,8 @@ await section('نقل قول ها: بکاپ جمع شونده + نقل قول ه
   await post(cbQuery('muF:' + CID + ':123456789', OWNER));
 });
 
-/* ---------------------------- v5.1 راست چینی رسمی و نمایش ریچ کامل ( نوامبر 2026 ) ---------------------------- */
-await section('v5.1 — راست چینی رسمی is_rtl + نمایش ریچ کامل: جدول پرمیوم ، کارت فوری ، tg-time ، دکمه غیرفعال', async () => {
+/* ---------------------------- v5.1/v5.2 — راست چینی رسمی + بودجهٔ نوشتن + نمایش ریچ کامل ( نوامبر 2026 ) ---------------------------- */
+await section('v5.1/v5.2 — راست چینی is_rtl + بودجهٔ نوشتن KV + نمایش ریچ کامل: جدول پرمیوم ، کارت فوری ، tg-time ، دکمه غیرفعال', async () => {
   const fs4 = await import('node:fs');
   const src4 = await fs4.promises.readFile(new URL('../worker.js', import.meta.url), 'utf8').catch(() => '');
 
@@ -2461,10 +2465,10 @@ await section('v5.1 — راست چینی رسمی is_rtl + نمایش ریچ ک
   ok(src4.includes('<tg-time') && src4.includes('disabled: true'), 'tg-time و دکمه disabled سیم کشی شده اند');
   ok(!src4.includes('ظاهر پیام ها') && !src4.includes('تایپ سریع') && !src4.includes('Fresh look') && !src4.includes('Quick typing'), 'عنوان بخش های v3.6/v3.7 از کل کد حذف شده');
 
-  // ب) خوش آمد: مهر v5.1
+  // ب) خوش آمد: مهر v5.2
   await post(priv('/start', OWNER));
   const w4 = lastText();
-  ok(w4.includes('v5.1') && w4.includes('Bot API 10.4') && !w4.includes('v5.0') && !w4.includes('v4.0') && !w4.includes('v3.7') && !w4.includes('v3.6'), 'خوش آمد: مهر v5.1 + ارجاع Bot API 10.4 و بدون مهر های قبلی');
+  ok(w4.includes('v5.2') && w4.includes('Bot API 10.4') && !w4.includes('v5.1') && !w4.includes('v5.0') && !w4.includes('v4.0') && !w4.includes('v3.7') && !w4.includes('v3.6'), 'خوش آمد: مهر v5.2 + ارجاع Bot API 10.4 و بدون مهر های قبلی');
 
   // پ) راست چینی رسمی is_rtl ( Bot API 10.4 )
   ok((src4.match(/rich_message: richMeta\(html\)/g) || []).length === 3 && src4.includes('is_rtl: true'), 'is_rtl در هر سه مسیر ریچ ( send/edit/کارت ) سیم کشی شد');
@@ -2472,12 +2476,12 @@ await section('v5.1 — راست چینی رسمی is_rtl + نمایش ریچ ک
   if (ul0 === 'en') await post(cbQuery('lang', OWNER)); // اطمینان: شروع از فارسی
   clearCalls();
   await post(priv('/start', OWNER));
-  const wrFa = calls('sendRichMessage').filter((c) => /ضد خیانت v5\.1/.test((c.payload.rich_message || {}).html || ''));
+  const wrFa = calls('sendRichMessage').filter((c) => /ضد خیانت v5\.2/.test((c.payload.rich_message || {}).html || ''));
   ok(wrFa.length > 0 && wrFa[wrFa.length - 1].payload.rich_message.is_rtl === true, 'خوش آمد فارسی: پیام ریچ با is_rtl: true فرستاده شد');
   await post(cbQuery('lang', OWNER)); // تعویض به انگلیسی
   clearCalls();
   await post(priv('/start', OWNER));
-  const wrEn = calls('sendRichMessage').filter((c) => /Anti-Treason v5\.1/.test((c.payload.rich_message || {}).html || ''));
+  const wrEn = calls('sendRichMessage').filter((c) => /Anti-Treason v5\.2/.test((c.payload.rich_message || {}).html || ''));
   ok(wrEn.length > 0 && wrEn[wrEn.length - 1].payload.rich_message.is_rtl === undefined, 'خوش آمد انگلیسی: بدون is_rtl ( چپ چین )');
   await post(cbQuery('lang', OWNER)); // برگشت به فارسی برای ادامه تست ها
 
@@ -2519,6 +2523,34 @@ await section('v5.1 — راست چینی رسمی is_rtl + نمایش ریچ ک
   ok(calls('sendRichMessage').some((c) => c.payload.ephemeral_message_parameters && /چنل فعال شد/.test((c.payload.rich_message || {}).html || '')), 'فعال سازی چنل: کارت فوری فرستاده شد');
   await post(cbQuery('chat:' + CID, OWNER));
   ok(!JSON.stringify(lastEditedKB()).includes('"disabled":true'), 'بعد از فعال سازی، دکمه ها آزاد شدند');
+});
+
+/* ---------------------------- v5.2 بودجهٔ نوشتن KV ---------------------------- */
+await section('v5.2 — بودجهٔ نوشتن KV: فلاش واحد حلقه + پیام واضح سهمیه', async () => {
+  // الف) یک نوشتن به ازای هر فلاش — کلید cnt حذف شد و هش داخل رکورد حلقه است
+  await post(chan({ message_id: 9701, text: 'پیام برای فلاش واحد' }));
+  await new Promise((r) => setTimeout(r, 80)); // FLUSH_MS = 30 در تست
+  ok((await env.KV.get('cnt:' + CID)) === null, 'کلید cnt دیگر نوشته نمیشود ( فلاش واحد )');
+  let rawM = [];
+  try { rawM = JSON.parse((await env.KV.get('msgs:' + CID)) || '[]'); } catch (e) { rawM = []; }
+  const e9701 = rawM.find((x) => x && x.i === 9701);
+  ok(!!e9701 && !!e9701.h && e9701.t === 'پیام برای فلاش واحد', 'رکورد حلقه: متن + هش در یک کلید واحد');
+  // ب) ادیت فنی روی فرمت ادغام شده هم تخلف نیست
+  await setLock('edit_text', true);
+  clearCalls();
+  await post(chanEdit({ message_id: 9701, text: 'پیام برای فلاش واحد' }));
+  ok(delCalls().length === 0, 'ادیت فنی روی فرمت ادغام شده حذف نکرد');
+  // ج) تغییر واقعی متن روی همان فرمت ⇒ حذف
+  clearCalls();
+  await post(chanEdit({ message_id: 9701, text: 'پیام عوض شد تبلیغ https://spam.example' }));
+  ok(delCalls().length === 1 && delCalls()[0].payload.message_id === 9701, 'ادیت واقعی روی فرمت ادغام شده حذف شد');
+  await setLock('edit_text', false);
+  // د) سهمیهٔ نوشتن پر ⇒ پیام واضح به جای خطای مبهم
+  mockB.kvQuota = true;
+  clearCalls();
+  await post(cbQuery('instT:' + CID, OWNER));
+  ok(lastAnswer().includes('سهمیه'), 'سهمیهٔ پر: پیام واضح سهمیه به جای « خطایی پیش اومد »');
+  mockB.kvQuota = false;
 });
 
 /* ---------------------------- جمع بندی ---------------------------- */

@@ -1,12 +1,15 @@
 /* ============================================================================
- * 🛡️  ربات ضد خیانت کانال  —  نسخه ۵.۱ (همگام با Bot API 10.4 نوامبر 2026 — راست چین رسمی + جدول پرمیوم + پیام ریچ کامل + کارت فوری + tg-time + دکمه غیرفعال)
+ * 🛡️  ربات ضد خیانت کانال  —  نسخه ۵.۲ (همگام با Bot API 10.4 نوامبر 2026 — بودجهٔ نوشتن KV + راست چین رسمی + جدول پرمیوم + پیام ریچ کامل + کارت فوری + tg-time + دکمه غیرفعال)
  * ----------------------------------------------------------------------------
  * اجرا روی: Cloudflare Workers (پلن رایگان) + Cloudflare KV
  * نویسنده: ساخته شده برای مدیریت چنل های تلگرام با دقت حذف لحظه ای
  *
- * ── تازه در نسخه ۵.۰ و ۵.۱ (Bot API 10.4 — نوامبر 2026) ──────────────────────────
+ * ── تازه در نسخه ۵.۰ تا ۵.۲ (Bot API 10.4 — نوامبر 2026) ──────────────────────────
  *  • 🧭 راست چینی رسمی ( Bot API 10.4 — is_rtl ): همه پیام های فارسی با is_rtl: true
  *    ارسال میشوند تا هر کلاینت متن و جدول ها را راست به چپ بچیند؛ انگلیسی چپ چین میماند.
+ *  • 📉 بودجهٔ نوشتن KV ( v5.2 ): اثر انگشت ادیت داخل رکورد حلقه ادغام شد — « یک نوشتن » به ازای هر فلاش
+ *    به جای دو ؛ فلاش ها با حداقل فاصلهٔ ۳ دقیقه ؛ وقتی سهمیهٔ روزانهٔ نوشتن پر شود ذخیره ها « چرا » را میگویند
+ *    ( پیام واضح به ادمین ) و بافر ها نگه داشته میشوند تا بعد از ریست سهمیه خودکار فلاش شوند.
  *  • 🎨 نمایش ریچ کامل — « همه » پیام ها ( پنل ، گزارش ، اعلان ، راهنما ) با HTML ریچ
  *    ( sendRichMessage — Bot API 10.1/10.4 ): جدول پرمیوم واقعی ( <table> ) ، تیتر
  *    ( <h3>/<h4> ) ، دسته جمع شونده ( <details> ) ، پانویس ( <footer> ) و هایلایت ( <mark> )؛
@@ -146,8 +149,11 @@
 const TZ_OFFSET_MIN = 210;        // تهران = UTC+3:30 (ایران از ۱۴۰۱ ساعت تابستانی ندارد)
 const CACHE_TTL_MS  = 10 * 1000;  // عمر کش تنظیمات — کوتاه تا قفل ها (مخصوصاً قفل آنی) سریع همه جا اعمال شود
 const STATE_TTL_S   = 660;        // مهلت پاسخ به سؤال های پنل (ثانیه)
-const DEFAULT_FLUSH_MS      = 15000;                      // فاصله پیش فرض فلاش آمار
-const DEFAULT_FLUSH_GAP_MS  = 25000;                      // حداقل فاصله بین دو فلاش — سقف مصرف سهمیه نوشتن KV
+const DEFAULT_FLUSH_MS      = 180000;                     // فاصله پیش فرض فلاش آمار و حلقه — v5.2: بودجهٔ نوشتن KV ( سه دقیقه )
+const DEFAULT_FLUSH_GAP_MS  = 180000;                     // حداقل فاصله بین دو فلاش آمار — سقف مصرف سهمیه نوشتن KV
+const DEFAULT_MSGS_GAP_MS   = 180000;                     // v5.2 — حداقل فاصله بین دو فلاش حلقهٔ پیام ها
+const MSG_FLUSH_MIN         = 12;                         // v5.2 — فلاش فوری حلقه وقتی بافر به این اندازه برسد
+const MSG_FLUSH_AGE_MS      = 300000;                     // v5.2 — یا وقتی کهن ترین رکورد بافر این قدر کهنه شود ( ۵ دقیقه )
 const DEFAULT_REPORT_WIN_MS = 5000;                       // پنجره ادغام گزارش های پیوی در موج تخلف
 const REPORT_MAX_LINES      = 8;                          // حداکثر خطوط داخل گزارش ادغام شده
 const AGE_SKIP_MS           = (48 * 60 + 10) * 60 * 1000; // ۴۸ ساعت + ۱۰ دقیقه حاشیه — حذف قطعاً ناممکن است
@@ -374,21 +380,22 @@ async function announceChannel(env, cid, richHtml) {
 
 /* ── 🧹 v2.7: حلقه پیام های اخیر هر چنل + پاک سازی دسته ای N پیام آخر ─────────
  *  • هر channel_post جدید شناسه اش در بافر حافظه ثبت میشود؛ فلاش به KV تایمردار است
- *    (DEFAULT_FLUSH_MS) یا وقتی بافر ۲۰تایی پر شود ⇒ کمترین مصرف سهمیه نوشتن KV.
+ *    (DEFAULT_FLUSH_MS) یا وقتی بافر ۱۲تایی پر شود یا قدیمی ترین رکورد ۵ دقیقه ای شود
+ *    — v5.2: حداقل فاصلهٔ ۳ دقیقه بین فلاش ها و « یک نوشتن » به ازای هر فلاش ( بودجهٔ نوشتن KV ).
  *  • اعلان های خود بات و پیام های « 📣 ارسال پیام/همگانی » هم در حلقه ثبت میشوند.
  *  • محدودیت: تلگرام به بات اجازه دیدن تاریخچه نمیدهد ⇒ فقط پست های بعد از نصب v2.7
  *    ثبت میشوند؛ « حذف پیام های اخیر » روی همین حلقه کار میکند. */
 const MSGS = 'msgs:';
-const CNT = 'cnt:';         // 🔬 v3.5 — نقشه هش محتوای پیام ها ( تشخیص ادیت واقعی از فنی )
+const CNT = 'cnt:';         // 🔬 v3.5 — ( فقط خواندن سازگاری قدیمی ) نقشه هش محتوای نسخه های قبل
 const MSG_KEEP = 100;       // حداکثر شناسه نگه داشته شده برای هر چنل
-const CNT_KEEP = 500;       // 🔬 v3.5 — سقف رکورد هش محتوا برای هر چنل
-const MSG_FLUSH_N = 20;     // با پُر شدن بافر حافظه تا این تعداد ⇒ فلاش فوری
 const MAX_DEL = 40;         // سقف حذف دسته ای در هر اجرا (سقف ساب ریکوئست پلن رایگان)
 const MAX_BC = 40;          // سقف چنل برای پیام همگانی (سقف ساب ریکوئست)
 const faNum = (n) => String(n).replace(/\d/g, (d) => '۰۱۲۳۴۵۶۷۸۹'[d]); // ارقام فارسی برای متن های فارسی
-const pendMsgs = new Map();        // cid -> [{i: message_id, t: متن ۱۲۰ نویسه}, ...] (جدید در انتها)
+const pendMsgs = new Map();        // cid -> [{i, t, f?, h?}, ...] (جدید در انتها) — v5.2: هش داخل همان رکورد
 const pendMsgsTimer = new Map();   // cid -> bool (تایمر فلاش فعال است؟)
-const pendCnt = new Map();         // 🔬 v3.5 — cid -> [{i, h}] هش محتوای پیام های تازه
+const pendSince = new Map();       // v5.2 — cid -> زمان اولین رکورد در انتظار ( فلاش بر اساس عمر )
+const lastMsgsFlush = new Map();   // v5.2 — cid -> زمان آخرین فلاش حلقه ( حداقل فاصله )
+const msgsSkipUntil = new Map();   // v5.2 — cid -> عقب نشینی فلاش تا این زمان ( پر بودن سهمیهٔ نوشتن )
 
 async function readMsgsRaw(env, cid) {
   try { const raw = await env.KV.get(MSGS + cid); const v = raw ? JSON.parse(raw) : []; return Array.isArray(v) ? v : []; }
@@ -440,15 +447,20 @@ function contentHash(msg) {
 async function editUnchanged(env, cid, msg) {
   const mid = msg.message_id;
   const h = contentHash(msg);
-  const pend = (pendCnt.get(cid) || []).find((x) => x && x.i === mid);
-  if (pend) return pend.h === h;
+  const pend = (pendMsgs.get(cid) || []).find((x) => x && x.i === mid);
+  if (pend) return pend.h ? pend.h === h : false;
   let rec = null;
   try {
-    const raw = await env.KV.get(CNT + cid);
+    const raw = await env.KV.get(MSGS + cid);
     const arr = raw ? JSON.parse(raw) : null;
     if (Array.isArray(arr)) rec = arr.find((x) => x && x.i === mid) || null;
   } catch (e) { rec = null; }
-  if (rec) return rec.h === h;
+  if (rec) return rec.h ? rec.h === h : false;
+  try { // سازگاری v3.5: نقشه هش جداگانهٔ نسخه های قبل
+    const raw = await env.KV.get(CNT + cid);
+    const arr = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(arr)) { const r = arr.find((x) => x && x.i === mid); if (r && r.h) return r.h === h; }
+  } catch (e) { /* بی اهمیت */ }
   // سازگاری قدیمی: اسنیپت ۱۲۰ نویسه ای داخل حلقهٔ msgs
   const old = await oldTextOf(env, cid, mid);
   if (old != null) {
@@ -458,33 +470,29 @@ async function editUnchanged(env, cid, msg) {
   return false;
 }
 
-/** ادغام و نوشتن بافر در KV */
+/** ادغام و نوشتن بافر در KV — v5.2: یک نوشتن واحد ؛ هش داخل رکورد ؛ بافر در خطای سهمیه حفظ میشود */
 async function flushMsgs(env, cid) {
   const fresh = pendMsgs.get(cid);
-  const freshCnt = pendCnt.get(cid);
-  if ((!fresh || !fresh.length) && (!freshCnt || !freshCnt.length)) return;
-  pendMsgs.delete(cid); pendMsgsTimer.delete(cid); pendCnt.delete(cid);
+  if (!fresh || !fresh.length) { pendSince.delete(cid); pendMsgsTimer.delete(cid); return; }
+  if ((msgsSkipUntil.get(cid) || 0) > Date.now()) return; // عقب نشینی سهمیه — بافر میماند تا فلاش بعدی
   try {
-    if (fresh && fresh.length) {
-      const old = await readMsgsRaw(env, cid);
-      const map = new Map(); // شناسه → رکورد ؛ رکورد متن دار بر عددی میچربد
-      for (const e of old) map.set(midOf(e), e);
-      for (const e of fresh) {
-        const prev = map.get(e.i);
-        map.set(e.i, (prev && typeof prev === 'object' && prev.t && !e.t) ? prev : e);
-      }
-      const merged = [...map.values()].slice(-MSG_KEEP);
-      await env.KV.put(MSGS + cid, JSON.stringify(merged));
+    const old = await readMsgsRaw(env, cid);
+    const map = new Map(); // شناسه → رکورد
+    for (const e of old) map.set(midOf(e), e);
+    for (const e of fresh) {
+      const prev = map.get(e.i);
+      map.set(e.i, prev && typeof prev === 'object'
+        ? { i: e.i, t: e.t || prev.t || null, f: e.f || prev.f || null, h: e.h || prev.h || null }
+        : e);
     }
-    // 🔬 v3.5 — فلاش نقشه هش محتوا ( همان زمان بندی ؛ یک نوشتن اضافه در هر فلاش )
-    if (freshCnt && freshCnt.length) {
-      let arr = [];
-      try { const raw = await env.KV.get(CNT + cid); const v = raw ? JSON.parse(raw) : null; if (Array.isArray(v)) arr = v; } catch (e) {}
-      const cmap = new Map(arr.filter((x) => x && x.i).map((x) => [x.i, x]));
-      for (const e of freshCnt) cmap.set(e.i, e);
-      await env.KV.put(CNT + cid, JSON.stringify([...cmap.values()].slice(-CNT_KEEP)));
-    }
-  } catch (e) { console.error('flushMsgs', e); }
+    const merged = [...map.values()].slice(-MSG_KEEP);
+    await kvPut(env, MSGS + cid, JSON.stringify(merged));
+    pendMsgs.delete(cid); pendMsgsTimer.delete(cid); pendSince.delete(cid);
+    lastMsgsFlush.set(cid, Date.now());
+  } catch (e) {
+    console.error('flushMsgs', e);
+    if (isQuotaErr(e)) { msgsSkipUntil.set(cid, Date.now() + 600000); pendMsgsTimer.delete(cid); } // ۱۰ دقیقه عقب نشینی
+  }
 }
 
 /** ثبت شناسه یک پیام در حلقه چنل (env میتواند null باشد وقتی فلاش بعدی نیاز نیست) */
@@ -492,14 +500,17 @@ function trackMsg(env, ctx, cid, mid, text, fromUid, hash) {
   if (!cid || !mid) return;
   let arr = pendMsgs.get(cid);
   if (!arr) { arr = []; pendMsgs.set(cid, arr); }
-  if (!arr.some((x) => midOf(x) === mid)) arr.push(fromUid ? { i: mid, t: text || null, f: String(fromUid) } : { i: mid, t: text || null }); // 🔇 v3.3 — f = فرستنده واقعی برای پاکسازی سکوت
-  if (hash) { // 🔬 v3.5 — اثر انگشت محتوا برای تشخیص ادیت واقعی
-    let hc = pendCnt.get(cid);
-    if (!hc) { hc = []; pendCnt.set(cid, hc); }
-    if (!hc.some((x) => x && x.i === mid)) hc.push({ i: mid, h: hash });
-  }
+  const ex = arr.find((x) => midOf(x) === mid);
+  if (!ex) {
+    const e = fromUid ? { i: mid, t: text || null, f: String(fromUid) } : { i: mid, t: text || null }; // 🔇 v3.3 — f = فرستنده واقعی برای پاکسازی سکوت
+    if (hash) e.h = hash; // 🔬 v3.5/v5.2 — اثر انگشت محتوا داخل همان رکورد ( بدون کلید و نوشتن اضافه )
+    arr.push(e);
+    if (!pendSince.has(cid)) pendSince.set(cid, Date.now());
+  } else if (hash && !ex.h) ex.h = hash;
   if (!ctx || !env) return;
-  if (arr.length >= MSG_FLUSH_N) { ctx.waitUntil(flushMsgs(env, cid)); return; }
+  const gapOk = Date.now() - (lastMsgsFlush.get(cid) || 0) >= Math.max(0, Number(env.MIN_MSGS_GAP_MS ?? DEFAULT_MSGS_GAP_MS) || 0);
+  const ageOk = Date.now() - (pendSince.get(cid) || Date.now()) >= MSG_FLUSH_AGE_MS;
+  if ((arr.length >= MSG_FLUSH_MIN || ageOk) && gapOk) { ctx.waitUntil(flushMsgs(env, cid)); return; }
   if (!pendMsgsTimer.get(cid)) {
     pendMsgsTimer.set(cid, true);
     ctx.waitUntil(
@@ -1147,8 +1158,13 @@ async function getSettings(env, cid, fresh = false) {
     const c = scache.get(k);
     if (c && c.exp > Date.now()) return c.v;
   }
-  const raw = await env.KV.get(k);
-  if (!raw) return null;
+  let raw = null, readErr = false;
+  try { raw = await env.KV.get(k); } catch (e) { readErr = true; }
+  if (!raw) {
+    // v5.2 — خطای گذرای خواندن ⇒ آخرین نسخهٔ شناخته شده ( کش کهنه بهتر از بی حافظگی است )
+    if (readErr) { const c = scache.get(k); if (c) return c.v; }
+    return null;
+  }
   let v = null;
   try { v = JSON.parse(raw); } catch (e) { return null; }
   // نرمال سازی داده های قدیمی/ناقص تا هیچ وقت پنل با خطا مواجه نشود
@@ -1171,9 +1187,21 @@ async function getSettings(env, cid, fresh = false) {
   return v;
 }
 
+/** 📉 v5.2 — تشخیص پر بودن سهمیهٔ روزانهٔ نوشتن KV ( پلن رایگان : ۱۰۰۰ نوشتن در روز ) */
+const isQuotaErr = (e) => /usage limit|quota|too many requests|429/i.test(String((e && e.message) || e || ''));
+
+/** نوشتن KV با نشان سهمیه — خطای سهمیه با e.quota بالا میآید تا پیام درست به ادمین برسد */
+async function kvPut(env, key, val) {
+  try { await env.KV.put(key, val); }
+  catch (e) {
+    if (isQuotaErr(e)) { const q = new Error('KV write quota exceeded: ' + key); q.quota = true; throw q; }
+    throw e;
+  }
+}
+
 async function saveSettings(env, cid, s) {
   const k = 'chat:' + cid;
-  await env.KV.put(k, JSON.stringify(s));
+  await kvPut(env, k, JSON.stringify(s)); // v5.2 — پر بودن سهمیه ⇒ خطای واضح به ادمین
   scache.set(k, { v: s, exp: Date.now() + CACHE_TTL_MS });
   await idxChatAdd(env, cid); // 📉 v3.2.1 — چنل همیشه در شاخص بماند
 }
@@ -2565,8 +2593,8 @@ function isDup(updateId) {
  *  پنل فارسی — متن ها و کیبوردها
  * ==========================================================================*/
 
-const FOOT = () => L('<footer>ضد خیانت v5.1 — همگام با Bot API 10.4 ( نوامبر 2026 )</footer>',
-  '<footer>Anti-Treason v5.1 — in sync with Bot API 10.4 (Nov 2026)</footer>');
+const FOOT = () => L('<footer>ضد خیانت v5.2 — همگام با Bot API 10.4 ( نوامبر 2026 )</footer>',
+  '<footer>Anti-Treason v5.2 — in sync with Bot API 10.4 (Nov 2026)</footer>');
 
 function mainText(from, scope = null) {
   const viewer = !!(scope && scope.role === 'viewer');
@@ -5092,6 +5120,11 @@ Note: they don't have to be a member yet; they can join via the link after promo
     return answerCb(env, cb.id, '⚠️ دکمه ناشناخته!');
   } catch (e) {
     console.error('callback', e && e.stack || e);
+    // 📉 v5.2 — سهمیهٔ روزانهٔ نوشتن KV پر شده ⇒ پیام واضح به جای خطای مبهم
+    if (e && e.quota)
+      return answerCb(env, cb.id,
+        L('⚠️ ذخیره نشد : سهمیهٔ روزانهٔ نوشتن KV کلادفلر پر شده — بعد از ریست سهمیه ( نیمه شب UTC ) دوباره تلاش کن .',
+          '⚠️ Could not save: the daily Cloudflare KV write quota is exhausted — try again after the UTC midnight reset .'), true);
     return answerCb(env, cb.id, '⚠️ خطایی پیش اومد؛ دوباره تلاش کن.');
   }
 }
@@ -5357,7 +5390,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v5.1 (full rich display rebuilt on Bot API 10.4 — November 9, 2026: right-to-left is_rtl rendering — Persian text and tables lay out RTL while English stays LTR, every panel, report and guide is a rich message with premium tables, headings, collapsible sections, footers and mark highlights via sendRichMessage + editMessageText rich_message, premium custom emoji (tg-emoji — verified IDs, rendered when the bot owner has Telegram Premium), client-localized tg-time stamps everywhere, ephemeral confirmation cards visible only to the button presser, truly disabled action buttons on paused channels (Bot API 10.3), edit reports show old/new text in expandable quotes + true-edit detection — technical edits like poll votes / live-location updates / checklist ticks / service markup that leave the content fingerprint (text+caption+media kind+poll question) unchanged are no longer deleted or reported (deterministic content-hash map, one extra KV write per flush only) + per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';;
+          : 'anti-treason bot v5.2 (full rich display rebuilt on Bot API 10.4 — November 9, 2026: KV write-budget redesign — edit fingerprints merged into the message ring (one KV write per flush instead of two), 3-minute flush spacing, quota-exhausted saves explain themselves with a clear admin message instead of a generic error, right-to-left is_rtl rendering — Persian text and tables lay out RTL while English stays LTR, every panel, report and guide is a rich message with premium tables, headings, collapsible sections, footers and mark highlights via sendRichMessage + editMessageText rich_message, premium custom emoji (tg-emoji — verified IDs, rendered when the bot owner has Telegram Premium), client-localized tg-time stamps everywhere, ephemeral confirmation cards visible only to the button presser, truly disabled action buttons on paused channels (Bot API 10.3), edit reports show old/new text in expandable quotes + true-edit detection — technical edits like poll votes / live-location updates / checklist ticks / service markup that leave the content fingerprint (text+caption+media kind+poll question) unchanged are no longer deleted or reported (deterministic content-hash map, one extra KV write per flush only) + per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';;
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;
