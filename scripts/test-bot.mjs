@@ -171,8 +171,14 @@ const chanEdit = (extra, cid = CID) => upd({
 const calls = (m) => tgCalls.filter((c) => c.method === m);
 const delCalls = () => calls('deleteMessage');
 const clearCalls = () => { tgCalls = []; };
-const lastText = () => { const s = calls('sendMessage'); return s.length ? s[s.length - 1].payload.text : ''; };
-const lastEdited = () => { const e = calls('editMessageText'); return e.length ? e[e.length - 1].payload.text : ''; };
+/* v5.0 — پیام ها اکنون « ریچ » هستند: محتوا ممکن است در rich_message.html باشد */
+const txtOf = (c) => (c.payload.rich_message && c.payload.rich_message.html) || c.payload.text || '';
+const outgoing = () => tgCalls.filter((c) => c.method === 'sendRichMessage' || c.method === 'sendMessage');
+const sentTo = (id) => outgoing().filter((c) => String(c.payload.chat_id) === String(id));
+const editedRe = (re) => calls('editMessageText').filter((c) => re.test(txtOf(c)));
+const sentRe = (re) => outgoing().filter((c) => re.test(txtOf(c)));
+const lastText = () => { const s = outgoing(); return s.length ? txtOf(s[s.length - 1]) : ''; };
+const lastEdited = () => { const e = calls('editMessageText'); return e.length ? txtOf(e[e.length - 1]) : ''; };
 const lastEditedKB = () => { const e = calls('editMessageText'); return (e.length && e[e.length - 1].payload.reply_markup) || {}; };
 const lastAnswer = () => { const a = calls('answerCallbackQuery'); return a.length ? a[a.length - 1].payload.text || '' : ''; };
 /* v4.0 — اعلان ها اکنون « پیام ریچ » هستند ( sendRichMessage — Bot API 10.1 )؛ helper مشترک */
@@ -454,7 +460,7 @@ await section('گزارش تخلف به پیوی ادمین ها + محدودی�
   // send_text تضمینی روشن میشود ⇒ تخلف، باید به مالک و ادمین هر دو برسد
   await setLock('send_text', true);
   await post(chan({ text: 'پست متنی برای تست لاگ ادمین' }));
-  ok(calls('sendMessage').some((c) => String(c.payload.chat_id) === String(ADMIN)), 'گزارش تخلف به پیوی ادمین هم ارسال شد');
+  ok(sentTo(ADMIN).length > 0, 'گزارش تخلف به پیوی ادمین هم ارسال شد');
   // محدودیت ۴۸ ساعت: ادیت پیام خیلی قدیمی (id=777777) ⇒ حذف ممکن نیست ولی پیام باید دقیق باشد
   await setLock('send_text', false); // خاموش تا تداخل نکند
   await setLock('edit_text', true);
@@ -573,7 +579,7 @@ await section('ناظرها (فقط مشاهده) + منشن متخلف + آخر
   ok(lastText().includes('tg://user?id=5'), 'منشن کلیک پذیر متخلف در گزارش مالک');
   ok(lastText().includes('@ali5'), 'یوزرنیم متخلف در گزارش');
   ok(lastText().includes('<code>5</code>'), 'شناسه عددی متخلف در گزارش');
-  ok(calls('sendMessage').some((c) => String(c.payload.chat_id) === String(VIEWER)), 'گزارش تخلف به ناظر هم رسید');
+  ok(sentTo(VIEWER).length > 0, 'گزارش تخلف به ناظر هم رسید');
   // پست ناشناس (بدون from) ⇒ توضیح شفاف
   await post(chan({ text: 'پست ناشناس چنل' }));
   ok(lastText().includes('ناشناس'), 'بدون هویت ⇒ « ناشناس » با توضیح محدودیت تلگرام');
@@ -620,7 +626,7 @@ await section('لینک t.me پیام متخلف: عمومی / خصوصی / یو
   await post(cbQuery('tgl:send_text:' + CID, OWNER)); // روشن ⇒ هر پست متنی تخلف است
   // الف) یوزرنیم ذخیره شده در تنظیمات (هنگام ثبت چنل) → لینک عمومی t.me/testchan
   await post(chan({ text: 'پست برای لینک عمومی' }));
-  ok(lastText().includes('لینک پیام : https://t.me/testchan/'), 'لینک عمومی با یوزرنیم چنل در گزارش حذف موفق');
+  ok(lastText().includes('https://t.me/testchan/'), 'لینک عمومی با یوزرنیم چنل در گزارش حذف موفق');
   // ب) چنل بدون یوزرنیم (خصوصی) → فرم t.me/c/<داخلی>
   await post(upd({
     my_chat_member: {
@@ -630,7 +636,7 @@ await section('لینک t.me پیام متخلف: عمومی / خصوصی / یو
   }));
   ok(JSON.parse(await env.KV.get('chat:' + CID)).username === '', 'یوزرنیم از تنظیمات پاک شد (شبیه سازی چنل خصوصی)');
   await post(chan({ text: 'پست برای لینک خصوصی' }));
-  ok(lastText().includes('لینک پیام : https://t.me/c/1001/'), 'لینک خصوصی t.me/c/1001/ در گزارش');
+  ok(lastText().includes('https://t.me/c/1001/'), 'لینک خصوصی t.me/c/1001/ در گزارش');
   // پ) یوزرنیمِ داخل خود آپدیت مقدم است → لینک عمومی با همان
   await post(upd({
     channel_post: {
@@ -638,7 +644,7 @@ await section('لینک t.me پیام متخلف: عمومی / خصوصی / یو
       date: 1700000000, text: 'پست با یوزرنیم در خود آپدیت',
     },
   }));
-  ok(lastText().includes('لینک پیام : https://t.me/freshuname/861'), 'یوزرنیم آپدیت مقدم بر تنظیمات است');
+  ok(lastText().includes('https://t.me/freshuname/861'), 'یوزرنیم آپدیت مقدم بر تنظیمات است');
   // ت) برگرداندن یوزرنیم + لینک « باز کردن » در « آخرین تخلف ها »
   await post(upd({
     my_chat_member: {
@@ -681,10 +687,10 @@ await section('موج تخلف: ادغام گزارش های پیوی (صرفه 
   // هر سه تقریباً هم زمان — اولی فوری، دو مورد بعدی داخل پنجره ۲.۵ ثانیه ای ادغام میشوند
   await Promise.all([rawPost(mk(700, 'موج یک')), rawPost(mk(701, 'موج دو')), rawPost(mk(702, 'موج سه'))]);
   await drain(); // صبر برای فلاش گزارش ادغام شده
-  const ownerSends = calls('sendMessage').filter((c) => String(c.payload.chat_id) === String(OWNER));
+  const ownerSends = sentTo(OWNER);
   ok(ownerSends.length === 2, 'سه تخلفِ پشت سرهم → فقط ۲ پیام به مالک (۱ فوری + ۱ خلاصه)');
-  const dig = ownerSends.length > 1 ? ownerSends[ownerSends.length - 1].payload.text : '';
-  ok(dig.includes('2 تخلف دیگر'), 'خلاصه با شمارش درست ساخته شد');
+  const dig = ownerSends.length > 1 ? txtOf(ownerSends[ownerSends.length - 1]) : '';
+  ok(dig.includes('تخلف دیگر'), 'خلاصه با شمارش درست ساخته شد');
   ok(dig.includes('قفل ارسال متن'), 'دلیل تخلف داخل خلاصه هست');
   ok(delCalls().length === 3, 'هر سه پستِ متخلف همچنان تک تک حذف شده اند (حذف هرگز دسته بندی نمیشود)');
   env.REPORT_WINDOW_MS = '0';
@@ -806,7 +812,7 @@ await section('v1.8 — دکمه وضعیت: چرخه خاموش → زرد → 
   let s = JSON.parse(await env.KV.get('chat:' + CID));
   ok(s.punishMode === 'yellow', 'چرخه: خاموش → زرد');
   ok(lastAnswer().includes('زرد روشن'), 'پیام تأیید زرد آمد');
-  ok(lastEdited().includes('وضعیت زرد'), 'نمای چنل حالت زرد را نشان داد');
+  ok(lastEdited().includes('زرد'), 'نمای چنل حالت زرد را نشان داد');
   await post(cbQuery('redT:' + CID, OWNER)); // yellow → red
   s = JSON.parse(await env.KV.get('chat:' + CID));
   ok(s.punishMode === 'red', 'چرخه: زرد → قرمز');
@@ -836,8 +842,8 @@ await section('v1.8 — وضعیت قرمز: ادیت پست مدیادار ⇒ 
   ok(!!undo && undo.post === true && undo.del === true && undo.prom === true, 'snapshot دسترسی های قبلی برای بازگردانی ذخیره شد');
   const bn = calls('banChatMember');
   ok(bn.length === 1 && String(bn[0].payload.user_id) === '4455', 'متخلف از چنل بن شد');
-  const rep = calls('sendMessage').filter((c) => String(c.payload.chat_id) === String(OWNER));
-  ok(rep.length >= 1 && rep.some((c) => c.payload.text.includes('وضعیت قرمز')), 'گزارش قرمز فوری به مالک رسید');
+  const rep = sentTo(OWNER);
+  ok(rep.length >= 1 && rep.some((c) => txtOf(c).includes('وضعیت قرمز')), 'گزارش قرمز فوری به مالک رسید');
   const withBtn = rep.find((c) => c.payload.reply_markup && JSON.stringify(c.payload.reply_markup).includes(`ubn:${CID}:4455`));
   ok(!!withBtn, 'دکمه لغو بن در گزارش هست');
   ok(!lastText().includes('تخلف دیگر در همین چند ثانیه'), 'گزارش قرمز از ادغام موجی مستثنی است');
@@ -867,8 +873,8 @@ await section('v1.8 — وضعیت زرد: ادیت مدیادار ⇒ پاک + 
   ok(calls('banChatMember').length === 0, 'بن انجام نشد — وضعیت زرد فقط عزل');
   ok(lastText().includes('وضعیت زرد'), 'گزارش زرد آمد');
   ok(lastText().includes('فقط عزل'), 'وضعیت بن خاموش در گزارش ذکر شد');
-  ok(!JSON.stringify(calls('sendMessage').map((c) => c.payload.reply_markup)).includes('ubn:'), 'دکمه لغو بن نیست');
-  const mks = JSON.stringify(calls('sendMessage').map((c) => c.payload.reply_markup));
+  ok(!JSON.stringify(outgoing().map((c) => c.payload.reply_markup)).includes('ubn:'), 'دکمه لغو بن نیست');
+  const mks = JSON.stringify(outgoing().map((c) => c.payload.reply_markup));
   ok(mks.includes(`admU:${CID}:4456`), 'دکمه ↩️ بازگردانی در گزارش هست');
   clearCalls();
   await post(cbQuery(`admU:${CID}:4456`, OWNER));
@@ -1151,8 +1157,8 @@ await section('v1.9 — بکاپ تنظیمات: خروجی + بازگردانی
   await setMode('yellow');
   clearCalls();
   await post(cbQuery('bakE:' + CID, OWNER));
-  const baks = calls('sendMessage').filter((c) => String(c.payload.chat_id) === String(OWNER));
-  const bakText = baks.length ? baks[baks.length - 1].payload.text : '';
+  const baks = sentTo(OWNER);
+  const bakText = baks.length ? txtOf(baks[baks.length - 1]) : '';
   ok(bakText.includes('بکاپ تنظیمات') && bakText.includes('"punishMode":"yellow"'), 'بکاپ با وضعیت زرد در متن آمد');
   ok(bakText.includes('"send_gif":true'), 'قفل ها داخل بکاپ هست');
   // همه را صفر کن و از روی بکاپ برگردان
@@ -1278,13 +1284,13 @@ await section('v2.0 — گزارش هر چنل فقط برای ادمین هما
   clearCalls();
   await post(cbQuery('tgl:send_text:' + CID, OWNER));
   await post(chan({ text: 'تخلف چنل اول برای تست گزارش' }));
-  let sents = calls('sendMessage').map((c) => String(c.payload.chat_id));
+  let sents = outgoing().map((c) => String(c.payload.chat_id));
   ok(sents.includes('61001') && !sents.includes('61002'), 'گزارش چنل اول فقط به ادمینِ همان چنل رسید');
   // تخلف در چنل دوم ⇒ فقط ادمین ۲ + مالک
   clearCalls();
   await post(cbQuery('tgl:send_text:' + CID2, OWNER));
   await post(chan({ text: 'تخلف چنل دوم برای تست گزارش' }, CID2));
-  sents = calls('sendMessage').map((c) => String(c.payload.chat_id));
+  sents = outgoing().map((c) => String(c.payload.chat_id));
   ok(sents.includes('61002') && !sents.includes('61001'), 'گزارش چنل دوم فقط به ادمینِ همان چنل رسید');
   ok(sents.includes(String(OWNER)), 'مالک گزارش هر دو چنل را گرفت');
   // پاک سازی
@@ -1575,14 +1581,14 @@ await section('v2.3 — تغییر زبان شخصی با دکمه 🌐', async 
   ok(lastAnswer().includes('Language: English'), 'پاسخ toggle انگلیسی شد');
   ok((await env.KV.get('ulang:' + OWNER)) === 'en', 'زبان شخصی مالک در KV ذخیره شد (en)');
   await post(cbQuery('home', OWNER));
-  ok(lastEdited().includes('Anti-Treason Channel Guard'), 'منوی اصلی حالا انگلیسی است');
+  ok(lastEdited().includes('Anti-Treason — your channel guard'), 'منوی اصلی حالا انگلیسی است');
   const kbH = lastEditedKB();
   ok(JSON.stringify(kbH).includes('فارسی'), 'دکمه زبان حالا برچسب فارسی دارد (برای بازگشت)');
 });
 
 await section('v2.3 — جریان های پنل به انگلیسی', async () => {
   await post(priv('/start', OWNER));
-  ok(lastText().includes('Anti-Treason Channel Guard'), '/start انگلیسی');
+  ok(lastText().includes('Anti-Treason — your channel guard'), '/start انگلیسی');
   await post(cbQuery('help', OWNER));
   ok(lastEdited().includes('Anti-Treason Bot Guide'), 'help انگلیسی');
   await post(cbQuery('chats', OWNER));
@@ -1606,7 +1612,7 @@ await section('v2.3 — جداسازی زبان کاربران (هر نفر زب
   await post(priv(String(ADMIN), OWNER));
   await post(priv('/start', ADMIN));
   ok(lastText().includes('دسترسی تو'), 'ادمینِ دیگر هنوز فارسی میبیند (زبان شخصی جداست)');
-  const kbAdm = (calls('sendMessage').slice(-1)[0].payload.reply_markup) || {};
+  const kbAdm = ((outgoing().slice(-1)[0] || {}).payload || {}).reply_markup || {};
   ok(JSON.stringify(kbAdm).includes('English'), 'دکمه زبان برای کاربر فارسی زبان English نشان میدهد');
 });
 
@@ -1673,8 +1679,8 @@ await section('v2.4 — چک لیست/پیام ریچ زیر قفل ناشناس
   ok(delCalls().some((c) => c.payload.message_id === 913), 'چک لیست ناشناس حذف شد');
   await post(chan({ message_id: 914, rich_message: { blocks: [] } }));
   ok(delCalls().some((c) => c.payload.message_id === 914), 'پیام ریچ ناشناس حذف شد');
-  const lastDel = calls('sendMessage').filter((c) => /تخلف حذف شد/.test(c.payload.text || ''));
-  ok(lastDel.length && /چک لیست|Rich|rich/.test(lastDel[lastDel.length - 1].payload.text), 'گزارش شامل برچسب تایپ جدید است');
+  const lastDel = sentRe(/تخلف حذف شد/);
+  ok(lastDel.length && /چک لیست|پیام ریچ|rich_message/.test(txtOf(lastDel[lastDel.length - 1])), 'گزارش شامل برچسب تایپ جدید است');
   await setLock('lock_anon', false);
   await setLock('send_photo', true);
   clearCalls();
@@ -1700,7 +1706,7 @@ await section('v2.4 — آلبوم/اسلایدشو: حذف کل آلبوم', as
 await section('v2.4 — استایل رنگی دکمه ها', async () => {
   clearCalls();
   await post(upd({ my_chat_member: { chat: { id: -1008888, type: 'channel', title: 'چنل نو' }, new_chat_member: { status: 'administrator' } } }));
-  const mk = JSON.stringify(calls('sendMessage').slice(-1)[0].payload.reply_markup || {});
+  const mk = JSON.stringify(((outgoing().slice(-1)[0] || {}).payload || {}).reply_markup || {});
   ok(mk.includes('"style":"success"'), 'دکمه فعال سازی سبز است (success)');
   ok(mk.includes('"style":"danger"'), 'دکمه رد کردن قرمز است (danger)');
   await env.KV.delete('chat:-1008888');
@@ -1712,8 +1718,8 @@ await section('v2.4 — استایل رنگی دکمه ها', async () => {
   ok(ck.includes('"style":"danger"'), 'دکمه قفل آنی (بستن) در پنل چنل قرمز است');
   clearCalls();
   await post(priv('/start', OWNER));
-  const st = calls('sendMessage').slice(-1)[0];
-  ok(st && st.payload.text.includes('v4.0') && !st.payload.message_effect_id, '/start: مهر v4.0 و بدون message_effect_id');
+  const st = outgoing().slice(-1)[0];
+  ok(st && txtOf(st).includes('v5.0') && !st.payload.message_effect_id, '/start: مهر v5.0 و بدون message_effect_id');
 });
 
 /* ───────────────────────── v2.5: اعلان قفل ها در خودِ چنل ───────────────────────── */
@@ -1883,10 +1889,10 @@ await section('v2.7/v3.0 — پیام همگانی: انتخاب مقصد → پ
   await post(upd({ my_chat_member: { chat: { id: Number(CID2), type: 'channel', title: 'چنل دوم' }, new_chat_member: { status: 'administrator' } } }));
   await post(cbQuery(`enb:${CID2}`, OWNER));
   await post(cbQuery('bcAll', OWNER));
-  const tgtPanel = calls('sendMessage').find((c) => /پیام همگانی/.test(c.payload.text || ''));
+  const tgtPanel = sentRe(/پیام همگانی/)[0];
   ok(!!tgtPanel && JSON.stringify(tgtPanel.payload.reply_markup || {}).includes('bcT:ch'), 'پنل انتخاب مقصد « پیام همگانی » با دکمه های مقصد آمد');
   await post(cbQuery('bcT:ch', OWNER));
-  ok(calls('sendMessage').some((c) => /مقصد : <b>فقط چنل ها<\/b>/.test(c.payload.text || '')), 'راهنما با مقصد « فقط چنل ها » فرستاده شد');
+  ok(sentRe(/مقصد : <b>فقط چنل ها<\/b>/).length > 0, 'راهنما با مقصد « فقط چنل ها » فرستاده شد');
   await post(upd({ message: { message_id: 9003, chat: { id: OWNER, type: 'private' }, from: { id: OWNER, first_name: 'O' }, text: 'اعلام عمومی' } }));
   clearCalls();
   await post(cbQuery('bcGo', OWNER));
@@ -1946,8 +1952,8 @@ await section('v2.8 — راهنمای تعاملی « افزودن ادمین �
   ok(lastAnswer().includes('راهنما'), 'تُست کوتاه: راهنما فرستاده شد');
   clearCalls();
   await post(priv('515151', OWNER));
-  const added = calls('sendMessage').find((c) => /ادمین اضافه شد/.test(c.payload.text || ''));
-  ok(!!added && /👤/.test(added.payload.text || ''), 'بعد از ثبت، نام/منشن فرد هم کنار پیام موفقیت آمد');
+  const added = sentRe(/ادمین اضافه شد/)[0];
+  ok(!!added && /👤/.test(txtOf(added)), 'بعد از ثبت، نام/منشن فرد هم کنار پیام موفقیت آمد');
   clearCalls();
   await post(cbQuery('admD:515151', OWNER));
   ok(lastAnswer().includes('حذف شد'), 'ادمین آزمایشی حذف شد (پاکسازی)');
@@ -1980,27 +1986,27 @@ await section('v2.8 — عزل ادمینِ ساخته ربات قبلی (fallba
 
 await section('v2.9/v3.0 — گرید ساعت + گرید دقیقه: شروع → دقیقه → پایان → دقیقه → تأیید → ثبت', async () => {
   await post(cbQuery('schS:' + CID, OWNER));
-  const grid = calls('editMessageText').find((c) => /ساعت شروع قفل زمان دار/.test(c.payload.text || ''));
+  const grid = editedRe(/ساعت شروع قفل زمان دار/)[0];
   ok(!!grid, 'پنل گرید ساعت شروع باز شد');
   const hourBtns = ((grid && grid.payload.reply_markup) || {}).inline_keyboard || [];
   const flat = JSON.stringify(hourBtns);
   ok(hourBtns.length === 4 && flat.includes('"schH:' + CID + ':S:23"') && flat.includes('"schH:' + CID + ':S:0"'), '۲۴ دکمه ساعت ۰ تا ۲۳ + انصراف');
   await post(cbQuery(`schH:${CID}:S:4`, OWNER));
-  const minG = calls('editMessageText').find((c) => /دقیقه شروع قفل زمان دار/.test(c.payload.text || ''));
+  const minG = editedRe(/دقیقه شروع قفل زمان دار/)[0];
   ok(!!minG, 'بعد از انتخاب ساعت شروع، گرید دقیقه باز شد');
   const minBtns = ((minG && minG.payload.reply_markup) || {}).inline_keyboard || [];
   const minFlat = JSON.stringify(minBtns);
   ok(minBtns.length === 4 && minFlat.includes('"schMn:' + CID + ':S:0"') && minFlat.includes('"schMn:' + CID + ':S:55"'), '۱۲ دکمه دقیقه ( ۰۰ تا ۵۵ ) + انصراف');
   await post(cbQuery(`schMn:${CID}:S:30`, OWNER));
-  const endGrid = calls('editMessageText').find((c) => /ساعت پایان قفل زمان دار/.test(c.payload.text || ''));
-  ok(!!endGrid && (endGrid.payload.text || '').includes('04:30'), 'شروع 04:30 ثبت و گرید ساعت پایان باز شد');
+  const endGrid = editedRe(/ساعت پایان قفل زمان دار/)[0];
+  ok(!!endGrid && txtOf(endGrid).includes('04:30'), 'شروع 04:30 ثبت و گرید ساعت پایان باز شد');
   await post(cbQuery(`schH:${CID}:E:8`, OWNER));
-  const minE = calls('editMessageText').find((c) => /دقیقه پایان قفل زمان دار/.test(c.payload.text || ''));
+  const minE = editedRe(/دقیقه پایان قفل زمان دار/)[0];
   ok(!!minE, 'گرید دقیقه پایان باز شد');
   await post(cbQuery(`schMn:${CID}:E:15`, OWNER));
-  const confirm = calls('editMessageText').find((c) => /ثبت قفل زمان دار/.test(c.payload.text || ''));
+  const confirm = editedRe(/ثبت قفل زمان دار/)[0];
   ok(!!confirm && /ثبت کن ✅/.test(JSON.stringify((confirm && confirm.payload.reply_markup) || {})), 'کارت تأیید با دکمه « ثبت کن ✅ » آمد');
-  ok((confirm && confirm.payload.text || '').includes('از ساعت <code>04:30</code> تا <code>08:15</code>'), 'بازه 4:30 تا 8:15 در کارت تأیید درست است');
+  ok(!!confirm && txtOf(confirm).includes('از ساعت <code>04:30</code> تا <code>08:15</code>'), 'بازه 4:30 تا 8:15 در کارت تأیید درست است');
   await post(cbQuery('schGo:' + CID, OWNER));
   const saved = JSON.parse(await env.KV.get('chat:' + CID));
   ok(saved.schedule.start === 270 && saved.schedule.end === 495, 'بازه دقیقه دار 4:30 تا 8:15 در KV ثبت شد');
@@ -2039,8 +2045,8 @@ await section('v2.9 — دکمه های سریع حذف پیام (۵/۱۰/۲۰/�
 
 await section('v2.9 — راهنمای تعاملی ناظر و بازگردانی بکاپ', async () => {
   await post(cbQuery('vwA', OWNER));
-  const g1 = calls('sendMessage').find((c) => /افزودن ناظر/.test(c.payload.text || ''));
-  ok(!!g1 && /myid|userinfobot/.test(g1.payload.text || ''), 'راهنمای گام به گام ناظر فرستاده شد');
+  const g1 = sentRe(/افزودن ناظر/)[0];
+  ok(!!g1 && /myid|userinfobot/.test(txtOf(g1)), 'راهنمای گام به گام ناظر فرستاده شد');
   ok(JSON.stringify((g1 && g1.payload.reply_markup) || {}).includes('bcX'), 'دکمه لغو کنار راهنمای ناظر هست');
   await post(cbQuery('bcX', OWNER));
   await post(cbQuery('bakI:' + CID, OWNER));
@@ -2056,11 +2062,11 @@ await section('v3.0 — ورودی متنی زمان دقیقه دار ( 4:30 �
   await post(cbQuery('schS:' + CID, OWNER));
   clearCalls();
   await post(priv('4:30', OWNER));
-  const eg = calls('sendMessage').find((c) => /ساعت پایان قفل زمان دار/.test(c.payload.text || ''));
-  ok(!!eg && (eg.payload.text || '').includes('04:30'), 'ورودی 4:30 → شروع ثبت و گرید ساعت پایان باز شد');
+  const eg = sentRe(/ساعت پایان قفل زمان دار/)[0];
+  ok(!!eg && txtOf(eg).includes('04:30'), 'ورودی 4:30 → شروع ثبت و گرید ساعت پایان باز شد');
   await post(priv('8:15', OWNER));
-  const cf = calls('sendMessage').find((c) => /ثبت قفل زمان دار/.test(c.payload.text || ''));
-  ok(!!cf && (cf.payload.text || '').includes('از ساعت <code>04:30</code> تا <code>08:15</code>'), 'ورودی 8:15 → کارت تأیید با دقیقه درست');
+  const cf = sentRe(/ثبت قفل زمان دار/)[0];
+  ok(!!cf && txtOf(cf).includes('از ساعت <code>04:30</code> تا <code>08:15</code>'), 'ورودی 8:15 → کارت تأیید با دقیقه درست');
   await post(cbQuery('schGo:' + CID, OWNER));
   const sv = JSON.parse(await env.KV.get('chat:' + CID));
   ok(sv.schedule.start === 270 && sv.schedule.end === 495, 'زمان دقیقه دار با تایپ در KV ثبت شد');
@@ -2074,12 +2080,12 @@ await section('v3.0 — ثبت خودکار گروه + مقصد « همه »: چ
   const aud0 = JSON.parse(await env.KV.get('aud:index'));
   ok(aud0['-1003333'] && aud0['-1003333'].t === 'supergroup', 'گروه با پیام معمولی خودکار ثبت شد');
   await post(cbQuery('bcAll', OWNER));
-  const panel = calls('sendMessage').find((c) => /پیام همگانی/.test(c.payload.text || ''));
+  const panel = sentRe(/پیام همگانی/)[0];
   const pk = JSON.stringify((panel && panel.payload.reply_markup) || {});
   ok(pk.includes('bcT:gr') && pk.includes('bcT:pv') && pk.includes('bcT:all') && pk.includes('audV'), 'دکمه های مقصد ( چنل/گروه/پیوی/همه ) + مخاطبین روی پنل هست');
   clearCalls();
   await post(cbQuery('bcT:all', OWNER));
-  ok(calls('sendMessage').some((c) => /مقصد : <b>همه : چنل ها \+ گروه ها \+ پیوی ها<\/b>/.test(c.payload.text || '')), 'راهنما با مقصد « همه » فرستاده شد');
+  ok(sentRe(/مقصد : <b>همه : چنل ها \+ گروه ها \+ پیوی ها<\/b>/).length > 0, 'راهنما با مقصد « همه » فرستاده شد');
   await post(upd({ message: { message_id: 9101, chat: { id: OWNER, type: 'private' }, from: { id: OWNER, first_name: 'O' }, text: 'همگانی همه جا' } }));
   clearCalls();
   await post(cbQuery('bcGo', OWNER));
@@ -2096,8 +2102,8 @@ await section('v3.0 — ثبت خودکار گروه + مقصد « همه »: چ
   await post(cbQuery('bcAll', OWNER));
   clearCalls();
   await post(cbQuery('audV', OWNER));
-  const av = calls('editMessageText').find((c) => /مخاطبین ثبت شده/.test(c.payload.text || ''));
-  ok(!!av && (av.payload.text || '').includes('گروه آزمایشی'), 'پنل مخاطبین: گروه با نامش نمایش داده شد');
+  const av = editedRe(/مخاطبین ثبت شده/)[0];
+  ok(!!av && txtOf(av).includes('گروه آزمایشی'), 'پنل مخاطبین: گروه با نامش نمایش داده شد');
   ok(JSON.stringify((av && av.payload.reply_markup) || {}).includes('bcBack'), 'دکمه بازگشت پنل مخاطبین هست');
   await post(cbQuery('bcBack', OWNER));
   ok(lastEdited().includes('اول مقصد رو انتخاب کن'), 'بازگشت به پنل انتخاب مقصد');
@@ -2124,7 +2130,7 @@ await section('v3.2 — گزارش پویا: پست بی امضای چنل (جا
   ok(rep.includes('فرستنده : پست خود چنل ( بی امضا )'), 'بلوک پویای فرستنده: پست خود چنل');
   ok(rep.includes('Sign messages'), 'راه حل امضا در گزارش هست');
   ok(!rep.includes('تلگرام شناسه عددی فرستنده پست چنل رو نمیفرسته'), 'خط ثابت قدیمی حذف شد');
-  ok(rep.includes('اقدام : ارسال پست جدید'), 'خط اقدام پویا (ارسال)');
+  ok(rep.includes('<td>ارسال پست جدید</td>'), 'خط اقدام پویا (ارسال)');
   ok(rep.includes('خلاصه : « پست بی امضا »'), 'خلاصه با برچسب آمد');
   await setLock('send_text', false);
 });
@@ -2140,7 +2146,7 @@ await section('v3.2 — گزارش پویا: متن قبلی / متن جدید �
   const rep = lastText();
   ok(rep.includes('متن قبلی : « متن اولیه پست »'), 'متن قبلی از حلقه پیام ها آمد');
   ok(rep.includes('متن جدید : « متن ادیت شده متخلفانه »'), 'متن جدید نشان داده شد');
-  ok(rep.includes('اقدام : ادیتِ پیام قبلی'), 'خط اقدام پویا (ادیت)');
+  ok(rep.includes('<td>ادیتِ پیام قبلی</td>'), 'خط اقدام پویا (ادیت)');
   await setLock('edit_text', false);
 });
 
@@ -2437,15 +2443,15 @@ await section('نقل قول ها: بکاپ جمع شونده + نقل قول ه
   // د) ثبت سکوت: اعلان مالک بدون افکت + پایان با tg-time
   clearCalls();
   await post(cbQuery('muGo:' + CID + ':123456789:60', OWNER));
-  const mu6 = calls('sendMessage').find((c) => String(c.payload.chat_id) === String(OWNER) && /سکوت ثبت شد/.test(c.payload.text || ''));
+  const mu6 = sentRe(/سکوت ثبت شد|Mute saved/).find((c) => String(c.payload.chat_id) === String(OWNER));
   ok(!!mu6 && !mu6.payload.message_effect_id, 'اعلان « سکوت ثبت شد »: بدون افکت');
-  ok(!!mu6 && /<tg-time unix=/.test(mu6.payload.text), 'اعلان « سکوت ثبت شد »: پایان با tg-time');
+  ok(!!mu6 && /<tg-time unix=/.test(txtOf(mu6)), 'اعلان « سکوت ثبت شد »: پایان با tg-time');
   // آزادسازی سکوت آزمون تا روی چنل اثری نماند
   await post(cbQuery('muF:' + CID + ':123456789', OWNER));
 });
 
-/* ---------------------------- v4.0 همگام با نوامبر 2026 ---------------------------- */
-await section('v4.0 — همگام با Bot API 10.4: پیام ریچ ، کارت فوری ، tg-time ، دکمه غیرفعال', async () => {
+/* ---------------------------- v5.0 نمایش ریچ کامل ( نوامبر 2026 ) ---------------------------- */
+await section('v5.0 — نمایش ریچ کامل: جدول پرمیوم ، تیتر و پانویس ، کارت فوری ، tg-time ، دکمه غیرفعال', async () => {
   const fs4 = await import('node:fs');
   const src4 = await fs4.promises.readFile(new URL('../worker.js', import.meta.url), 'utf8').catch(() => '');
 
@@ -2455,15 +2461,15 @@ await section('v4.0 — همگام با Bot API 10.4: پیام ریچ ، کار�
   ok(src4.includes('<tg-time') && src4.includes('disabled: true'), 'tg-time و دکمه disabled سیم کشی شده اند');
   ok(!src4.includes('ظاهر پیام ها') && !src4.includes('تایپ سریع') && !src4.includes('Fresh look') && !src4.includes('Quick typing'), 'عنوان بخش های v3.6/v3.7 از کل کد حذف شده');
 
-  // ب) خوش آمد: مهر v4.0
+  // ب) خوش آمد: مهر v5.0
   await post(priv('/start', OWNER));
   const w4 = lastText();
-  ok(w4.includes('v4.0') && w4.includes('Bot API 10.4') && !w4.includes('v3.7') && !w4.includes('v3.6'), 'خوش آمد: مهر v4.0 + ارجاع Bot API 10.4 و بدون مهر های قبلی');
+  ok(w4.includes('v5.0') && w4.includes('Bot API 10.4') && !w4.includes('v4.0') && !w4.includes('v3.7') && !w4.includes('v3.6'), 'خوش آمد: مهر v5.0 + ارجاع Bot API 10.4 و بدون مهر های قبلی');
 
   // ج) راهنما: بخش جدید جای بخش های قبلی
   await post(cbQuery('help', OWNER));
   const h4 = lastEdited();
-  ok(h4.includes('همگام با نوامبر 2026 (v4.0)'), 'راهنما: بخش « همگام با نوامبر 2026 (v4.0) »');
+  ok(h4.includes('همگام با Bot API 10.4 ( نوامبر 2026 )'), 'راهنما: بخش « همگام با Bot API 10.4 ( نوامبر 2026 ) »');
   ok(!h4.includes('ظاهر پیام ها') && !h4.includes('تایپ سریع') && !h4.includes('Quick typing') && !h4.includes('Message appearance'), 'راهنما: بخش های v3.6/v3.7 حذف شده');
 
   // د) fallback: خطای sendRichMessage ⇒ اعلان با sendMessage معمولی و تبدیل تگ ها

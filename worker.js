@@ -1,13 +1,14 @@
 /* ============================================================================
- * 🛡️  ربات ضد خیانت کانال  —  نسخه ۴.۰ (همگام با Bot API 10.4 نوامبر 2026 — پیام ریچ + کارت فوری + tg-time + دکمه غیرفعال)
+ * 🛡️  ربات ضد خیانت کانال  —  نسخه ۵.۰ (همگام با Bot API 10.4 نوامبر 2026 — جدول پرمیوم + پیام ریچ کامل + کارت فوری + tg-time + دکمه غیرفعال)
  * ----------------------------------------------------------------------------
  * اجرا روی: Cloudflare Workers (پلن رایگان) + Cloudflare KV
  * نویسنده: ساخته شده برای مدیریت چنل های تلگرام با دقت حذف لحظه ای
  *
- * ── تازه در نسخه ۴.۰ (Bot API 10.4 — نوامبر 2026) ──────────────────────────
- *  • 🎨 اعلان های قفل در خود چنل با « پیام ریچ » ( sendRichMessage — Bot API 10.1 ):
- *    تیتر + پاراگراف های جدا + پانویس؛ هر خطایی ⇒ ارسال معمولی با همان محتوا
- *    ( تبدیل خودکار تگ های فقط-ریچ با plainify — بدون شکستن اعلان ).
+ * ── تازه در نسخه ۵.۰ (Bot API 10.4 — نوامبر 2026) ──────────────────────────
+ *  • 🎨 نمایش ریچ کامل — « همه » پیام ها ( پنل ، گزارش ، اعلان ، راهنما ) با HTML ریچ
+ *    ( sendRichMessage — Bot API 10.1/10.4 ): جدول پرمیوم واقعی ( <table> ) ، تیتر
+ *    ( <h3>/<h4> ) ، دسته جمع شونده ( <details> ) ، پانویس ( <footer> ) و هایلایت ( <mark> )؛
+ *    هر خطایی ⇒ ارسال معمولی با همان محتوا ( تبدیل خودکار تگ های فقط-ریچ با plainify ).
  *  • 💬 کارت فوری ( Ephemeral — Bot API 10.2/10.4 ): تأیید عملیات های مهم ( باز/بستن قفل
  *    آنی ، فعال/غیرفعال کردن چنل ، ریست آمار ، آزادسازی سکوت ) فقط برای زننده دکمه
  *    نمایش داده میشود و بعد از لحظاتی خودش محو میشود — طبق مستندات، answerCallbackQuery
@@ -548,29 +549,43 @@ const kb = (rows) => ({ inline_keyboard: rows });
 /* ✨ v2.4 — style دکمه: 'danger' (قرمز) | 'success' (سبز) | 'primary' (آبی) — Bot API 9.4+ */
 const BTN = (text, data, style, disabled) => ({ text: tr(text), callback_data: data, ...(style ? { style } : {}), ...(disabled ? { disabled: true } : {}) });
 
-/* ── 🎨 v4.0 — لایه نمایش پیام ها، همگام با Bot API 10.4 ( نوامبر 2026 ) ─────
- *  • sendRich : پیام ریچ با فیلد html ( sendRichMessage — Bot API 10.1 )؛ هر خطایی ⇒
- *    ارسال معمولی با همان محتوا ( تبدیل خودکار تگ های فقط-ریچ با plainify ).
- *  • plainify : تبدیل HTML ریچ به HTML معمولی ( h4/p/hr/footer/li ⇒ b/i/فهرست ساده ).
- *  • tgTime   : زمان سمت کلاینت با <tg-time> ( Bot API 10.4 ) — format: r نسبی |
- *    w روز هفته | d/D تاریخ | t/T ساعت؛ متن داخل تگ = جایگزین کلاینت های قدیمی.
- *  • answerCard : کارت فوری ( Ephemeral — Bot API 10.2/10.4 ) فقط برای زننده دکمه و
- *    بدون chat_id طبق مستندات؛ محو شدن خودکار؛ طبق مستندات answerCallbackQuery هم زده میشود. */
+/* ── 🎨 v5.0 — لایه نمایش « ریچ کامل » — همگام با Bot API 10.4 ( نوامبر 2026 ) ─────
+ *  ظاهر جدید: متن « همه » پیام ها با HTML ریچ ساخته میشود —
+ *    جدول واقعی ( <table bordered striped compact> ) ، تیتر ( <h3>/<h4> ) ،
+ *    دسته های جمع شدن ( <details> ) ، پانویس ( <footer> ) ، هایلایت ( <mark> ) ،
+ *    زمان سمت کلاینت ( <tg-time> ) و ایموجی پرمیوم ( <tg-emoji> ).
+ *  • send  : متن ریچ ⇒ sendRichMessage ؛ خطا ⇒ sendMessage با plainify ( جایگزین امن ).
+ *  • edit  : متن ریچ ⇒ editMessageText با rich_message ( Bot API 10.4 ) ؛ خطا ⇒ ویرایش متنی.
+ *  • plainify : تبدیل HTML ریچ به HTML معمولی برای کلاینت/حالت خطا.
+ *  • tgE : ایموجی پرمیوم — شناسه های تاییدشده؛ در پیوی/گروه وقتی مالک ربات پرمیوم داشته
+ *          باشد نمایش داده میشود و در غیر این صورت ایموجی استانداردِ جایگزین دیده میشود.
+ *  • card/answerCard : کارت فوری ( Ephemeral — Bot API 10.2/10.4 ) فقط برای زننده دکمه. */
 function plainify(h) {
   return String(h || '')
-    .replace(/<h[1-6](\s[^>]*)?>/g, '<b>')
-    .replace(/<\/h[1-6]>/g, '</b>\n')
-    .replace(/<footer(\s[^>]*)?>/g, '<i>')
-    .replace(/<\/footer>/g, '</i>')
-    .replace(/<hr(\s[^>]*)?\/?>/g, '')
-    .replace(/<\/?\s*(p|ul|ol|table|tbody|thead|tr|details|summary)(\s[^>]*)?>/g, '\n')
-    .replace(/<(td|th)(\s[^>]*)?>/g, ' ')
-    .replace(/<\/(td|th)>/g, '')
-    .replace(/<li(\s[^>]*)?>/g, '\u2022 ')
-    .replace(/<\/li>/g, '\n')
+    .replace(/<tg-time(\s[^>]*)?>/g, '').replace(/<\/tg-time>/g, '')
+    .replace(/<tg-emoji(\s[^>]*)?>/g, '').replace(/<\/tg-emoji>/g, '')
+    .replace(/<input(\s[^>]*?)?checked(\s[^>]*)?>/g, '\u2611 ').replace(/<input(\s[^>]*)?>/g, '\u2610 ')
+    .replace(/<details(\s[^>]*)?>/g, '\u25b6 ').replace(/<\/details>/g, '')
+    .replace(/<summary(\s[^>]*)?>/g, '<b>').replace(/<\/summary>/g, '</b>\n')
+    .replace(/<mark(\s[^>]*)?>/g, '<b>').replace(/<\/mark>/g, '</b>')
+    .replace(/<hr(\s[^>]*)?\/?>/g, '\u2014\u2014\u2014\u2014\u2014\u2014\u2014\u2014')
+    .replace(/<caption(\s[^>]*)?>/g, '<b>').replace(/<\/caption>/g, '</b>\n')
+    .replace(/<h[1-6](\s[^>]*)?>/g, '<b>').replace(/<\/h[1-6]>/g, '</b>\n')
+    .replace(/<footer(\s[^>]*)?>/g, '<i>').replace(/<\/footer>/g, '</i>')
+    .replace(/<aside(\s[^>]*)?>/g, '<i>\u00ab').replace(/<\/aside>/g, '\u00bb</i>')
+    .replace(/<li(\s[^>]*)?>/g, '\u2022 ').replace(/<\/li>/g, '\n')
+    .replace(/<th(\s[^>]*)?>/g, '<b>').replace(/<\/th>/g, '</b> | ')
+    .replace(/<td(\s[^>]*)?>/g, '').replace(/<\/td>/g, ' | ')
+    .replace(/<tr(\s[^>]*)?>/g, '').replace(/<\/tr>/g, '\n')
+    .replace(/<\/?(table|tbody|thead|p|ul|ol|pre)(\s[^>]*)?>/g, '\n')
+    .replace(/<blockquote(\s[^>]*)?>/g, '\u00ab').replace(/<\/blockquote>/g, '\u00bb')
+    .replace(/\|\s*\n/g, '\n').replace(/^\s*\|\s*/gm, '').replace(/\|\s*$/gm, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
+
+/** تشخیص محتوای ریچ: تگ هایی که HTML معمولی پشتیبانی نمیکند ⇒ مسیر sendRichMessage */
+const RICH_RE = /<(h[1-6]|table|tbody|thead|tr|td|th|caption|details|summary|footer|aside|hr|ul|ol|li|input|mark|tg-time)\b/;
 
 /** پیام ریچ ( Bot API 10.1 ) — خطا ⇒ ارسال معمولی با همان محتوا */
 async function sendRich(env, chatId, html, markup) {
@@ -583,9 +598,36 @@ async function sendRich(env, chatId, html, markup) {
   return send(env, chatId, plainify(html), markup);
 }
 
+/** ویرایش به پیام ریچ ( Bot API 10.4 — editMessageText با rich_message )؛
+ *  خطا ⇒ ویرایش متنی ساده با plainify ؛ « not modified » ⇒ همان پاسخ بی خطا */
+async function editRich(env, chatId, mid, html, markup) {
+  const r = await tg(env, 'editMessageText', {
+    chat_id: chatId, message_id: mid,
+    rich_message: { html },
+    ...(markup ? { reply_markup: markup } : {}),
+  });
+  if (r && r.ok) return r;
+  if (r && /not modified/i.test(r.description || '')) return r;
+  return edit(env, chatId, mid, plainify(html), markup);
+}
+
 /** 🕐 زمان سمت کلاینت ( Bot API 10.4 ) — هر کس به ساعت و زبان محلی خودش میبیند */
 const tgTime = (ms, format = 'wDT', fallback = '') =>
   `<tg-time unix="${Math.floor(Number(ms) / 1000)}"${format ? ` format="${format}"` : ''}>${fallback || jalaliStamp(ms)}</tg-time>`;
+
+/** 🎨 ایموجی پرمیوم ( Bot API 10.4 ) — شناسه های تاییدشده با getCustomEmojiStickers ؛
+ *  جایگزین ( alt ) همیشه همان ایموجی استاندارد است تا در هر حالتی درست دیده شود. */
+const EMO = {
+  lock: '5296369303661067030', ok: '5206607081334906820', no: '5210952531676504517',
+  gear: '5341715473882955310', chart: '5231200819986047254', cal: '5413879192267805083',
+  stop: '5260293700088511294', star: '5438496463044752972', bulb: '5422439311196834318',
+  bell: '5458603043203327669', fire: '5424972470023104089', link: '5271604874419647061',
+  chat: '5443038326535759644', plus: '5397916757333654639', key: '6005570495603282482',
+  bot: '5931415565955503486', eye: '5960714428394507968', done: '5805532930662996322',
+  tool: '5988023995125993550', note: '5877597667231534929', info: '5323442290708985472',
+  like: '5337080053119336309',
+};
+const tgE = (k, alt) => `<tg-emoji emoji-id="${EMO[k] || EMO.star}">${alt}</tg-emoji>`;
 
 /** کارت فوری — فقط برای زننده دکمه؛ خطا ⇒ sendMessage با ephemeral_message_parameters */
 async function card(env, cbId, html) {
@@ -846,7 +888,9 @@ async function setUserLang(env, uid, v) {
 }
 
 
+/* 🎨 v5.0 — ارسال هوشمند: متن ریچ ⇒ پیام ریچ ( sendRichMessage ) ؛ ساده ⇒ همیشه */
 async function send(env, chatId, text, markup) {
+  if (RICH_RE.test(text)) return sendRich(env, chatId, text, markup);
   return tg(env, 'sendMessage', {
     chat_id: chatId,
     text,
@@ -856,8 +900,9 @@ async function send(env, chatId, text, markup) {
   });
 }
 
-/** ویرایش پیام پنل؛ اگر ویرایش ممکن نبود، پیام جدید میفرستد */
+/** ویرایش پیام پنل؛ اگر ویرایش ممکن نبود، پیام جدید میفرستد — متن ریچ ⇒ ویرایش ریچ */
 async function edit(env, chatId, mid, text, markup) {
+  if (RICH_RE.test(text)) return editRich(env, chatId, mid, text, markup);
   const r = await tg(env, 'editMessageText', {
     chat_id: chatId, message_id: mid, text,
     parse_mode: 'HTML',
@@ -1457,14 +1502,16 @@ async function flushReport(env, target) {
   const shown = q.items.slice(0, REPORT_MAX_LINES);
   const rest = q.items.length - shown.length;
   const t =
-    L(`<b>${q.items.length} تخلف دیگر تو همین چند ثانیه :</b>\n\n` +
-    shown.join('\n') +
-    (rest > 0 ? `\n\n… و ${rest} مورد دیگر` : '') +
-    `\n\nجزئیات کامل : « آخرین تخلف ها » تو پنل چنل .`,
-    `<b>${q.items.length} more violations within these few seconds:</b>\n\n` +
-    shown.join('\n') +
-    (rest > 0 ? `\n\n… and ${rest} more` : '') +
-    `\n\nFull details: "Latest violations" in the channel panel.`);
+    L(`<h4>${tgE('chart', '📊')} ${faNum(q.items.length)} تخلف دیگر تو همین چند ثانیه :</h4>` +
+    `<blockquote expandable>${shown.join('\n')}</blockquote>` +
+    (rest > 0 ? `<p>… و ${faNum(rest)} مورد دیگر</p>` : '') +
+    `<p><i>جزئیات کامل : « آخرین تخلف ها » تو پنل چنل .</i></p>` +
+    FOOT(),
+    `<h4>${tgE('chart', '📊')} ${q.items.length} more violations within these few seconds:</h4>` +
+    `<blockquote expandable>${shown.join('\n')}</blockquote>` +
+    (rest > 0 ? `<p>… and ${rest} more</p>` : '') +
+    `<p><i>Full details: "Latest violations" in the channel panel.</i></p>` +
+    FOOT());
   await send(env, target, t).catch(() => {});
 }
 
@@ -1642,28 +1689,22 @@ async function enforce(env, ctx, cid, s, msg, a, reason, isEdit) {
     let head;
     const isTooOldMsg = /can'?t be deleted|cannot be deleted|cant be deleted/.test(d);
     if (del.ok) {
-      head = L('<b>تخلف حذف شد</b>', '<b>Violation deleted</b>');
+      head = L(`<h4>${tgE('done', '✅')} تخلف حذف شد</h4>`, `<h4>${tgE('done', '✅')} Violation deleted</h4>`);
     } else if (isTooOldMsg) {
       head = L(
-        '<b>حذف نشد — پیام قدیمیه !</b>\n' +
-        'این محدودیت خود تلگرامه : هیچ رباتی نمیتونه پیام های قدیمی تر از <b>۴۸ ساعت</b> رو حذف کنه ( ربات دسترسی کامل داره ) .\n' +
-        'ادیت این پیام شناسایی و گزارش شد ؛ پست های تازه متخلف بلافاصله حذف میشن .\n' +
-        'خودت به عنوان ادمین انسانی این محدودیت رو نداری ؛ با لینک پایین پیام رو باز کن و دستی حذفش کن .',
-        '<b>Not deleted — the message is too old!</b>\n' +
-        'This is a Telegram limitation: no bot can delete messages older than <b>48 hours</b> (the bot has full permissions).\n' +
-        'The edit of this message was detected and reported; fresh violating posts are deleted instantly.\n' +
-        'As a human admin you are not subject to this limit — open the message with the link below and delete it manually.');
+        `<h4>${tgE('stop', '⛔')} حذف نشد — پیام قدیمیه !</h4>` +
+        `<p>این محدودیت خود تلگرامه : هیچ رباتی نمیتونه پیام های قدیمی تر از <mark>۴۸ ساعت</mark> رو حذف کنه ( ربات دسترسی کامل داره ) .<br/>ادیت این پیام شناسایی و گزارش شد ؛ پست های تازه متخلف بلافاصله حذف میشن .<br/>خودت به عنوان ادمین انسانی این محدودیت رو نداری ؛ با لینک پایین پیام رو باز کن و دستی حذفش کن .</p>`,
+        `<h4>${tgE('stop', '⛔')} Not deleted — the message is too old!</h4>` +
+        `<p>This is a Telegram limitation: no bot can delete messages older than <mark>48 hours</mark> (the bot has full permissions).<br/>The edit of this message was detected and reported; fresh violating posts are deleted instantly.<br/>As a human admin you are not subject to this limit — open the message with the link below and delete it manually.</p>`);
     } else if (/not found|message_id_invalid/.test(d)) {
-      head = L('<b>حذف ناموفق — پیام پیدا نشد .</b>\nاحتمالاً همین پیام قبلاً حذف شده .',
-               '<b>Deletion failed — message not found.</b>\nIt was probably already deleted.');
+      head = L(`<h4>حذف ناموفق — پیام پیدا نشد .</h4><p>احتمالاً همین پیام قبلاً حذف شده .</p>`,
+               `<h4>Deletion failed — message not found.</h4><p>It was probably already deleted.</p>`);
     } else {
       head = L(
-        '<b>حذف ناموفق بود !</b>\n' +
-        'احتمالاً دسترسی « حذف پیام » به ربات داده نشده .\n' +
-        `جزئیات تلگرام: <code>${esc(del.description || 'نامشخص')}</code>`,
-        '<b>Deletion failed!</b>\n' +
-        'The "Delete messages" permission is probably not granted to the bot.\n' +
-        `Telegram details: <code>${esc(del.description || 'نامشخص')}</code>`);
+        `<h4>حذف ناموفق بود !</h4>` +
+        `<p>احتمالاً دسترسی « حذف پیام » به ربات داده نشده .<br/>جزئیات تلگرام: <code>${esc(del.description || 'نامشخص')}</code></p>`,
+        `<h4>Deletion failed!</h4>` +
+        `<p>The "Delete messages" permission is probably not granted to the bot.<br/>Telegram details: <code>${esc(del.description || 'نامشخص')}</code></p>`);
     }
     // لینک پیام: اولویت با یوزرنیمِ خود آپدیت، بعد تنظیمات، در نهایت فرم خصوصی t.me/c/
     const link = tgMsgLink((msg.chat && msg.chat.username) || s.username || '', cid, msg.message_id);
@@ -1685,8 +1726,10 @@ async function enforce(env, ctx, cid, s, msg, a, reason, isEdit) {
       const newSn = esc(body.slice(0, 80)) + (body.length > 80 ? '…' : '');
       if (oldT && oldT !== body.slice(0, 120)) {
         const oldSn = esc(oldT.slice(0, 80)) + (oldT.length > 80 ? '…' : '');
-        ctxFA = `<blockquote>متن قبلی : « ${oldSn} »</blockquote>\n<blockquote>متن جدید : « ${newSn} »</blockquote>`;
-        ctxEN = `<blockquote>Old text: « ${oldSn} »</blockquote>\n<blockquote>New text: « ${newSn} »</blockquote>`;
+        ctxFA = `<blockquote>متن قبلی : « ${oldSn} »</blockquote>
+<blockquote>متن جدید : « ${newSn} »</blockquote>`;
+        ctxEN = `<blockquote>Old text: « ${oldSn} »</blockquote>
+<blockquote>New text: « ${newSn} »</blockquote>`;
       } else {
         ctxFA = '<blockquote>خلاصه : « ' + newSn + ' »</blockquote>';
         ctxEN = '<blockquote>Summary: « ' + newSn + ' »</blockquote>';
@@ -1696,35 +1739,41 @@ async function enforce(env, ctx, cid, s, msg, a, reason, isEdit) {
     }
     // 🧩 v3.2 — توضیح پویا: در وضعیت زرد/قرمز ، عزل خودکار فقط برای ادیت مدیا اعمال میشود
     const pmR = s.punishMode || 'off';
-    const noteFA = (isEdit && pmR !== 'off') ? `نکته : عزل خودکار فقط برای « ادیت مدیا » اعمال میشه ؛ ادیت متن فقط حذف میشود .\n` : '';
-    const noteEN = (isEdit && pmR !== 'off') ? `Note: auto-demote applies only to media edits; text edits are just deleted.\n` : '';
+    const noteFA = (isEdit && pmR !== 'off') ? `<p><i>نکته : عزل خودکار فقط برای « ادیت مدیا » اعمال میشه ؛ ادیت متن فقط حذف میشود .</i></p>` : '';
+    const noteEN = (isEdit && pmR !== 'off') ? `<p><i>Note: auto-demote applies only to media edits; text edits are just deleted.</i></p>` : '';
+    const row = (k, v) => `<tr><td><b>${k}</b></td><td>${v}</td></tr>`;
     const txt =
-      L(`${head}\n\n` +
-      `چنل : <b>${esc(s.title)}</b>\n` +
-      `${L('دلیل', 'Reason')} : <b>${esc(tr(reason))}</b>\n` +
-      `${isEdit ? 'اقدام : ادیتِ پیام قبلی' : 'اقدام : ارسال پست جدید'}\n` +
-      `${whoFA}\n` +
-      `${ctxFA}\n` +
-      (albumWiped ? L(`کل آلبوم/اسلایدشو حذف شد — ${albumWiped} پست دیگر\n`, `Entire album/slideshow deleted — ${albumWiped} more post(s)\n`) : '') +
-      `پیام : <code>${msg.message_id}</code>\n` +
-      (link ? `لینک پیام : ${link}\n` : '') +
-      (reason === 'قفل پست ناشناس' ? `برای پست دادن با هویت واقعی ، گزینه « Sign messages » ( امضا ) تو تنظیمات چنل/ادمین باید روشن باشه .\n` : '') +
+      L(`${head}` +
+      `<table bordered striped compact><caption>گزارش تخلف</caption>` +
+      row('چنل', `<b>${esc(s.title)}</b>`) +
+      row('دلیل', `<b>${esc(tr(reason))}</b>`) +
+      row('اقدام', isEdit ? 'ادیتِ پیام قبلی' : 'ارسال پست جدید') +
+      row('پیام', `<code>${msg.message_id}</code>${link ? ` — <a href="${link}">باز کردن</a>` : ''}`) +
+      row('نتیجه حذف', del.ok ? L('انجام شد ✅', 'done ✅') : `❌ ${esc(del.description || 'ناموفق')}`) +
+      (albumWiped ? row('آلبوم', L(`کل آلبوم/اسلایدشو حذف شد — ${albumWiped} پست دیگر`, `Entire album/slideshow deleted — ${albumWiped} more post(s)`)) : '') +
+      `</table>` +
+      `<p>${whoFA.replace(/\n/g, '<br/>')}</p>` +
+      ctxFA + '\n' +
+      (reason === 'قفل پست ناشناس' ? `<p><i>برای پست دادن با هویت واقعی ، گزینه « Sign messages » ( امضا ) تو تنظیمات چنل/ادمین باید روشن باشه .</i></p>` : '') +
       noteFA +
-      (isTooOldMsg ? `این پیام برای « حذف خودکار با اکانت » هم به صف رفت ؛ اگه یوزربات همراه وصل باشه خودش حذفش میکنه .\n` : '') +
-      `ساعت تهران : <code>${tehranHM()}</code> — ${tgTime(Date.now(), 'dt')}`,
-      `${head}\n\n` +
-      `📺 Channel: <b>${esc(s.title)}</b>\n` +
-      `⚠️ Reason: <b>${esc(tr(reason))}</b>\n` +
-      `${isEdit ? 'Action: edited a previous post' : 'Action: posted a new message'}\n` +
-      `${whoEN}\n` +
-      `${ctxEN}\n` +
-      (albumWiped ? `Entire album/slideshow deleted — ${albumWiped} more post(s)\n` : '') +
-      `Message: <code>${msg.message_id}</code>\n` +
-      (link ? `Message link: ${link}\n` : '') +
-      (reason === 'قفل پست ناشناس' ? `💡 To post with a real identity, the "Sign messages" option must be enabled in the channel/admin settings.\n` : '') +
+      (isTooOldMsg ? `<p><i>این پیام برای « حذف خودکار با اکانت » هم به صف رفت ؛ اگه یوزربات همراه وصل باشه خودش حذفش میکنه .</i></p>` : '') +
+      `<p><i>ساعت تهران : <code>${tehranHM()}</code> — ${tgTime(Date.now(), 'dt')}</i></p>` +
+      FOOT(),
+      `${head}` +
+      `<table bordered striped compact><caption>Violation report</caption>` +
+      row('Channel', `<b>${esc(s.title)}</b>`) +
+      row('Reason', `<b>${esc(tr(reason))}</b>`) +
+      row('Action', isEdit ? 'edited a previous post' : 'posted a new message') +
+      row('Message', `<code>${msg.message_id}</code>${link ? ` — <a href="${link}">open</a>` : ''}`) +
+      row('Deletion', del.ok ? 'done ✅' : `❌ ${esc(del.description || 'failed')}`) +
+      (albumWiped ? row('Album', `Entire album/slideshow deleted — ${albumWiped} more post(s)`) : '') +
+      `</table>` +
+      `<p>${whoEN.replace(/\n/g, '<br/>')}</p>` +
+      ctxEN + '\n' +
+      (reason === 'قفل پست ناشناس' ? `<p><i>💡 To post with a real identity, the "Sign messages" option must be enabled in the channel/admin settings.</i></p>` : '') +
       noteEN +
-      (isTooOldMsg ? `This message was also queued for "deletion via user account" — if the companion userbot is connected, it will delete it.\n` : '') +
-      `Tehran time: <code>${tehranHM()}</code> — ${tgTime(Date.now(), 'dt')}`);
+      (isTooOldMsg ? `<p><i>This message was also queued for "deletion via user account" — if the companion userbot is connected, it will delete it.</i></p>` : '') +
+      FOOT());
     // خط کوتاه برای حالت موجی (وقتی چند گزارش در یک خلاصه ادغام میشوند)
     const w = whoInfo(msg);
     const line = `${del.ok ? '' : '(حذف نشد) '}<b>${esc(tr(reason))}</b> — ${esc(tr(w.nm))} — پیام <code>${msg.message_id}</code>`;
@@ -1844,12 +1893,12 @@ async function muteSweepSettings(env, cid, s) {
   const owner = await getOwnerId(env);
   if (!owner) return;
   await send(env, owner,
-    L(`<b>🔓 سکوت تمام شد</b>\n\nچنل : <b>${esc(s.title)}</b>\n` +
-      exp.map((k, i) => `• ${esc(names[i])} — شناسه : <code>${k}</code>`).join('\n') +
-      `\n\nاز این لحظه پیام های این افراد حذف نمیشه .`,
-      `<b>🔓 Mute ended</b>\n\nChannel: <b>${esc(s.title)}</b>\n` +
-      exp.map((k, i) => `• ${esc(names[i])} — ID: <code>${k}</code>`).join('\n') +
-      `\n\nTheir messages are no longer deleted from now on.`)).catch(() => {});
+    L(`<h4>سکوت تمام شد — ${esc(s.title)}</h4>` +
+      `<ul>${exp.map((k, i) => `<li>${esc(names[i])} — شناسه : <code>${k}</code></li>`).join('')}</ul>` +
+      `<p><i>از این لحظه پیام های این افراد حذف نمیشه .</i></p>`,
+      `<h4>Mute ended — ${esc(s.title)}</h4>` +
+      `<ul>${exp.map((k, i) => `<li>${esc(names[i])} — ID: <code>${k}</code></li>`).join('')}</ul>` +
+      `<p><i>Their messages are no longer deleted from now on.</i></p>`)).catch(() => {});
 }
 
 /** اجرای سکوت روی یک پست/ادیت: حذف فوری + گزارش به گیرنده های گزارش همان چنل */
@@ -1868,29 +1917,34 @@ async function muteEnforce(env, ctx, cid, s, msg, a, uid, m, isEdit) {
   const sum = body ? '« ' + esc(body.slice(0, 80)) + (body.length > 80 ? '…' : '') + ' »' : snippet(msg, a);
   const endFA = m.u == null ? 'تا ازادسازی دستی ( همیشه )' : 'پایان : ' + tgTime(m.u);
   const endEN = m.u == null ? 'Until freed manually (permanent)' : 'Ends: ' + tgTime(m.u, 'wDT');
+  const row = (k, v) => `<tr><td><b>${k}</b></td><td>${v}</td></tr>`;
   const txt =
-    L(`<b>🔇 سکوت فعال — ${isEdit ? 'ادیت' : 'پست'} حذف شد</b>\n\n` +
-    `چنل : <b>${esc(s.title)}</b>\n` +
-    `کاربر : <a href="tg://user?id=${uid}">${esc(m.n || 'کاربر')}</a> — شناسه : <code>${uid}</code>\n` +
-    `${isEdit ? 'اقدام : ادیتِ پیام قبلی' : 'اقدام : ارسال پست جدید'}\n` +
-    `${sum ? 'خلاصه : ' + sum + '\n' : ''}` +
-    `پیام : <code>${msg.message_id}</code>\n` +
-    (link ? `لینک پیام : ${link}\n` : '') +
-    `حذف پیام : ${del.ok ? 'انجام شد ✅' : '❌ ' + esc(del.description || 'ناموفق')}\n` +
-    (albumWiped ? `کل آلبوم/اسلایدشو حذف شد — ${albumWiped} پست دیگر\n` : '') +
-    `${endFA}\n` +
-    `ساعت تهران : <code>${tehranHM()}</code>`,
-    `<b>🔇 Mute active — ${isEdit ? 'edit' : 'post'} deleted</b>\n\n` +
-    `Channel: <b>${esc(s.title)}</b>\n` +
-    `User: <a href="tg://user?id=${uid}">${esc(m.n || 'User')}</a> — ID: <code>${uid}</code>\n` +
-    `${isEdit ? 'Action: edited a previous post' : 'Action: posted a new message'}\n` +
-    `${sum ? 'Summary: ' + sum + '\n' : ''}` +
-    `Message: <code>${msg.message_id}</code>\n` +
-    (link ? `Message link: ${link}\n` : '') +
-    `Deleted: ${del.ok ? 'done ✅' : '❌ ' + esc(del.description || 'failed')}\n` +
-    (albumWiped ? `Entire album/slideshow deleted — ${albumWiped} more post(s)\n` : '') +
-    `${endEN}\n` +
-    `Tehran time: <code>${tehranHM()}</code>`);
+    L(`<h4>${tgE('bell', '🔔')} سکوت فعال — ${isEdit ? 'ادیت' : 'پست'} حذف شد</h4>` +
+    `<table bordered striped compact><caption>گزارش سکوت</caption>` +
+    row('چنل', `<b>${esc(s.title)}</b>`) +
+    row('کاربر', `<a href="tg://user?id=${uid}">${esc(m.n || 'کاربر')}</a> — <code>${uid}</code>`) +
+    row('اقدام', isEdit ? 'ادیتِ پیام قبلی' : 'ارسال پست جدید') +
+    row('پیام', `<code>${msg.message_id}</code>${link ? ` — <a href="${link}">باز کردن</a>` : ''}`) +
+    row('نتیجه حذف', del.ok ? 'انجام شد ✅' : `❌ ${esc(del.description || 'ناموفق')}`) +
+    (albumWiped ? row('آلبوم', `کل آلبوم/اسلایدشو حذف شد — ${albumWiped} پست دیگر`) : '') +
+    row('سکوت', `${muteDurLabel(m.u == null ? 0 : Math.max(0, Math.round((m.u - Date.now()) / 60000)))} — ${endFA}`) +
+    `</table>` +
+    (sum ? `<blockquote>${sum}</blockquote>` : '') +
+    `<p><i>ساعت تهران : <code>${tehranHM()}</code> — ${tgTime(Date.now(), 'dt')}</i></p>` +
+    FOOT(),
+    `<h4>${tgE('bell', '🔔')} Mute active — ${isEdit ? 'edit' : 'post'} deleted</h4>` +
+    `<table bordered striped compact><caption>Mute report</caption>` +
+    row('Channel', `<b>${esc(s.title)}</b>`) +
+    row('User', `<a href="tg://user?id=${uid}">${esc(m.n || 'User')}</a> — <code>${uid}</code>`) +
+    row('Action', isEdit ? 'edited a previous post' : 'posted a new message') +
+    row('Message', `<code>${msg.message_id}</code>${link ? ` — <a href="${link}">open</a>` : ''}`) +
+    row('Deletion', del.ok ? 'done ✅' : `❌ ${esc(del.description || 'failed')}`) +
+    (albumWiped ? row('Album', `Entire album/slideshow deleted — ${albumWiped} more post(s)`) : '') +
+    row('Mute', `${endEN}`) +
+    `</table>` +
+    (sum ? `<blockquote>${sum}</blockquote>` : '') +
+    `<p><i>Tehran time: <code>${tehranHM()}</code> — ${tgTime(Date.now(), 'dt')}</i></p>` +
+    FOOT());
   const line = `🔇 ${L('سکوت دستی', 'Manual mute')} — ${esc(m.n || 'کاربر')} — پیام <code>${msg.message_id}</code>`;
   await sendOwnerLog(env, ctx, cid, txt, line);
 }
@@ -1899,26 +1953,29 @@ async function muteEnforce(env, ctx, cid, s, msg, a, uid, m, isEdit) {
 function muteCenterText(s) {
   const ms = s.mutes || {};
   const keys = Object.keys(ms);
-  let list = '';
-  if (keys.length) {
-    list = '\n' + keys.map((k) => {
-      const m = ms[k] || {};
-      const remain = m.u == null
-        ? L('تا ازادسازی دستی ( همیشه )', 'until freed manually (permanent)')
-        : L(`« ${muteRemain(m.u - Date.now())} مانده »`, `"${muteRemain(m.u - Date.now())} left"`);
-      const end = m.u == null ? '' : L(` — پایان : ${tgTime(m.u)}`, ` — ends: ${tgTime(m.u, 'wDT')}`);
-      return `• ${esc(m.n || ('کاربر ' + k))} — شناسه : <code>${k}</code>\n  ${remain}${end}`;
-    }).join('\n') + '\n';
+  let rows = '';
+  for (const k of keys) {
+    const m = ms[k] || {};
+    const remain = m.u == null
+      ? L('تا ازادسازی دستی ( همیشه )', 'until freed manually (permanent)')
+      : L(`${muteRemain(m.u - Date.now())} مانده`, `${muteRemain(m.u - Date.now())} left`);
+    const end = m.u == null ? '' : L(` — پایان : ${tgTime(m.u)}`, ` — ends: ${tgTime(m.u, 'wDT')}`);
+    rows += L(`<tr><td><b>${esc(m.n || ('کاربر ' + k))}</b></td><td><code>${k}</code></td><td>${remain}${end}</td></tr>`,
+              `<tr><td><b>${esc(m.n || ('User ' + k))}</b></td><td><code>${k}</code></td><td>${remain}${end}</td></tr>`);
   }
-  return L(
-    `<b>🔇 سکوت فرد — ${esc(s.title)}</b>\n\n` +
-    `سکوت های فعال : <b>${keys.length}</b>\n${list}\n` +
-    `روی فردِ سکوت شده هر پیامی بفرستد ( پست یا ادیت ) فوراً حذف میشه ؛ تا مدتش تموم بشه یا خودت آزادش کنی .\n` +
-    `فقط پیام های « بعد از سکوت » حذف میشن ؛ پیام های قبلیِ اون فرد دست نخورده میمونن .`,
-    `<b>🔇 Mute a person — ${esc(s.title)}</b>\n\n` +
-    `Active mutes: <b>${keys.length}</b>\n${list}\n` +
-    `While muted, everything this person posts or edits is deleted instantly — until the duration ends or you free them.\n` +
-    `Only messages sent after the mute are deleted — older messages stay untouched.`);
+  return L((
+    `<h3>${tgE('bell', '🔔')} سکوت فرد — ${esc(s.title)}</h3>` +
+    `<p>سکوت های فعال : <b>${faNum(keys.length)}</b></p>` +
+    (keys.length ? `<table bordered striped compact><caption>لیست سکوت ها — برای آزادسازی روی دکمه زیر نام فرد بزن</caption><tr><th>فرد</th><th>شناسه</th><th>وضعیت</th></tr>${rows}</table>` : '') +
+    `<blockquote>روی فردِ سکوت شده هر پیامی بفرستد ( پست یا ادیت ) فوراً حذف میشه ؛ تا مدتش تموم بشه یا خودت آزادش کنی .<br/>فقط پیام های « بعد از سکوت » حذف میشن ؛ پیام های قبلیِ اون فرد دست نخورده میمونن .</blockquote>` +
+    FOOT()
+  ), (
+    `<h3>${tgE('bell', '🔔')} Mute a person — ${esc(s.title)}</h3>` +
+    `<p>Active mutes: <b>${keys.length}</b></p>` +
+    (keys.length ? `<table bordered striped compact><caption>Muted people — tap a name button below to release</caption><tr><th>Person</th><th>ID</th><th>Status</th></tr>${rows}</table>` : '') +
+    `<blockquote>While muted, everything this person posts or edits is deleted instantly — until the duration ends or you free them.<br/>Only messages sent after the mute are deleted — older messages stay untouched.</blockquote>` +
+    FOOT()
+  ));
 }
 
 function muteCenterKB(cid, s) {
@@ -1940,38 +1997,39 @@ function muteCenterKB(cid, s) {
 
 function muteIdText() {
   return L(
-    `<b>➕ افزودن سکوت</b>\n\nشناسه عددی فرد رو بفرست ( مثلاً <code>123456789</code> ) .\n` +
-    `بهترین منبع : شناسه ای که تو گزارش تخلف ها کنار « شناسه » اومده .\n\n` +
-    `نکته : سکوت فقط روی پیام هایی اعمال میشه که تلگرام شناسه فرستنده شون رو بده ( پست های امضا دار ) ؛ پست بی امضا هویت نداره .`,
-    `<b>➕ Add mute</b>\n\nSend the person's numeric ID (e.g. <code>123456789</code>).\n` +
-    `Best source: the ID shown in violation reports.\n\n` +
-    `Note: mutes apply only to messages where Telegram provides the sender's ID (signed posts); unsigned posts carry no identity.`);
+    `<h4>افزودن سکوت</h4><p>شناسه عددی فرد رو بفرست ( مثلاً <code>123456789</code> ) .<br/>بهترین منبع : شناسه ای که تو گزارش تخلف ها کنار « شناسه » اومده .</p>` +
+    `<blockquote>نکته : سکوت فقط روی پیام هایی اعمال میشه که تلگرام شناسه فرستنده شون رو بده ( پست های امضا دار ) ؛ پست بی امضا هویت نداره .</blockquote>`,
+    `<h4>Add mute</h4><p>Send the person's numeric ID (e.g. <code>123456789</code>).<br/>Best source: the ID shown in violation reports.</p>` +
+    `<blockquote>Note: mutes apply only to messages where Telegram provides the sender's ID (signed posts); unsigned posts carry no identity.</blockquote>`);
 }
 
 function muteCustomText(tu) {
   return L(
-    `<b>مدت دلخواه سکوت</b>\n\nعدد + واحد بفرست ( مثلاً <code>90 دقیقه</code> یا <code>2 روز</code> یا <code>1 هفته</code> ) .\n` +
-    `فقط عدد بفرستی به « دقیقه » حساب میشه . حداکثر ۱۰ سال .`,
-    `<b>Custom mute duration</b>\n\nSend a number + unit (e.g. <code>90 دقیقه</code> or <code>2 روز</code> or <code>1 هفته</code>).\n` +
-    `A bare number is treated as minutes. Max 10 years.`);
+    `<h4>مدت دلخواه سکوت</h4><p>عدد + واحد بفرست ( مثلاً <code>90 دقیقه</code> یا <code>2 روز</code> یا <code>1 هفته</code> ) .<br/>فقط عدد بفرستی به « دقیقه » حساب میشه . حداکثر ۱۰ سال .</p>`,
+    `<h4>Custom mute duration</h4><p>Send a number + unit (e.g. <code>90 دقیقه</code> or <code>2 روز</code> or <code>1 هفته</code>).<br/>A bare number is treated as minutes. Max 10 years.</p>`);
 }
 
 function muteConfirmText(s, tu, nm, mins) {
+  const row = (k, v) => `<tr><td><b>${k}</b></td><td>${v}</td></tr>`;
   return L(
-    `<b>ثبت سکوت</b>\n\n` +
-    `چنل : <b>${esc(s.title)}</b>\n` +
-    `کاربر : <a href="tg://user?id=${tu}">${esc(nm)}</a> — شناسه : <code>${tu}</code>\n` +
-    `مدت : ${muteDurLabel(mins)}\n` +
-    `پایان : ${mins > 0 ? tgTime(Date.now() + mins * 60000) : '— ( تا ازادسازی دستی )'}\n` +
-    `تأثیر : فقط پست و ادیت های « بعد از تأیید » حذف میشن ؛ پیام های قبلی این فرد حذف نمیشن .\n\n` +
-    `ثبت کنم ؟`,
-    `<b>Add mute</b>\n\n` +
-    `Channel: <b>${esc(s.title)}</b>\n` +
-    `User: <a href="tg://user?id=${tu}">${esc(nm)}</a> — ID: <code>${tu}</code>\n` +
-    `Duration: ${muteDurLabel(mins)}\n` +
-    `Ends: ${mins > 0 ? tgTime(Date.now() + mins * 60000) : '— (until freed manually)'}\n` +
-    `Effect: only posts/edits sent after your confirmation get deleted — the person's older messages stay.\n\n` +
-    `Save it?`);
+    `<h4>ثبت سکوت</h4>` +
+    `<table bordered striped compact>` +
+    row('چنل', `<b>${esc(s.title)}</b>`) +
+    row('کاربر', `<a href="tg://user?id=${tu}">${esc(nm)}</a> — <code>${tu}</code>`) +
+    row('مدت', muteDurLabel(mins)) +
+    row('پایان', mins > 0 ? tgTime(Date.now() + mins * 60000) : '— ( تا ازادسازی دستی )') +
+    `</table>` +
+    `<blockquote>تأثیر : فقط پست و ادیت های « بعد از تأیید » حذف میشن ؛ پیام های قبلی این فرد حذف نمیشن .</blockquote>` +
+    `<p>ثبت کنم ؟</p>`,
+    `<h4>Add mute</h4>` +
+    `<table bordered striped compact>` +
+    row('Channel', `<b>${esc(s.title)}</b>`) +
+    row('User', `<a href="tg://user?id=${tu}">${esc(nm)}</a> — <code>${tu}</code>`) +
+    row('Duration', muteDurLabel(mins)) +
+    row('Ends', mins > 0 ? tgTime(Date.now() + mins * 60000, 'wDT') : '— (until freed manually)') +
+    `</table>` +
+    `<blockquote>Effect: only posts/edits sent after your confirmation get deleted — the person's older messages stay.</blockquote>` +
+    `<p>Save it?</p>`);
 }
 
 function muteConfirmKB(cid, tu, mins) {
@@ -1992,37 +2050,41 @@ function muteDurKB(cid, tu) {
 
 function muteGuideText(s) {
   return L(
-    `<b>📖 راهنمای سکوت</b>\n\n` +
-    `« سکوت » یعنی : تا پایان مدت، هر پست یا ادیتِ اون فرد تو این چنل « فوراً حذف میشه » ؛ انقضاش خودکاره ( کرون هر دقیقه چک میکنه ) و خبر آزاد شدن به مالک میره .\n\n` +
-    `محدودیت تلگرام : پستِ « بی امضا » شناسه فرستنده نداره ( تلگرام خودش نمیفرسته ) ؛ پس سکوت فقط روی پست های « امضا دار » و ادیت ها اعمال میشه . برای پوشش کامل ، گزینه « Sign messages » رو برای ادمین ها روشن نگه دار .\n\n` +
-    `سکوت « گذشته پاک کن » نیست : فقط پیام هایی که بعد از ثبت سکوت فرستاده بشن حذف میشن ؛ پیام های قبلی دست نمیخورن .\n\n` +
-    `مدیریت : تو همین منو میتونی هر فرد رو جداگانه آزاد کنی یا همه رو یکجا . دکمه های سریع « سکوت 24 ساعته / همیشه » هم روی گزارش های وضعیت زرد/قرمز هست .`,
-    `<b>📖 Mute guide</b>\n\n` +
-    `"Mute" means: until the duration ends, everything this person posts or edits in this channel is deleted instantly. Expiry is automatic (checked every minute) and the owner is notified when it ends.\n\n` +
-    `Telegram limitation: unsigned channel posts carry no sender ID, so mutes apply to signed posts and edits. Keep "Sign messages" enabled for full coverage.\n\n` +
-    `Muting is not a history cleaner: only messages posted after the mute is saved get deleted — older messages stay untouched.\n\n` +
-    `Management: free each person separately or everyone at once in this menu. Quick "Mute 24h / Permanent" buttons are also on yellow/red alerts.`);
+    `<h4>راهنمای سکوت</h4>` +
+    `<p>« سکوت » یعنی : تا پایان مدت، هر پست یا ادیتِ اون فرد تو این چنل « فوراً حذف میشه » ؛ انقضاش خودکاره ( کرون هر دقیقه چک میکنه ) و خبر آزاد شدن به مالک میره .</p>` +
+    `<blockquote>محدودیت تلگرام : پستِ « بی امضا » شناسه فرستنده نداره ( تلگرام خودش نمیفرسته ) ؛ پس سکوت فقط روی پست های « امضا دار » و ادیت ها اعمال میشه . برای پوشش کامل ، گزینه « Sign messages » رو برای ادمین ها روشن نگه دار .</blockquote>` +
+    `<p>سکوت « گذشته پاک کن » نیست : فقط پیام هایی که بعد از ثبت سکوت فرستاده بشن حذف میشن ؛ پیام های قبلی دست نمیخورن .</p>` +
+    `<p>مدیریت : تو همین منو میتونی هر فرد رو جداگانه آزاد کنی یا همه رو یکجا . دکمه های سریع « سکوت 24 ساعته / همیشه » هم روی گزارش های وضعیت زرد/قرمز هست .</p>`,
+    `<h4>Mute guide</h4>` +
+    `<p>"Mute" means: until the duration ends, everything this person posts or edits in this channel is deleted instantly. Expiry is automatic (checked every minute) and the owner is notified when it ends.</p>` +
+    `<blockquote>Telegram limitation: unsigned channel posts carry no sender ID, so mutes apply to signed posts and edits. Keep "Sign messages" enabled for full coverage.</blockquote>` +
+    `<p>Muting is not a history cleaner: only messages posted after the mute is saved get deleted — older messages stay untouched.</p>` +
+    `<p>Management: free each person separately or everyone at once in this menu. Quick "Mute 24h / Permanent" buttons are also on yellow/red alerts.</p>`);
 }
 
 /* ── ⛔ v3.4: غیرفعال کردن دستی چنل — توقف کامل پردازش تا فعال سازی دوباره ── */
 function disConfirmText(s) {
   return L(
-    `<b>⛔ غیرفعال کردن چنل — ${esc(s.title)}</b>\n\n` +
-    `با غیرفعال کردن :\n` +
-    `• هیچ پیام یا ادیتی پردازش نمیشه — هیچ چیزی حذف نمیشه\n` +
-    `• قفل آنی و قفل زمان دار هم تا فعال سازی دوباره متوقف میمونن\n` +
-    `• سکوت ها میمونن و سر وقت خودشون عادی تمام میشن\n` +
-    `• تنظیمات و آمار دست نمیخورن\n\n` +
-    `هر وقت بخوای با « فعال سازی این چنل » برش میگردونی .\n\n` +
-    `غیرفعال کنم ؟`,
-    `<b>⛔ Disable channel — ${esc(s.title)}</b>\n\n` +
-    `When disabled:\n` +
-    `• No message or edit is processed — nothing gets deleted\n` +
-    `• Instant and scheduled locks pause until re-enabled\n` +
-    `• Mutes stay and still expire on time\n` +
-    `• Settings and stats stay untouched\n\n` +
-    `Bring it back anytime with "Activate this channel".\n\n` +
-    `Disable it?`);
+    `<h3>غیرفعال کردن چنل — ${esc(s.title)}</h3>` +
+    `<p>با غیرفعال کردن :</p>` +
+    `<ul>` +
+    `<li>هیچ پیام یا ادیتی پردازش نمیشه — هیچ چیزی حذف نمیشه</li>` +
+    `<li>قفل آنی و قفل زمان دار هم تا فعال سازی دوباره متوقف میمونن</li>` +
+    `<li>سکوت ها میمونن و سر وقت خودشون عادی تمام میشن</li>` +
+    `<li>تنظیمات و آمار دست نمیخورن</li>` +
+    `</ul>` +
+    `<p>هر وقت بخوای با « فعال سازی این چنل » برش میگردونی .</p>` +
+    `<p>غیرفعال کنم ؟</p>`,
+    `<h3>Disable channel — ${esc(s.title)}</h3>` +
+    `<p>When disabled:</p>` +
+    `<ul>` +
+    `<li>No message or edit is processed — nothing gets deleted</li>` +
+    `<li>Instant and scheduled locks pause until re-enabled</li>` +
+    `<li>Mutes stay and still expire on time</li>` +
+    `<li>Settings and stats stay untouched</li>` +
+    `</ul>` +
+    `<p>Bring it back anytime with "Activate this channel".</p>` +
+    `<p>Disable it?</p>`);
 }
 
 function disConfirmKB(cid) {
@@ -2104,53 +2166,66 @@ async function redEnforce(env, ctx, cid, s, msg, a, reason) {
   const link = tgMsgLink((msg.chat && msg.chat.username) || s.username || '', cid, msg.message_id);
   const dem = pun && pun.demote, ban = pun && pun.ban;
   const bh = Number(s.banHours) > 0 ? Number(s.banHours) : 0; // ⏱ v1.9
+  const row = (k, v) => `<tr><td><b>${k}</b></td><td>${v}</td></tr>`;
   const txt =
-    L((pm === 'red' ? `<b>وضعیت قرمز — تخلف سنگین !!</b>\n\n` : `<b>وضعیت زرد — ادیت مدیا ( عزل خودکار )</b>\n\n`) +
-    `چنل : <b>${esc(s.title)}</b>\n` +
-    `${esc(tr(reason))}\n` +
-    `${snippet(msg, a)}\n` +
-    `پیام : <code>${msg.message_id}</code>${link ? ` — <a href="${link}">باز کردن</a>` : ''}\n` +
-    `حذف پیام : ${del.ok ? 'انجام شد ✅' : '❌ ' + esc(del.description || 'ناموفق')}\n` +
-    (albumWiped ? `کل آلبوم/اسلایدشو حذف شد — ${albumWiped} پست دیگر\n` : '') +
+    L((pm === 'red'
+        ? `<h4>${tgE('fire', '🔥')} وضعیت قرمز — تخلف سنگین !!</h4>`
+        : `<h4>${tgE('bell', '🔔')} وضعیت زرد — ادیت مدیا ( عزل خودکار )</h4>`) +
+    `<table bordered striped compact><caption>گزارش ${pm === 'red' ? 'وضعیت قرمز' : 'وضعیت زرد'}</caption>` +
+    row('چنل', `<b>${esc(s.title)}</b>`) +
+    row('دلیل', `<b>${esc(tr(reason))}</b>`) +
+    row('پیام', `<code>${msg.message_id}</code>${link ? ` — <a href="${link}">باز کردن</a>` : ''}`) +
+    row('نتیجه حذف', del.ok ? 'انجام شد ✅' : `❌ ${esc(del.description || 'ناموفق')}`) +
+    (albumWiped ? row('آلبوم', `کل آلبوم/اسلایدشو حذف شد — ${albumWiped} پست دیگر`) : '') +
     (target
-      ? `متخلف : <a href="tg://user?id=${target}">${esc(tname)}</a> — شناسه : <code>${target}</code> ( ${esc(how)} )\n` +
+      ? row('متخلف', `<a href="tg://user?id=${target}">${esc(tname)}</a> — <code>${target}</code> ( ${esc(how)} )`) +
         (ownerSkip
-          ? `این فرد « مالک چنل » هست ؛ قابل عزل/بن نیست.\n`
+          ? row('عزل', 'این فرد « مالک چنل » هست ؛ قابل عزل/بن نیست')
           : (dem
-              ? `عزل ادمینی : ${dem.ok ? 'انجام شد ✅' : '❌ ' + esc(dem.description || 'ناموفق')}\n`
-              : `این فرد ادمین چنل نیست ؛ چیزی برای عزل نبود.\n`)) +
+              ? row('عزل ادمینی', dem.ok ? 'انجام شد ✅' : `❌ ${esc(dem.description || 'ناموفق')}`)
+              : row('عزل', 'این فرد ادمین چنل نیست ؛ چیزی برای عزل نبود'))) +
         (!ownerSkip
           ? (pm === 'red'
-              ? `بن از چنل${bh ? ' ( ' + BAN_LABEL[bh] + ' )' : ''} : ${ban ? (ban.ok ? 'انجام شد ✅' : '❌ ' + esc(ban.description || 'ناموفق')) : '—'}\n`
-              : `بن : خاموش ( وضعیت زرد ؛ فقط عزل )\n`)
+              ? row(`بن از چنل${bh ? ' ( ' + BAN_LABEL[bh] + ' )' : ''}`, ban ? (ban.ok ? 'انجام شد ✅' : `❌ ${esc(ban.description || 'ناموفق')}`) : '—')
+              : row('بن', 'خاموش ( وضعیت زرد ؛ فقط عزل )'))
           : '')
-      : `متخلف : ${msg.author_signature ? 'امضا : ' + esc(msg.author_signature) : 'ناشناس'}\n` +
-        `تلگرام شناسه عددی نداد و امضا هم با هیچ ادمینی قطعی تطبیق نکرد ؛ عزل خودکار ممکن نشد.\n` +
-        `عزل دستی : « ادمین های چنل » تو منوی چنل.\n`) +
-    `ساعت تهران : <code>${tehranHM()}</code> — ${tgTime(Date.now(), 'dt')}`,
-    (pm === 'red' ? `<b>RED MODE — serious violation!</b>\n\n` : `<b>YELLOW MODE — media edit (auto-demote)</b>\n\n`) +
-    `Channel: <b>${esc(s.title)}</b>\n` +
-    `${esc(tr(reason))}\n` +
-    `${snippet(msg, a)}\n` +
-    `Message: <code>${msg.message_id}</code>${link ? ` — <a href="${link}">open</a>` : ''}\n` +
-    `Message deleted: ${del.ok ? 'done ✅' : '❌ ' + esc(del.description || 'ناموفق')}\n` +
-    (albumWiped ? `Entire album/slideshow deleted — ${albumWiped} more post(s)\n` : '') +
+      : row('متخلف', msg.author_signature ? `امضا : ${esc(msg.author_signature)}` : 'ناشناس') +
+        '<td></td>')
+    + `</table>` +
     (target
-      ? `Offender: <a href="tg://user?id=${target}">${esc(tname)}</a> — ID: <code>${target}</code> (${esc(how)})\n` +
+      ? ''
+      : `<p><i>تلگرام شناسه عددی نداد و امضا هم با هیچ ادمینی قطعی تطبیق نکرد ؛ عزل خودکار ممکن نشد.<br/>عزل دستی : « ادمین های چنل » تو منوی چنل.</i></p>`) +
+    `${snippet(msg, a)}` +
+    FOOT(),
+    (pm === 'red'
+        ? `<h4>${tgE('fire', '🔥')} RED MODE — serious violation!</h4>`
+        : `<h4>${tgE('bell', '🔔')} YELLOW MODE — media edit (auto-demote)</h4>`) +
+    `<table bordered striped compact><caption>${pm === 'red' ? 'Red mode' : 'Yellow mode'} report</caption>` +
+    row('Channel', `<b>${esc(s.title)}</b>`) +
+    row('Reason', `<b>${esc(tr(reason))}</b>`) +
+    row('Message', `<code>${msg.message_id}</code>${link ? ` — <a href="${link}">open</a>` : ''}`) +
+    row('Deletion', del.ok ? 'done ✅' : `❌ ${esc(del.description || 'ناموفق')}`) +
+    (albumWiped ? row('Album', `Entire album/slideshow deleted — ${albumWiped} more post(s)`) : '') +
+    (target
+      ? row('Offender', `<a href="tg://user?id=${target}">${esc(tname)}</a> — <code>${target}</code> (${esc(how)})`) +
         (ownerSkip
-          ? `This person is the "channel owner" — cannot be demoted/banned.\n`
+          ? row('Demotion', 'This person is the "channel owner" — cannot be demoted/banned')
           : (dem
-              ? `Admin demotion: ${dem.ok ? 'done ✅' : '❌ ' + esc(dem.description || 'ناموفق')}\n`
-              : `This person is not a channel admin — nothing to demote.\n`)) +
+              ? row('Admin demotion', dem.ok ? 'done ✅' : `❌ ${esc(dem.description || 'ناموفق')}`)
+              : row('Demotion', 'This person is not a channel admin — nothing to demote'))) +
         (!ownerSkip
           ? (pm === 'red'
-              ? `Banned from channel${bh ? ' (' + tr(BAN_LABEL[bh]) + ')' : ''}: ${ban ? (ban.ok ? 'done ✅' : '❌ ' + esc(ban.description || 'ناموفق')) : '—'}\n`
-              : `Ban: off (yellow mode — demote only)\n`)
+              ? row(`Ban${bh ? ' (' + tr(BAN_LABEL[bh]) + ')' : ''}`, ban ? (ban.ok ? 'done ✅' : `❌ ${esc(ban.description || 'ناموفق')}`) : '—')
+              : row('Ban', 'off (yellow mode — demote only)'))
           : '')
-      : `Offender: ${msg.author_signature ? L('امضا: ', 'signature: ') + esc(msg.author_signature) : L('ناشناس', 'Anonymous')}\n` +
-        `Telegram provided no numeric ID and the signature did not conclusively match any admin — automatic demotion was not possible.\n` +
-        `Manual demotion: "Channel admins" in the channel menu.\n`) +
-    `Tehran time: <code>${tehranHM()}</code>`);
+      : row('Offender', msg.author_signature ? `signature: ${esc(msg.author_signature)}` : 'Anonymous') +
+        '<td></td>')
+    + `</table>` +
+    (target
+      ? ''
+      : `<p><i>Telegram provided no numeric ID and the signature did not conclusively match any admin — automatic demotion was not possible.<br/>Manual demotion: "Channel admins" in the channel menu.</i></p>`) +
+    `${snippet(msg, a)}` +
+    FOOT());
   const rows = [];
   if (target && pm === 'red' && ban && ban.ok) rows.push([BTN('لغو بن (بخشیدن)', `ubn:${cid}:${target}`, 'success')]);
   if (target && prev && !ownerSkip) rows.push([BTN('بازگردانی دسترسی های قبلی متخلف', `admU:${cid}:${target}`, 'primary')]);
@@ -2183,22 +2258,24 @@ function camDefaults() {
 
 function camRText(st) {
   const who = st.ids
-    ? L(`👥 <b>${st.ids.length} نفر — گروهی</b>\n🆔 <code>${st.ids.join('</code>، <code>')}</code> — چنل: <code>${st.cid}</code>`,
-        `👥 <b>${st.ids.length} people — batch</b>\n🆔 <code>${st.ids.join('</code>, <code>')}</code> — channel: <code>${st.cid}</code>`)
-    : L(`👤 ${st.nm || `<code>${st.target}</code>`} — چنل: <code>${st.cid}</code>`,
-        `👤 ${st.nm || `<code>${st.target}</code>`} — channel: <code>${st.cid}</code>`);
+    ? L(`<tr><td><b>افراد ( گروهی )</b></td><td>${st.ids.length} نفر — <code>${st.ids.join('</code>، <code>')}</code></td></tr><tr><td><b>چنل</b></td><td><code>${st.cid}</code></td></tr>`,
+        `<tr><td><b>People (batch)</b></td><td>${st.ids.length} — <code>${st.ids.join('</code>, <code>')}</code></td></tr><tr><td><b>Channel</b></td><td><code>${st.cid}</code></td></tr>`)
+    : L(`<tr><td><b>فرد</b></td><td>${st.nm || `<code>${st.target}</code>`}</td></tr><tr><td><b>چنل</b></td><td><code>${st.cid}</code></td></tr>`,
+        `<tr><td><b>Person</b></td><td>${st.nm || `<code>${st.target}</code>`}</td></tr><tr><td><b>Channel</b></td><td><code>${st.cid}</code></td></tr>`);
   return L((
-    (st.edit ? `⚙️ <b>ویرایش دسترسی ادمین</b>\n` : `⚙️ <b>ادمین سازی — دسترسی ها</b>\n`) + who + `\n\n` +
+    `<h4>${st.edit ? 'ویرایش دسترسی ادمین' : 'ادمین سازی — دسترسی ها'}</h4>` +
+    `<table bordered striped compact>${who}</table>` +
     (st.edit
-      ? `دسترسی های فعلی لود شده ؛ تغییرشون بده و « ✅ تأیید و ارتقا » رو بزن تا ثبت بشه :\n`
-      : `⚡️ یه پریست بزن تا فوراً ارتقا بگیره ؛ یا دسترسی ها رو دستی تنظیم کن :\n`) +
-    `✅ = داده میشه   |   ❌ = داده نمیشه`
+      ? `<p>دسترسی های فعلی لود شده ؛ تغییرشون بده و « ✅ تأیید و ارتقا » رو بزن تا ثبت بشه :</p>`
+      : `<p>⚡️ یه پریست بزن تا فوراً ارتقا بگیره ؛ یا دسترسی ها رو دستی تنظیم کن :</p>`) +
+    `<p><i>✅ = داده میشه | ❌ = داده نمیشه</i></p>`
   ), (
-    (st.edit ? `⚙️ <b>Edit admin permissions</b>\n` : `⚙️ <b>Promote to admin — permissions</b>\n`) + who + `\n\n` +
+    `<h4>${st.edit ? 'Edit admin permissions' : 'Promote to admin — permissions'}</h4>` +
+    `<table bordered striped compact>${who}</table>` +
     (st.edit
-      ? `Current permissions are loaded — adjust them and hit "✅ Apply & promote" to save:\n`
-      : `⚡️ Pick a preset to promote them instantly — or set the permissions manually:\n`) +
-    `✅ = granted   |   ❌ = not granted`
+      ? `<p>Current permissions are loaded — adjust them and hit "✅ Apply & promote" to save:</p>`
+      : `<p>⚡️ Pick a preset to promote them instantly — or set the permissions manually:</p>`) +
+    `<p><i>✅ = granted | ❌ = not granted</i></p>`
   ));
 }
 
@@ -2480,66 +2557,63 @@ function isDup(updateId) {
  *  پنل فارسی — متن ها و کیبوردها
  * ==========================================================================*/
 
+const FOOT = () => L('<footer>ضد خیانت v5.0 — همگام با Bot API 10.4 ( نوامبر 2026 )</footer>',
+  '<footer>Anti-Treason v5.0 — in sync with Bot API 10.4 (Nov 2026)</footer>');
+
 function mainText(from, scope = null) {
   const viewer = !!(scope && scope.role === 'viewer');
   const admin = !!(scope && scope.role === 'admin');
   const role = admin
-    ? L(`دسترسی تو : مدیریت ${scope.chs === '*' ? L('همه چنل ها', 'all channels') : L('چنل های اختصاصی خودت', 'your assigned channels')}\n`,
-        `Your access: managing ${scope.chs === '*' ? 'all channels' : 'your assigned channels'}\n`)
+    ? L(`دسترسی تو : مدیریت ${scope.chs === '*' ? L('همه چنل ها', 'all channels') : L('چنل های اختصاصی خودت', 'your assigned channels')}`,
+        `Your access: managing ${scope.chs === '*' ? 'all channels' : 'your assigned channels'}`)
     : viewer
-      ? L(`دسترسی تو : فقط مشاهده و نظارت ؛ بدون تغییر تنظیمات\n`,
-          `Your access: view and monitor only — no settings changes\n`)
+      ? L(`دسترسی تو : فقط مشاهده و نظارت ؛ بدون تغییر تنظیمات`,
+          `Your access: view and monitor only — no settings changes`)
       : '';
   return L((
-    `<b>ضد خیانت کانال</b>\n\n` +
-    `سلام <b>${esc(from.first_name || '')}</b> خوش اومدی .\n` +
-    role +
-    `من نگهبان چنلتم هر ادیت یا ارسالِ غیرمجاز رو همون لحظه پیدا میکنم و پاک میکنم ؛ حتی اگه پیام چند روز پیش باشه و همین حالا ادیت شده باشه .\n\n` +
-    `<b>چه کارایی از دستم برمیاد ؟</b>\n` +
-    `<blockquote expandable>` +
-    `+20 قفل مستقل برای ادیت و هر نوع ارسال : از متن و عکس تا لینک و پست ناشناس توی همه ی چنلات !!\n` +
-    `هر ادمین فقط چنل هایی رو میبینه که مالک براش تعیین کرده\n` +
-    `قفل زمان دار و قفل آنی ( مثلاً هر شب 4 تا 8 کل چنل بسته بمونه ، یا با یه دکمه همین حالا ببندیش )\n` +
-    `وضعیت زرد یعنی عزل متخلف ، وضعیت قرمز یعنی عزل + بن با مدت دلخواه\n` +
-    `اعلان قفل تو خود چنل با شروع / پایان قفل ها ؛ اگه نخوای از پنل خاموشش کن و گزارش و آمار کامل هر حذف ، همینجا تو پیوی\n` +
-    `انتخاب ساعت قفل زمان دار با دکمه ( ۰ تا ۲۳ ) ؛ پیام همگانی و حذف پیام های اخیر هم همه با دکمه و تأیید\n` +
-    `سکوت فرد خاص برای مدت مشخص ( یا همیشه ) : هر پست و ادیتش فوراً حذف میشه تا خودت آزادش کنی\n` +
-    `غیرفعال کردن هر چنل با یه دکمه : تا فعال سازی دوباره هیچ چیزی پردازش نمیشه ولی تنظیمات و آمار میمونن\n` +
-    `تشخیص ادیت واقعی : رأی نظرسنجی و امثالش که محتوا رو عوض نمیکنن تخلف حساب نمیشن — فقط ادیتِ واقعی پاک میشه\n` +
-    `همگام با Bot API 10.4 ( نوامبر 2026 ) : اعلان ریچ در چنل ، کارت فوری تأیید ها ، زمان محلی خودکار و دکمه های غیرفعال\n` +
-    `</blockquote>\n\n` +
-    `<b>شروع :</b>\n` +
-    `1 ) ربات رو ادمین هر چنل کن ( دسترسی « حذف پیام » لازمه )\n` +
-    `2 ) پیام فعال سازی میاد ؛ تأییدش کن : هر چنل جداگانه\n` +
-    `3 ) قفل ها رو تنظیم کن ؛ بقیش با من .\n\n` +
-    `<i>ضد خیانت v4.0</i>`
+    `<h3>${tgE('bot', '🤖')} ضد خیانت — نگهبان چنل تو</h3>` +
+    `<p>سلام <b>${esc(from.first_name || '')}</b> خوش اومدی . من نگهبان چنلتم : هر ادیت یا ارسالِ غیرمجاز رو همون لحظه پیدا میکنم و پاک میکنم — حتی اگه پیام چند روز پیش باشه و همین حالا ادیت شده باشه .</p>` +
+    (role ? `<blockquote>${role}</blockquote>` : '') +
+    `<details><summary>${tgE('gear', '⚙️')} همه توانایی ها</summary><ul>` +
+    `<li><b>+20 قفل مستقل</b> برای ادیت و هر نوع ارسال : از متن و عکس تا لینک و پست ناشناس</li>` +
+    `<li><b>چندچنله</b> — هر تعداد چنل رو جداگانه فعال کن ؛ همه همزمان نگهبانی میشن</li>` +
+    `<li><b>دسترسی چنلی</b> — هر ادمین فقط چنل هایی رو میبینه که مالک براش تعیین کرده</li>` +
+    `<li><b>قفل زمان دار و قفل آنی</b> — مثلاً هر شب 4 تا 8 کل چنل بسته بمونه ، یا با یه دکمه همین حالا ببندیش</li>` +
+    `<li><b>نردبان ضد خیانت</b> — وضعیت زرد یعنی عزل متخلف ، وضعیت قرمز یعنی عزل + بن با مدت دلخواه</li>` +
+    `<li><b>اعلان قفل تو خود چنل</b> با پیام ریچ ؛ گزارش و آمار کامل هر حذف ، همینجا تو پیوی</li>` +
+    `<li><b>سکوت فرد خاص</b> برای مدت مشخص ( یا همیشه ) : هر پست و ادیتش فوراً حذف میشه تا خودت آزادش کنی</li>` +
+    `<li><b>غیرفعال کردن هر چنل با یه دکمه</b> : تا فعال سازی دوباره هیچ چیزی پردازش نمیشه ولی تنظیمات و آمار میمونن</li>` +
+    `<li><b>تشخیص ادیت واقعی</b> : رأی نظرسنجی و امثالش که محتوا رو عوض نمیکنن تخلف حساب نمیشن — فقط ادیتِ واقعی پاک میشه</li>` +
+    `<li><b>همگام با Bot API 10.4 ( نوامبر 2026 )</b> : جدول های پرمیومی ، اعلان ریچ در چنل ، کارت فوری تأیید ها ، زمان محلی خودکار ، ایموجی پرمیوم و دکمه های غیرفعال واقعی</li>` +
+    `</ul></details>` +
+    `<hr/>` +
+    `<h4>شروع در 3 قدم</h4>` +
+    `<ol><li>ربات رو ادمین هر چنل کن ( دسترسی « حذف پیام » لازمه )</li>` +
+    `<li>پیام فعال سازی میاد ؛ تأییدش کن : هر چنل جداگانه</li>` +
+    `<li>قفل ها رو تنظیم کن ؛ بقیش با من</li></ol>` +
+    FOOT()
   ), (
-    `🛡️ <b>Anti-Treason Channel Guard</b>\n\n` +
-    `Hi <b>${esc(from.first_name || '')}</b>, welcome!\n` +
-    role +
-    `I guard your channels: any unauthorized edit or post is detected and deleted the moment it happens — even if the message is days old and was just edited.\n\n` +
-    `<b>What can I do?</b>\n` +
-    `<blockquote expandable>` +
-    `• 20 independent locks for edits and every post type — from text and photos to links and anonymous posts\n` +
-    `• Multi-channel — activate as many channels as you like; all are guarded at once\n` +
-    `• Scoped access — each admin only sees the channels the owner assigned to them\n` +
-    `• Scheduled & instant lock — e.g. keep the channel closed 4–8 every night, or close it right now with one button\n` +
-    `• Anti-treason ladder — yellow means demote the offender, red means demote + ban for a duration of your choice\n` +
-    `• Lock announcements in the channel — on lock start/end; turn them off from the panel if you don't want them\n` +
-    `• Full report and stats for every deletion, right here in DM\n` +
-    `• Albums/slideshows — a violation in any part deletes the entire album\n` +
-    `• Manual mute — silence a specific person for a chosen duration; everything they post or edit is deleted until you free them\n` +
-    `• Per-channel disable — pause the bot on any channel with one button; settings and stats are kept, re-enable anytime\n` +
-    `• True-edit detection — technical edits (poll votes, live-location ticks) that don't change content are not violations\n` +
-    `• Up to date with the latest Telegram — rich messages, checklists, live photos and paid media are covered too\n` +
-    `• Instant ownership-change alert — straight to you\n` +
-    `• In sync with Bot API 10.4 (Nov 2026) — rich channel announcements, ephemeral confirm cards, localized times, truly disabled buttons\n` +
-    `</blockquote>\n\n` +
-    `<b>Getting started:</b>\n` +
-    `1) Make the bot an admin of any channel (the "Delete messages" permission is required)\n` +
-    `2) An activation message arrives; approve it — each channel separately\n` +
-    `3) Set the locks; I'll handle the rest.\n\n` +
-    `<i>Anti-Treason v4.0</i>`
+    `<h3>${tgE('bot', '🤖')} Anti-Treason — your channel guard</h3>` +
+    `<p>Hi <b>${esc(from.first_name || '')}</b>, welcome! I guard your channels: any unauthorized edit or post is detected and deleted the moment it happens — even if the message is days old and was just edited.</p>` +
+    (role ? `<blockquote>${role}</blockquote>` : '') +
+    `<details><summary>${tgE('gear', '⚙️')} All capabilities</summary><ul>` +
+    `<li><b>20 independent locks</b> for edits and every post type — from text and photos to links and anonymous posts</li>` +
+    `<li><b>Multi-channel</b> — activate as many channels as you like; all are guarded at once</li>` +
+    `<li><b>Scoped access</b> — each admin only sees the channels the owner assigned to them</li>` +
+    `<li><b>Scheduled &amp; instant lock</b> — keep the channel closed 4–8 every night, or close it right now with one button</li>` +
+    `<li><b>Anti-treason ladder</b> — yellow means demote the offender, red means demote + ban for a duration of your choice</li>` +
+    `<li><b>Rich lock announcements in the channel</b> ; a full report and stats for every deletion, right here in DM</li>` +
+    `<li><b>Manual mute</b> — silence a specific person for a chosen duration; everything they post or edit is deleted until you free them</li>` +
+    `<li><b>Per-channel disable</b> — pause the bot on any channel with one button; settings and stats are kept</li>` +
+    `<li><b>True-edit detection</b> — technical edits (poll votes, live-location ticks) that don't change content are not violations</li>` +
+    `<li><b>In sync with Bot API 10.4 (Nov 2026)</b> — premium tables, rich channel announcements, ephemeral confirm cards, localized times, premium emoji and truly disabled buttons</li>` +
+    `</ul></details>` +
+    `<hr/>` +
+    `<h4>Getting started in 3 steps</h4>` +
+    `<ol><li>Make the bot an admin of any channel (the "Delete messages" permission is required)</li>` +
+    `<li>An activation message arrives; approve it — each channel separately</li>` +
+    `<li>Set the locks; I'll handle the rest</li></ol>` +
+    FOOT()
   ));
 }
 
@@ -2557,35 +2631,42 @@ function chatsText(list, isOwner = true) {
   if (!list.length) {
     if (!isOwner) {
       return L((
-        `<b>چنل های من</b>\n\n` +
-        `<b>هیچ چنلی به تو اختصاص داده نشده .</b>\n\n` +
-        `فقط چنل هایی رو میبینی و مدیریت میکنی که مالک ربات برات تعیین کرده .\n` +
-        `برای دسترسی با مالک صحبت کن .`
+        `<h3>چنل های من</h3>` +
+        `<p><mark>هیچ چنلی به تو اختصاص داده نشده .</mark></p>` +
+        `<p>فقط چنل هایی رو میبینی و مدیریت میکنی که مالک ربات برات تعیین کرده . برای دسترسی با مالک صحبت کن .</p>` +
+        FOOT()
       ), (
-        `<b>My channels</b>\n\n` +
-        `<b>No channel has been assigned to you.</b>\n\n` +
-        `You only see and manage the channels the bot owner has assigned to you.\n` +
-        `Talk to the owner to get access.`
+        `<h3>My channels</h3>` +
+        `<p><mark>No channel has been assigned to you.</mark></p>` +
+        `<p>You only see and manage the channels the bot owner has assigned to you. Talk to the owner to get access.</p>` +
+        FOOT()
       ));
     }
     return L((
-      `<b>چنل های من</b>\n\n` +
-      `هنوز چنلی ثبت نشده .\n\n` +
-      `ربات رو به عنوان <b>ادمین</b> به چنل اضافه کن ( حداقل با دسترسی « حذف پیام » ) ؛ خودکار همینجا ثبت میشه و منوی مدیریتش میاد .`
+      `<h3>چنل های من</h3>` +
+      `<p>هنوز چنلی ثبت نشده .</p>` +
+      `<blockquote>ربات رو به عنوان <b>ادمین</b> به چنل اضافه کن ( حداقل با دسترسی « حذف پیام » ) ؛ خودکار همینجا ثبت میشه و منوی مدیریتش میاد .</blockquote>` +
+      FOOT()
     ), (
-      `<b>My channels</b>\n\n` +
-      `No channel is registered yet.\n\n` +
-      `Add the bot to a channel as an <b>admin</b> (at least with the "Delete messages" permission) — it registers automatically and its management menu appears here.`
+      `<h3>My channels</h3>` +
+      `<p>No channel is registered yet.</p>` +
+      `<blockquote>Add the bot to a channel as an <b>admin</b> (at least with the "Delete messages" permission) — it registers automatically and its management menu appears here.</blockquote>` +
+      FOOT()
     ));
   }
-  let t = L(`<b>چنل های من</b> ( ${list.length} )\n\nبرای مدیریت روی هر چنل بزن :\n`,
-            `<b>My channels</b> (${list.length})\n\nTap a channel to manage it:\n`);
+  let t = L(`<h3>چنل های من ( ${faNum(list.length)} )</h3><p>برای مدیریت روی هر چنل بزن :</p>` +
+      `<table bordered striped compact><caption>وضعیت همه چنل ها</caption><tr><th>چنل</th><th>وضعیت</th><th>قفل ها</th><th>زمان دار</th></tr>`,
+    `<h3>My channels (${list.length})</h3><p>Tap a channel to manage it:</p>` +
+      `<table bordered striped compact><caption>All channels at a glance</caption><tr><th>Channel</th><th>Status</th><th>Locks</th><th>Sched.</th></tr>`);
   for (const c of list) {
-    t += L(`\n<b>${esc(c.title)}</b>${c.inst ? ' — قفل آنی روشن' : ''}\n` +
-         `   ${c.on ? 'فعال' : (c.dis ? '⛔ غیرفعال ( توسط مالک )' : 'در انتظار فعال سازی')} | قفل ها : ${c.active} | زمان دار : ${c.sched ? 'روشن' : 'خاموش'}`,
-      `\n<b>${esc(c.title)}</b>${c.inst ? ' — Instant lock ON' : ''}\n` +
-         `   ${c.on ? 'Active' : (c.dis ? '⛔ Disabled (by owner)' : 'Awaiting activation')} | Locks: ${c.active} | Scheduled: ${c.sched ? 'ON' : 'OFF'}`);
+    const st = c.on ? L('فعال', 'Active')
+      : c.dis ? L('⛔ غیرفعال ( توسط مالک )', '⛔ Disabled (by owner)')
+      : L('در انتظار فعال سازی', 'Awaiting activation');
+    const inst = c.inst ? L(' — قفل آنی روشن', ' — instant lock ON') : '';
+    t += L(`<tr><td><b>${esc(c.title)}</b></td><td>${st}${inst}</td><td>${faNum(c.active)}</td><td>${c.sched ? 'روشن' : 'خاموش'}</td></tr>`,
+      `<tr><td><b>${esc(c.title)}</b></td><td>${st}${inst}</td><td>${c.active}</td><td>${c.sched ? 'ON' : 'OFF'}</td></tr>`);
   }
+  t += `</table>` + FOOT();
   return t;
 }
 
@@ -2598,63 +2679,61 @@ function chatsKB(list) {
 function chatText(s, st, isOwner = true) {
   const sc = s.schedule || { enabled: false, start: 240, end: 1200, mode: 'all' };
   const active = Object.values(s.locks || {}).filter(Boolean).length;
-  const schedLine = sc.enabled
+  const schedVal = sc.enabled
     ? L(`روشن از <code>${fmtHM(sc.start)}</code> تا <code>${fmtHM(sc.end)}</code> ( ${SCHED_MODES[sc.mode].label} )`,
-        `Active from <code>${fmtHM(sc.start)}</code> to <code>${fmtHM(sc.end)}</code> (${SCHED_MODES[sc.mode].label})`)
+        `ON from <code>${fmtHM(sc.start)}</code> to <code>${fmtHM(sc.end)}</code> (${SCHED_MODES[sc.mode].label})`)
     : L('خاموش', 'OFF');
-  const bar = '▰'.repeat(Math.min(active, LOCK_ORDER.length)) + '▱'.repeat(Math.max(0, LOCK_ORDER.length - active));
   const instOn = !!(s.instant && s.instant.on);
-  const instLine = instOn
-    ? L(`قفل آنی : <b>روشن</b>${s.instant.at ? ` — از <code>${jalaliStamp(s.instant.at)}</code>` : ''}\n` +
-      `تا « باز کردن » هر پیام یا ادیتی از هر نوعی فوراً حذف میشه !!\n`,
-      `Instant lock: <b>ON</b>${s.instant.at ? ` — since <code>${jalaliStamp(s.instant.at)}</code>` : ''}\n` +
-      `Until you press "Open", every message or edit of any type is deleted instantly!\n`)
-    : L(`قفل آنی : خاموش\n`, `Instant lock: OFF\n`);
+  const instVal = instOn
+    ? L(`<mark>روشن</mark>${s.instant.at ? ` — از ${tgTime(s.instant.at)}` : ''} — تا « باز کردن » هر پیام یا ادیتی از هر نوعی فوراً حذف میشه !!`,
+        `<mark>ON</mark>${s.instant.at ? ` — since ${tgTime(s.instant.at, 'wDT')}` : ''} — until you press "Open", every message or edit of any type is deleted instantly!`)
+    : L('خاموش', 'OFF');
   const pm = s.punishMode || 'off';
-  const redLine = pm === 'off'
-    ? L(`عزل خودکار : خاموش — ادیت پست مدیادار فقط طبق قفل ها پاک میشه\n`,
-        `Auto-demotion: off — media-post edits are deleted only according to locks\n`)
+  const pmVal = pm === 'off'
+    ? L('خاموش — ادیت پست مدیادار فقط طبق قفل ها پاک میشه', 'off — media-post edits are deleted only according to locks')
     : pm === 'yellow'
-      ? L(`وضعیت زرد : روشن — ادیت پست مدیادار ⇒ پاک + عزل متخلف ( بدون بن )\n`,
-          `Yellow mode: ON — editing a media post ⇒ delete + demote the offender (no ban)\n`)
-      : L(`وضعیت قرمز : روشن — ادیت پست مدیادار ⇒ پاک + عزل + بن متخلف !!\n`,
-          `Red mode: ON — editing a media post ⇒ delete + demote + ban the offender!\n`);
-  const banLine = L(`مدت بن خودکار ( در وضعیت قرمز ) : <b>${BAN_LABEL[s.banHours || 0] || 'همیشگی'}</b>\n`,
-                    `Auto-ban duration (in red mode): <b>${tr(BAN_LABEL[s.banHours || 0] || 'همیشگی')}</b>\n`);
+      ? L(`🟡 زرد — ادیت پست مدیادار ⇒ پاک + عزل متخلف ( بدون بن )`, `🟡 Yellow — editing a media post ⇒ delete + demote (no ban)`)
+      : L(`🔴 قرمز — ادیت پست مدیادار ⇒ پاک + عزل + بن متخلف !!`, `🔴 Red — editing a media post ⇒ delete + demote + ban!`);
+  const row = (k, v) => `<tr><td><b>${k}</b></td><td>${v}</td></tr>`;
+  const stVal = s.active === false
+    ? (s.disAt
+        ? L(`<mark>⛔ غیرفعال ( توسط مالک )</mark> — تا « فعال سازی این چنل » هیچ پیامی پردازش یا حذف نمیشه`,
+            `<mark>⛔ disabled (by the owner)</mark> — until "Activate this channel", nothing is processed or deleted here`)
+        : L(`<mark>در انتظار فعال سازی ${isOwner ? 'تو' : 'مالک'}</mark> ؛ تا تأیید هیچ قفلی اینجا اجرا نمیشه !!`,
+            `<mark>awaiting activation by ${isOwner ? 'you' : 'the owner'}</mark> — until approved, no lock is enforced here!`))
+    : L(`فعال — تحت پوشش ربات ( همراه بقیه چنل های فعال )`, `Active — under the bot's protection (alongside other active channels)`);
   return L((
-    `<b>${esc(s.title)}</b>\n` +
-    `شناسه : <code>${s.cid}</code>${s.username ? `\n@${s.username}` : ''}\n` +
-    (s.active === false
-      ? (s.disAt
-          ? `وضعیت : <b>⛔ غیرفعال ( توسط مالک )</b> — تا « فعال سازی این چنل » هیچ پیامی پردازش یا حذف نمیشه\n\n`
-          : `وضعیت : <b>در انتظار فعال سازی ${isOwner ? 'تو' : 'مالک'}</b> ؛ تا تأیید هیچ قفلی اینجا اجرا نمیشه !!\n\n`)
-      : `وضعیت : فعال — تحت پوشش ربات ( همراه بقیه چنل های فعال )\n\n`) +
-    `قفل های فعال : <b>${active}</b> از ${LOCK_ORDER.length}  <code>${bar}</code>\n` +
-    `قفل زمان دار : ${schedLine}\n` +
-    instLine +
-    redLine +
-    banLine +
-    `اعلان قفل در چنل : ${s.ann === false ? 'خاموش' : 'روشن'}\n` +
-    `حذفیات ثبت شده : <b>${st.total}</b>\n` +
-    `لاگ پیوی مالک : ${s.log_pm === false ? 'خاموش' : 'روشن'}\n\n` +
-    `اگه قفل ها کار نمیکنن ، « سلامت » رو چک کن .`
+    `<h3>${tgE('lock', '🔒')} ${esc(s.title)}</h3>` +
+    `<p>شناسه : <code>${s.cid}</code>${s.username ? ` — @${s.username}` : ''}</p>` +
+    `<table bordered striped compact><caption>داشبورد چنل</caption>` +
+    row('وضعیت', stVal) +
+    row('قفل های فعال', `<b>${faNum(active)}</b> از ${faNum(LOCK_ORDER.length)}`) +
+    row('قفل زمان دار', schedVal) +
+    row('قفل آنی', instVal) +
+    row('عزل خودکار', pmVal) +
+    row('مدت بن خودکار ( در وضعیت قرمز )', `<b>${BAN_LABEL[s.banHours || 0] || 'همیشگی'}</b>`) +
+    row('اعلان قفل در چنل', s.ann === false ? 'خاموش' : 'روشن') +
+    row('حذفیات ثبت شده', `<b>${faNum(st.total)}</b>`) +
+    row('لاگ پیوی مالک', s.log_pm === false ? 'خاموش' : 'روشن') +
+    `</table>` +
+    `<blockquote>اگه قفل ها کار نمیکنن ، « سلامت » رو چک کن .</blockquote>` +
+    FOOT()
   ), (
-    `<b>${esc(s.title)}</b>\n` +
-    `ID: <code>${s.cid}</code>${s.username ? `\n@${s.username}` : ''}\n` +
-    (s.active === false
-      ? (s.disAt
-          ? `Status: <b>⛔ disabled (by the owner)</b> — until "Activate this channel", nothing is processed or deleted here\n\n`
-          : `Status: <b>awaiting activation by ${isOwner ? 'you' : 'the owner'}</b> — until approved, no lock is enforced here!\n\n`)
-      : `Status: active — under the bot's protection (alongside other active channels)\n\n`) +
-    `Active locks: <b>${active}</b> of ${LOCK_ORDER.length}  <code>${bar}</code>\n` +
-    `Scheduled lock: ${schedLine}\n` +
-    instLine +
-    redLine +
-    banLine +
-    `Lock announcements: ${s.ann === false ? 'OFF' : 'ON'}\n` +
-    `Recorded deletions: <b>${st.total}</b>\n` +
-    `DM log: ${s.log_pm === false ? 'OFF' : 'ON'}\n\n` +
-    `If the locks don't seem to work, check "Health".`
+    `<h3>${tgE('lock', '🔒')} ${esc(s.title)}</h3>` +
+    `<p>ID: <code>${s.cid}</code>${s.username ? ` — @${s.username}` : ''}</p>` +
+    `<table bordered striped compact><caption>Channel dashboard</caption>` +
+    row('Status', stVal) +
+    row('Active locks', `<b>${active}</b> of ${LOCK_ORDER.length}`) +
+    row('Scheduled lock', schedVal) +
+    row('Instant lock', instVal) +
+    row('Auto-demotion', pmVal) +
+    row('Auto-ban duration (red mode)', `<b>${tr(BAN_LABEL[s.banHours || 0] || 'همیشگی')}</b>`) +
+    row('Lock announcements', s.ann === false ? 'OFF' : 'ON') +
+    row('Recorded deletions', `<b>${st.total}</b>`) +
+    row('DM log', s.log_pm === false ? 'OFF' : 'ON') +
+    `</table>` +
+    `<blockquote>If the locks don't seem to work, check "Health".</blockquote>` +
+    FOOT()
   ));
 }
 
@@ -2690,20 +2769,29 @@ function chatKB(cid, s = null, viewer = false, isOwner = true) {
 }
 
 function locksText(s) {
+  const cell = (k) => {
+    const on = !!(s.locks && s.locks[k]);
+    return L(`<td><b>${tr(LOCKS[k].label)}</b></td><td>${on ? tgE('stop', '⛔') + ' قفل' : tgE('done', '✅') + ' آزاد'}</td>`,
+             `<td><b>${tr(LOCKS[k].label)}</b></td><td>${on ? tgE('stop', '⛔') + ' locked' : tgE('done', '✅') + ' free'}</td>`);
+  };
+  let rows = '';
+  for (let i = 0; i < LOCK_ORDER.length; i += 2) {
+    rows += '<tr>' + cell(LOCK_ORDER[i]) + (LOCK_ORDER[i + 1] ? cell(LOCK_ORDER[i + 1]) : '<td></td><td></td>') + '</tr>';
+  }
   return L((
-    `<b>قفل های ${esc(s.title)}</b>\n\n` +
-    `🔴 = قفل فعال   |   🟢 = آزاد\n` +
-    `برای قفل یا باز کردن روی هر مورد بزن :\n\n` +
-    `برای بستن کامل و موقت کل چنل ، از دکمه « قفل آنی » تو منوی چنل استفاده کن .\n` +
-    `اعلان قفل : ${s.ann === false ? 'خاموش — با روشن/خاموش شدن قفل ها هیچ پیامی تو چنل ارسال نمیشه' : 'روشن — با روشن/خاموش شدن قفل ها و شروع/پایان قفل زمان دار ، اعلان تو خود چنل ارسال میشه'}\n` +
-    `برای اجرای قفل ها ربات باید تو چنل دسترسی <b>« حذف پیام »</b> رو داشته باشه .`
+    `<h3>قفل های ${esc(s.title)}</h3>` +
+    `<p>روی هر مورد تو دکمه های پایین بزن تا قفل یا آزاد بشه ؛ وضعیت فعلیش تو جدول هست :</p>` +
+    `<table bordered striped compact><caption>همه قفل ها ( ${faNum(LOCK_ORDER.length)} )</caption>${rows}</table>` +
+    `<p>برای بستن کامل و موقت کل چنل ، از دکمه « قفل آنی » تو منوی چنل استفاده کن .</p>` +
+    `<blockquote>اعلان قفل : ${s.ann === false ? 'خاموش — با روشن/خاموش شدن قفل ها هیچ پیامی تو چنل ارسال نمیشه' : 'روشن — با روشن/خاموش شدن قفل ها و شروع/پایان قفل زمان دار ، اعلان تو خود چنل ارسال میشه'}<br/>برای اجرای قفل ها ربات باید تو چنل دسترسی <b>« حذف پیام »</b> رو داشته باشه .</blockquote>` +
+    FOOT()
   ), (
-    `<b>Locks of ${esc(s.title)}</b>\n\n` +
-    `🔴 = locked   |   🟢 = free\n` +
-    `Tap any item to lock/unlock it:\n\n` +
-    `To close the entire channel completely and temporarily, use the "Instant lock" button in the channel menu.\n` +
-    `Lock announcements: ${s.ann === false ? 'off — nothing is posted in the channel when locks change' : 'on — an announcement is posted in the channel when locks change or the scheduled window starts/ends'}\n` +
-    `For locks to work, the bot needs the <b>"Delete messages"</b> permission in the channel.`
+    `<h3>Locks of ${esc(s.title)}</h3>` +
+    `<p>Tap any item below to lock/unlock it; the current state is in the table:</p>` +
+    `<table bordered striped compact><caption>All ${LOCK_ORDER.length} locks</caption>${rows}</table>` +
+    `<p>To close the entire channel completely and temporarily, use the "Instant lock" button in the channel menu.</p>` +
+    `<blockquote>Lock announcements: ${s.ann === false ? 'off — nothing is posted in the channel when locks change' : 'on — an announcement is posted in the channel when locks change or the scheduled window starts/ends'}<br/>For locks to work, the bot needs the <b>"Delete messages"</b> permission in the channel.</blockquote>` +
+    FOOT()
   ));
 }
 
@@ -2727,29 +2815,33 @@ function locksKB(s, cid) {
 
 function schedText(s) {
   const sc = s.schedule || { enabled: false, start: 240, end: 1200, mode: 'all' };
+  const row = (k, v) => `<tr><td><b>${k}</b></td><td>${v}</td></tr>`;
   return L((
-    `<b>قفل زمان دار — ${esc(s.title)}</b>\n\n` +
-    `وضعیت : ${sc.enabled ? 'روشن' : 'خاموش'}\n` +
-    `بازه : از <code>${fmtHM(sc.start)}</code> تا <code>${fmtHM(sc.end)}</code>\n` +
-    `حالت : ${SCHED_MODES[sc.mode] ? SCHED_MODES[sc.mode].label : sc.mode}\n` +
-    `ساعت الان تهران : <code>${tehranHM()}</code>\n\n` +
-    `برای عوض کردن بازه روی « شروع » یا « پایان » بزن و ساعت و دقیقه رو با دکمه ها انتخاب کن ؛ تایپ هم جواب میده ( مثلاً 4:30 ) .\n` +
-    `اگه شروع و پایان رو یکی بذاری قفل ۲۴ ساعته اعمال میشه . بازه های عبوری از نیمه شب هم اوکیه ( مثلاً 22 تا 6 ) .\n` +
+    `<h3>${tgE('cal', '🗓')} قفل زمان دار — ${esc(s.title)}</h3>` +
+    `<table bordered striped compact><caption>بازه قفل خودکار — همه به وقت تهران</caption>` +
+    row('وضعیت', sc.enabled ? L('<b>روشن</b>', '<b>ON</b>') : L('<mark>خاموش</mark>', '<mark>OFF</mark>')) +
+    row('بازه', `از <code>${fmtHM(sc.start)}</code> تا <code>${fmtHM(sc.end)}</code>`) +
+    row('حالت', SCHED_MODES[sc.mode] ? SCHED_MODES[sc.mode].label : sc.mode) +
+    row('ساعت الان تهران', `<code>${tehranHM()}</code>`) +
+    `</table>` +
+    `<blockquote>برای عوض کردن بازه روی « شروع » یا « پایان » بزن و ساعت و دقیقه رو با دکمه ها انتخاب کن ؛ تایپ هم جواب میده ( مثلاً 4:30 ) .<br/>اگه شروع و پایان رو یکی بذاری قفل ۲۴ ساعته اعمال میشه . بازه های عبوری از نیمه شب هم اوکیه ( مثلاً 22 تا 6 ) .</blockquote>` +
     (s.ann === false
-      ? `اعلان قفل خاموشه — با شروع و پایان بازه هیچ پیامی تو چنل ارسال نمیشه .`
-      : `با شروع و پایان هر بازه اعلان خودکار تو خود چنل ارسال میشه ( از پنل « قفل ها » میتونی خاموشش کنی ) .`)
+      ? `<p><i>اعلان قفل خاموشه — با شروع و پایان بازه هیچ پیامی تو چنل ارسال نمیشه .</i></p>`
+      : `<p><i>با شروع و پایان هر بازه اعلان خودکار تو خود چنل ارسال میشه ( از پنل « قفل ها » میتونی خاموشش کنی ) .</i></p>`) +
+    FOOT()
   ), (
-    `<b>Scheduled lock — ${esc(s.title)}</b>\n\n` +
-    `Status: ${sc.enabled ? 'Enabled' : 'Disabled'}\n` +
-    `Lock window: from <code>${fmtHM(sc.start)}</code> to <code>${fmtHM(sc.end)}</code>\n` +
-    `Mode: ${SCHED_MODES[sc.mode] ? SCHED_MODES[sc.mode].label : sc.mode}\n` +
-    `Current time in Tehran: <code>${tehranHM()}</code>\n\n` +
-    `Anything sent or edited inside this window, according to the selected mode, is deleted instantly.\n` +
-    `If "start" and "end" are equal, a 24-hour lock applies.\n` +
-    `Overnight windows are supported too (e.g. 22:00 to 06:00).\n` +
+    `<h3>${tgE('cal', '🗓')} Scheduled lock — ${esc(s.title)}</h3>` +
+    `<table bordered striped compact><caption>Automatic lock window — Tehran time</caption>` +
+    row('Status', sc.enabled ? '<b>ON</b>' : '<mark>OFF</mark>') +
+    row('Window', `<code>${fmtHM(sc.start)}</code> to <code>${fmtHM(sc.end)}</code>`) +
+    row('Mode', SCHED_MODES[sc.mode] ? SCHED_MODES[sc.mode].label : sc.mode) +
+    row('Current time in Tehran', `<code>${tehranHM()}</code>`) +
+    `</table>` +
+    `<blockquote>Anything sent or edited inside this window, according to the selected mode, is deleted instantly.<br/>If "start" and "end" are equal, a 24-hour lock applies. Overnight windows are supported too (e.g. 22:00 to 06:00).</blockquote>` +
     (s.ann === false
-      ? `Lock announcements are OFF — nothing is posted in the channel when the window starts/ends.`
-      : `An announcement is posted in the channel automatically when the window starts and ends (you can turn it off in the "Locks" panel).`)
+      ? `<p><i>Lock announcements are OFF — nothing is posted in the channel when the window starts/ends.</i></p>`
+      : `<p><i>An announcement is posted in the channel automatically when the window starts and ends (you can turn it off in the "Locks" panel).</i></p>`) +
+    FOOT()
   ));
 }
 
@@ -2768,10 +2860,10 @@ function schedKB(s, cid) {
 /* ── 🕐 v2.9/v3.0: انتخاب ساعت و دقیقه با دکمه (گرید ۰ تا ۲۳ + ۰۰ تا ۵۵) + کارت تأیید ── */
 function hourGridText(which, S = null) {
   return which === 'S'
-    ? L(`<b>ساعت شروع قفل زمان دار</b>\n\nیک ساعت از دکمه های پایین انتخاب کن ( به وقت تهران ) ؛ بعدش دقیقه اش رو هم انتخاب میکنی .\nتایپ هم جواب میده ( مثلاً 4:30 یا 23 ) .`,
-        `<b>Scheduled lock — start hour</b>\n\nPick an hour below (Tehran time); then you'll pick the end hour. Typing works too (e.g. 4:30 or 23).`)
-    : L(`<b>ساعت پایان قفل زمان دار</b>\n\n${S === null ? '' : `شروع ثبت شد : <code>${fmtHM(S)}</code>\n`}حالا ساعت پایان رو از دکمه های پایین انتخاب کن ؛ بعدش دقیقه اش رو .\nاگه پایان از شروع کمتر باشه ، بازه از نیمه شب عبور میکنه ( مثلاً 22 تا 6 ) .`,
-        `<b>Scheduled lock — end hour</b>\n\n${S === null ? '' : `Start saved: <code>${fmtHM(S)}</code>\n`}Pick the end hour below. If the end is smaller than the start, the window crosses midnight (e.g. 22 to 6).`);
+    ? L(`<h4>ساعت شروع قفل زمان دار</h4><p>یک ساعت از دکمه های پایین انتخاب کن ( به وقت تهران ) ؛ بعدش دقیقه اش رو هم انتخاب میکنی .<br/>تایپ هم جواب میده ( مثلاً 4:30 یا 23 ) .</p>`,
+        `<h4>Scheduled lock — start hour</h4><p>Pick an hour below (Tehran time); then you'll pick the end hour.<br/>Typing works too (e.g. 4:30 or 23).</p>`)
+    : L(`<h4>ساعت پایان قفل زمان دار</h4><p>${S === null ? '' : `شروع ثبت شد : <code>${fmtHM(S)}</code><br/>`}حالا ساعت پایان رو از دکمه های پایین انتخاب کن ؛ بعدش دقیقه اش رو .<br/>اگه پایان از شروع کمتر باشه ، بازه از نیمه شب عبور میکنه ( مثلاً 22 تا 6 ) .</p>`,
+        `<h4>Scheduled lock — end hour</h4><p>${S === null ? '' : `Start saved: <code>${fmtHM(S)}</code><br/>`}Pick the end hour below; then the minutes.<br/>If the end is smaller than the start, the window crosses midnight (e.g. 22 to 6).</p>`);
 }
 
 function hourGridKB(cid, which) {
@@ -2788,10 +2880,10 @@ function hourGridKB(cid, which) {
 /* ── ⏱ v3.0: گرید دقیقه ( ۰۰ تا ۵۵ با گام ۵ ) — مرحله بعد از انتخاب ساعت ── */
 function minGridText(which, hm, S = null) {
   return which === 'S'
-    ? L(`<b>دقیقه شروع قفل زمان دار</b>\n\nساعت انتخاب شده : <code>${pad2(Math.floor(hm / 60))}</code>\nحالا دقیقه رو از دکمه های پایین انتخاب کن ؛ بعدش ساعت پایان رو هم میگیرم .\nتایپ کامل هم جواب میده ( مثلاً 4:30 ) .`,
-        `<b>Scheduled lock — start minutes</b>\n\nHour picked: <code>${pad2(Math.floor(hm / 60))}</code>\nNow pick the minutes below; then you'll pick the end time.\nTyping the full time works too (e.g. 4:30).`)
-    : L(`<b>دقیقه پایان قفل زمان دار</b>\n\n${S === null ? '' : `شروع ثبت شد : <code>${fmtHM(S)}</code>\n`}ساعت انتخاب شده : <code>${pad2(Math.floor(hm / 60))}</code>\nحالا دقیقه پایان رو از دکمه های پایین انتخاب کن .`,
-        `<b>Scheduled lock — end minutes</b>\n\n${S === null ? '' : `Start saved: <code>${fmtHM(S)}</code>\n`}Hour picked: <code>${pad2(Math.floor(hm / 60))}</code>\nNow pick the end minutes below.`);
+    ? L(`<h4>دقیقه شروع قفل زمان دار</h4><p>ساعت انتخاب شده : <code>${pad2(Math.floor(hm / 60))}</code><br/>حالا دقیقه رو از دکمه های پایین انتخاب کن ؛ بعدش ساعت پایان رو هم میگیرم .<br/>تایپ کامل هم جواب میده ( مثلاً 4:30 ) .</p>`,
+        `<h4>Scheduled lock — start minutes</h4><p>Hour picked: <code>${pad2(Math.floor(hm / 60))}</code><br/>Now pick the minutes below; then you'll pick the end time.<br/>Typing the full time works too (e.g. 4:30).</p>`)
+    : L(`<h4>دقیقه پایان قفل زمان دار</h4><p>${S === null ? '' : `شروع ثبت شد : <code>${fmtHM(S)}</code><br/>`}ساعت انتخاب شده : <code>${pad2(Math.floor(hm / 60))}</code><br/>حالا دقیقه پایان رو از دکمه های پایین انتخاب کن .</p>`,
+        `<h4>Scheduled lock — end minutes</h4><p>${S === null ? '' : `Start saved: <code>${fmtHM(S)}</code><br/>`}Hour picked: <code>${pad2(Math.floor(hm / 60))}</code><br/>Now pick the end minutes below.</p>`);
 }
 
 function minGridKB(cid, which) {
@@ -2809,17 +2901,24 @@ function schedConfirmText(S, E, s) {
   const sc = s.schedule || { enabled: false, mode: 'all' };
   const mode = SCHED_MODES[sc.mode] ? SCHED_MODES[sc.mode].label : String(sc.mode);
   const same = S === E, overnight = E < S;
-  return L(
-    `<b>ثبت قفل زمان دار</b>\n\n` +
-    `بازه : ${same ? '۲۴ ساعته' : `از ساعت <code>${fmtHM(S)}</code> تا <code>${fmtHM(E)}</code>`}${overnight ? ' ( عبور از نیمه شب )' : ''}\n` +
-    `حالت : ${mode}\n` +
-    `وضعیت : ${sc.enabled ? 'روشن — بعد از ثبت از بازه جدید اجرا میشه' : 'خاموش — بعد از ثبت با دکمه « روشن کردن » فعالش کن'}\n\n` +
-    `ثبت کنم ؟`,
-    `<b>Save scheduled lock</b>\n\n` +
-    `Window: ${same ? '24-hour' : `from <code>${fmtHM(S)}</code> to <code>${fmtHM(E)}</code>`}${overnight ? ' (crosses midnight)' : ''}\n` +
-    `Mode: ${mode}\n` +
-    `Status: ${sc.enabled ? 'ON — applies from the new window once saved' : 'OFF — after saving, tap "Turn ON" to enable'}\n\n` +
-    `Save it?`);
+  const row = (k, v) => `<tr><td><b>${k}</b></td><td>${v}</td></tr>`;
+  return L((
+    `<h4>ثبت قفل زمان دار</h4>` +
+    `<table bordered striped compact>` +
+    row('بازه', same ? '۲۴ ساعته' : `از ساعت <code>${fmtHM(S)}</code> تا <code>${fmtHM(E)}</code>${overnight ? ' ( عبور از نیمه شب )' : ''}`) +
+    row('حالت', mode) +
+    row('وضعیت', sc.enabled ? 'روشن — بعد از ثبت از بازه جدید اجرا میشه' : 'خاموش — بعد از ثبت با دکمه « روشن کردن » فعالش کن') +
+    `</table>` +
+    `<p>ثبت کنم ؟</p>`
+  ), (
+    `<h4>Save scheduled lock</h4>` +
+    `<table bordered striped compact>` +
+    row('Window', same ? '24-hour' : `from <code>${fmtHM(S)}</code> to <code>${fmtHM(E)}</code>${overnight ? ' (crosses midnight)' : ''}`) +
+    row('Mode', mode) +
+    row('Status', sc.enabled ? 'ON — applies from the new window once saved' : 'OFF — after saving, tap "Turn ON" to enable') +
+    `</table>` +
+    `<p>Save it?</p>`
+  ));
 }
 
 function schedConfirmKB(cid) {
@@ -2831,26 +2930,37 @@ function schedConfirmKB(cid) {
 
 function statsText(s, st) {
   const tops = Object.entries(st.by || {}).sort((x, y) => y[1] - x[1]).slice(0, 5);
-  let t =
-    L(`<b>آمار تخلفات — ${esc(s.title)}</b>\n\n` +
-    `مجموع حذفیات : <b>${st.total}</b>\n` +
-    (st.today ? `امروز ( تهران ) : <b>${st.today.n || 0}</b> — ادیت ${st.today.e || 0} | ارسال ${st.today.p || 0}\n` : '') +
-    `ادیت های حذف شده : <b>${st.edits}</b>\n` +
-    `ارسال های حذف شده : <b>${st.posts}</b>\n` +
-    (st.last ? `آخرین تخلف : <code>${jalaliStamp(st.last)}</code>\n` : '') +
-    `\n<b>پرتکرارترین دلایل :</b>\n`,
-    `<b>Violation stats — ${esc(s.title)}</b>\n\n` +
-    `Total deletions: <b>${st.total}</b>\n` +
-    (st.today ? `Today (Tehran): <b>${st.today.n || 0}</b> — edits ${st.today.e || 0} | posts ${st.today.p || 0}\n` : '') +
-    `Deleted edits: <b>${st.edits}</b>\n` +
-    `Deleted posts: <b>${st.posts}</b>\n` +
-    (st.last ? `Last violation: <code>${jalaliStamp(st.last)}</code>\n` : '') +
-    `\n<b>Most frequent reasons:</b>\n`);
+  const row = (k, v) => `<tr><td><b>${k}</b></td><td>${v}</td></tr>`;
+  let t = L((
+    `<h3>${tgE('chart', '📊')} آمار تخلفات — ${esc(s.title)}</h3>` +
+    `<table bordered striped compact><caption>آمار کل</caption>` +
+    row('مجموع حذفیات', `<b>${faNum(st.total)}</b>`) +
+    (st.today ? row('امروز ( تهران )', `<b>${faNum(st.today.n || 0)}</b> — ادیت ${faNum(st.today.e || 0)} | ارسال ${faNum(st.today.p || 0)}`) : '') +
+    row('ادیت های حذف شده', `<b>${faNum(st.edits)}</b>`) +
+    row('ارسال های حذف شده', `<b>${faNum(st.posts)}</b>`) +
+    (st.last ? row('آخرین تخلف', tgTime(st.last)) : '') +
+    `</table>`
+  ), (
+    `<h3>${tgE('chart', '📊')} Violation stats — ${esc(s.title)}</h3>` +
+    `<table bordered striped compact><caption>All-time stats</caption>` +
+    row('Total deletions', `<b>${st.total}</b>`) +
+    (st.today ? row('Today (Tehran)', `<b>${st.today.n || 0}</b> — edits ${st.today.e || 0} | posts ${st.today.p || 0}`) : '') +
+    row('Deleted edits', `<b>${st.edits}</b>`) +
+    row('Deleted posts', `<b>${st.posts}</b>`) +
+    (st.last ? row('Last violation', tgTime(st.last, 'wDT')) : '') +
+    `</table>`
+  ));
   if (tops.length) {
-    tops.forEach(([r, n], i) => { t += `${i + 1}. ${esc(tr(r))} — <b>${n}</b>\n`; });
+    t += L(`<h4>پرتکرارترین دلایل</h4><table bordered striped compact><tr><th>#</th><th>دلیل</th><th>تعداد</th></tr>`,
+           `<h4>Most frequent reasons</h4><table bordered striped compact><tr><th>#</th><th>Reason</th><th>Count</th></tr>`);
+    tops.forEach(([r, n], i) => {
+      t += `<tr><td>${faNum(i + 1)}</td><td>${esc(tr(r))}</td><td><b>${faNum(n)}</b></td></tr>`;
+    });
+    t += `</table>`;
   } else {
-    t += L(`هنوز تخلفی ثبت نشده`, `No violations recorded yet`);
+    t += L(`<blockquote>هنوز تخلفی ثبت نشده</blockquote>`, `<blockquote>No violations recorded yet</blockquote>`);
   }
+  t += FOOT();
   return t;
 }
 
@@ -2863,24 +2973,31 @@ function statsKB(cid, viewer = false) {
 
 function vlogText(s, list) {
   if (!list || !list.length) {
-    return L(`<b>آخرین تخلف ها — ${esc(s.title)}</b>\n\nهنوز چیزی ثبت نشده`,
-             `<b>Latest violations — ${esc(s.title)}</b>\n\nNothing recorded yet`);
+    return L(`<h3>آخرین تخلف ها — ${esc(s.title)}</h3><blockquote>هنوز چیزی ثبت نشده</blockquote>` + FOOT(),
+             `<h3>Latest violations — ${esc(s.title)}</h3><blockquote>Nothing recorded yet</blockquote>` + FOOT());
   }
-  let t = L(`<b>آخرین تخلف ها — ${esc(s.title)}</b> ( ${list.length} مورد اخیر )\n\n<blockquote expandable>`,
-            `<b>Latest violations — ${esc(s.title)}</b> (last ${list.length})\n\n<blockquote expandable>`);
+  let t = L(`<h3>آخرین تخلف ها — ${esc(s.title)}</h3><p>( ${faNum(list.length)} مورد اخیر — برای باز شدن لمس کن )</p><blockquote expandable>`,
+            `<h3>Latest violations — ${esc(s.title)}</h3><p>(last ${list.length} — tap to expand)</p><blockquote expandable>`);
   for (const v of [...list].reverse()) {
     const link = tgMsgLink(s.username, s.cid, v.mid);
     const outcome = v.ub ? L('حذف شد (با اکانت)', 'Deleted (via user account)')
-      : v.ok ? L('حذف شد', 'Deleted')
+      : v.ok ? L('حذف شد ✅', 'Deleted ✅')
       : L('حذف نشد (محدودیت تلگرام)', 'Not deleted (Telegram limitation)');
-    t += `${outcome} — <b>${esc(tr(v.r))}</b>${v.e ? L(' | ادیت', ' | edit') : ''}\n` +
-         `   ${tgTime(v.t, 'dt')}\n` +
-         (v.id ? `   <a href="tg://user?id=${v.id}">${esc(v.nm)}</a> — شناسه : <code>${v.id}</code>\n`
-               : `   ${esc(v.nm)}\n`) +
-         (v.sn ? `   ${esc(v.sn)}\n` : '') +
-         `   پیام : <code>${v.mid}</code>${link ? ` — <a href="${link}">باز کردن</a>` : ''}\n\n`;
+    t += `${outcome} — <b>${esc(tr(v.r))}</b>${v.e ? L(' | ادیت', ' | edit') : ''}
+` +
+         `   ${tgTime(v.t, 'dt')}
+` +
+         (v.id ? `   <a href="tg://user?id=${v.id}">${esc(v.nm)}</a> — شناسه : <code>${v.id}</code>
+`
+               : `   ${esc(v.nm)}
+`) +
+         (v.sn ? `   ${esc(v.sn)}
+` : '') +
+         `   پیام : <code>${v.mid}</code>${link ? ` — <a href="${link}">باز کردن</a>` : ''}
+
+`;
   }
-  t += `</blockquote>\n` + L(`برای « جبران » متن و آیدی متخلف رو از همینجا برمیدارید .`, `To make amends, grab the offender's text and ID right from here.`);
+  t += `</blockquote>` + L(`<blockquote>برای « جبران » متن و آیدی متخلف رو از همینجا برمیدارید .</blockquote>`, `<blockquote>To make amends, grab the offender's text and ID right from here.</blockquote>`) + FOOT();
   return t;
 }
 
@@ -2891,36 +3008,44 @@ function vlogKB(cid) {
 async function healthText(env, s) {
   const me = await botInfo(env);
   const r = await tg(env, 'getChatMember', { chat_id: s.cid, user_id: me.id });
-  let lines;
+  let rows = '';
   if (!r.ok) {
-    lines = L(`❌ عضویت : ربات عضو این چنل نیست یا دسترسی ندارم .\n( ${esc(r.description || '')} )`,
-              `❌ Membership: the bot is not in this channel or has no access.\n(${esc(r.description || '')})`);
+    rows = L(`<p>❌ عضویت : ربات عضو این چنل نیست یا دسترسی ندارم .<br/>( ${esc(r.description || '')} )</p>`,
+             `<p>❌ Membership: the bot is not in this channel or has no access.<br/>(${esc(r.description || '')})</p>`);
   } else {
     const m = r.result;
-    const yes = (b) => (b ? '✅' : '❌');
+    const okc = (b) => (b ? tgE('done', '✅') : tgE('no', '❌'));
     if (m.status !== 'administrator') {
-      lines = L(`❌ عضویت : ربات <b>ادمین نیست</b> ( ${esc(m.status)} )\n\nربات رو ادمین کن با دسترسی « حذف پیام » .`,
-                `❌ Membership: the bot is <b>not an admin</b> (${esc(m.status)})\n\nMake the bot an admin with the "Delete messages" permission.`);
+      rows = L(`<p>❌ عضویت : ربات <b>ادمین نیست</b> ( ${esc(m.status)} )</p><p>ربات رو ادمین کن با دسترسی « حذف پیام » .</p>`,
+               `<p>❌ Membership: the bot is <b>not an admin</b> (${esc(m.status)})</p><p>Make the bot an admin with the "Delete messages" permission.</p>`);
     } else {
-      lines = L(
-        `${yes(true)} عضویت : ادمین\n` +
-        `${yes(m.can_delete_messages)} حذف پیام ← <b>مهم ترین دسترسی</b>\n` +
-        `${yes(m.can_post_messages)} ارسال پیام\n` +
-        `${yes(m.can_edit_messages)} ادیت پیام\n` +
-        `${yes(m.can_change_information)} تغییر اطلاعات کانال`,
-        `${yes(true)} Membership: admin\n` +
-        `${yes(m.can_delete_messages)} Delete messages ← <b>the most important permission</b>\n` +
-        `${yes(m.can_post_messages)} Post messages\n` +
-        `${yes(m.can_edit_messages)} Edit messages\n` +
-        `${yes(m.can_change_information)} Change channel info`);
+      const row = (g, k, v) => `<tr><td>${g} <b>${k}</b></td><td>${v}</td></tr>`;
+      rows = L(`<table bordered striped compact><caption>دسترسی های ربات در چنل</caption>` +
+        row(okc(true), 'عضویت', 'ادمین') +
+        row(okc(m.can_delete_messages), 'حذف پیام', m.can_delete_messages ? '<b>مهم ترین دسترسی — آماده است</b>' : '<mark>ندارد — قفل ها کار نمیکنن !!</mark>') +
+        row(okc(m.can_post_messages), 'ارسال پیام', m.can_post_messages ? 'دارد' : 'ندارد') +
+        row(okc(m.can_edit_messages), 'ادیت پیام', m.can_edit_messages ? 'دارد' : 'ندارد') +
+        row(okc(m.can_change_information), 'تغییر اطلاعات کانال', m.can_change_information ? 'دارد' : 'ندارد') +
+        `</table>`,
+      `<table bordered striped compact><caption>Bot permissions in this channel</caption>` +
+        row(okc(true), 'Membership', 'admin') +
+        row(okc(m.can_delete_messages), 'Delete messages', m.can_delete_messages ? '<b>the most important permission — ready</b>' : '<mark>missing — locks cannot work!</mark>') +
+        row(okc(m.can_post_messages), 'Post messages', m.can_post_messages ? 'yes' : 'no') +
+        row(okc(m.can_edit_messages), 'Edit messages', m.can_edit_messages ? 'yes' : 'no') +
+        row(okc(m.can_change_information), 'Change channel info', m.can_change_information ? 'yes' : 'no') +
+        `</table>`);
     }
   }
   return L((
-    `<b>سلامت ربات در ${esc(s.title)}</b>\n\n${lines}\n\n` +
-    `اگه « حذف پیام » ❌ باشه ربات نمیتونه هیچ قفلی رو اجرا کنه . از تنظیمات ادمین چنل دسترسی « Delete messages » رو فعال کن .`
+    `<h3>${tgE('tool', '🛠')} سلامت ربات در ${esc(s.title)}</h3>` +
+    rows +
+    `<blockquote>اگه « حذف پیام » ❌ باشه ربات نمیتونه هیچ قفلی رو اجرا کنه . از تنظیمات ادمین چنل دسترسی « Delete messages » رو فعال کن .</blockquote>` +
+    FOOT()
   ), (
-    `<b>Bot health in ${esc(s.title)}</b>\n\n${lines}\n\n` +
-    `If "Delete messages" is ❌, the bot cannot enforce any lock. Enable the "Delete messages" permission in the channel's admin settings.`
+    `<h3>${tgE('tool', '🛠')} Bot health in ${esc(s.title)}</h3>` +
+    rows +
+    `<blockquote>If "Delete messages" is ❌, the bot cannot enforce any lock. Enable the "Delete messages" permission in the channel's admin settings.</blockquote>` +
+    FOOT()
   ));
 }
 
@@ -2929,160 +3054,165 @@ function healthKB(cid) {
 }
 
 function helpText() {
+  const D = (t, b) => `<details><summary>${t}</summary>${b}</details>`;
   return L((
-    `<b>راهنمای ربات ضد خیانت</b>\n\n` +
-    `━━━ راه اندازی ━━━\n` +
-    `۱) ربات رو ادمین چنل کن (دسترسی « حذف پیام » الزامیه، بقیه اختیاری).\n` +
-    `۲) چنل ثبت میشه و پیام تأیید میاد — فعالش کن. ربات چندچنله: هر تعداد چنل رو جداگانه فعال کن؛ همه همزمان میمونن.\n` +
-    `۳) قفل ها رو روشن کن؛ از همون لحظه هر تخلف فوراً پاک میشه.\n\n` +
-    `━━━ قفل ها ━━━\n` +
-    `ادیت متن و ادیت مدیا — هر ادیتی پیام رو فوراً پاک میکنه، حتی پیام های چند روز پیش.\n` +
-    `لینک تو ادیت — فقط ادیت هایی که لینک دارن پاک میشن (ضد تبلیغ پنهان).\n` +
-    `ارسال ها — هر نوع پست جداگانه بسته میشه: متن، عکس، ویدیو، گیف، استیکر، ویس، ویدیو نوت، موزیک، فایل، نظرسنجی، مخاطب، لوکیشن، بازی.\n` +
-    `فوروارد — هر پست فورواردی پاک میشه. لینک — هر پست دارای لینک (entity یا متن) پاک میشه.\n` +
-    `قفل کامل — هیچ چیز ارسال یا ادیت نمیشه.\n\n` +
-    `━━━ اعلان قفل ها (v2.6) ━━━\n` +
-    `با روشن/خاموش شدن « قفل آنی » و شروع/پایانِ قفل زمان دار، ربات یه اعلان بولد تو خودِ چنل میفرسته و شناسه چنل (t.me/…) رو زیرش مینویسه.\n` +
-    `اگه نمیخوای متنی تو چنلت ارسال شه، تو پنل « قفل ها » دکمه « اعلان قفل در چنل » رو خاموش کن؛ قفل ها بدون اعلان به کارشون ادامه میدن.\n\n` +
-    `━━━ قفل زمان دار ━━━\n` +
-    `بازه دلخواه ، همه به وقت تهران . ساعت شروع و پایان رو با دکمه های ۰ تا ۲۳ انتخاب کن یا تایپ کن ( مثلاً 4:30 ) ؛ پریست های آماده ( هر شب 4 تا 8 / هر شب 22 تا 6 / ۲۴ ساعته ) هم تو پنل هست . مثلاً شروع 4 و پایان 20 با حالت « ارسال و ادیت » یعنی تو این بازه هر پست یا ادیتی فوراً پاک میشه و بیرونِ بازه همه چیز آزاده . بازه های عبوری از نیمه شب هم پشتیبانی میشه .\n\n` +
-    `━━━ قفل آنی ━━━\n` +
-    `با یه دکمه کل چنل کامل بسته میشه: هر پیام یا ادیتی، از هر نوعی، فوراً پاک میشه — تا وقتی خودت « باز کن » بزنی. این قفل مستقله و بعد از باز شدن همه چیز برمی گرده به حالت قبل.\n\n` +
-    `━━━ گزارش و آمار ━━━\n` +
-    `گزارش هر حذف (چنل، دلیل، ساعت، متخلف با شناسه) به پیوی مالک و ادمین ها و ناظرهای همون چنل میاد. « آخرین تخلف ها » و آمار کامل — با شمارنده « امروز » به وقت تهران — تو بخش آمار هر چنله.\n\n` +
-    `━━━ چندچنله و دسترسی چنلی (v2.0) ━━━\n` +
-    `ربات همزمان تو هر تعداد چنل اجرا میشه؛ آمار، قفل ها و لاگ هر چنل جداست.\n` +
-    `مالک کنار هر ادمین/ناظر دکمه « چنل ها » رو داره و دقیقاً تعیین میکنه اون نفر فقط به کدوم چنل ها دسترسی داشته باشه.\n` +
-    `ادمین فقط چنل های خودش رو میبینه و مدیریت میکنه؛ تنظیمات ربات و بقیه چنل ها براش در دسترس نیست.\n` +
-    `گزارش تخلف هر چنل فقط برای مالک و ادمین ها/ناظرهای همون چنل میره. ادمینی که هنوز چنلی براش تعیین نشده چیزی نمیبینه.\n\n` +
-    `━━━ غیرفعال کردن چنل (v3.4) ━━━\n` +
-    `از منوی هر چنل با « ⛔ غیرفعال کردن چنل » ربات رو روی همون چنل موقتاً خاموش کن : هیچ پیام یا ادیتی پردازش یا حذف نمیشه و قفل آنی و قفل زمان دار هم تا فعال سازی دوباره متوقفن — ولی تنظیمات و آمار و سکوت ها میمونن و سکوت ها سر وقت خودشون تموم میشن.\n` +
-    `چنل غیرفعال تو « چنل های من » با برچسب « ⛔ غیرفعال ( توسط مالک ) » دیده میشه و برگردوندنش یه دکمه است : « فعال سازی این چنل ».\n\n` +
-    `━━━ تشخیص ادیت واقعی (v3.5) ━━━\n` +
-    `خیلی از « ادیت ها » اصلاً ادیت نیستن : رأی خوردن پست نظرسنجی، تیک چک لیست، به روز شدن لوکیشن زنده و مارکاپ سرویس های دیگر همه به شکل edited_channel_post میآیند بدون آن که متن یا کپشن عوض بشه.\n` +
-    `ربات اثر انگشت محتوای هر پست ( متن + نوع مدیا + پرسش نظرسنجی ) رو نگه میداره و فقط وقتی محتوا واقعاً عوض شده باشه ادیت رو تخلف حساب میکنه — نه حذف اشتباه، نه گزارش بیخودی.\n\n` +
-    `━━━ همگام با نوامبر 2026 (v4.0) ━━━\n` +
-    `اعلان های قفل تو خودِ چنل با « پیام ریچ » ارسال میشن ( Bot API 10.1 ) : تیتر ، پاراگراف های جدا و پانویس — به جای یک متن ساده .\n` +
-    `تأیید عملیات های مهم ( باز/بستن قفل آنی ، فعال/غیرفعال کردن چنل ، ریست آمار ، آزادسازی سکوت ) با « کارت فوری » میاد : پیامی که فقط برای خودت نمایش داده میشه و بعد از لحظاتی خودش محو میشه ؛ هیچ اثری تو چت نمی مونه ( Ephemeral — Bot API 10.4 ) .\n` +
-    `زمان ها با tg-time ارسال میشن : پایان سکوت و تاریخ تخلف ها برای هر کس به ساعت و زبان محلی خودش نمایش داده میشه ( Bot API 10.4 ) .\n` +
-    `وقتی چنل غیرفعاله ، دکمه های اقدام واقعاً « غیرفعال » و غیرقابل کلیک نمایش داده میشن ( Bot API 10.3 ) .\n\n` +
-    `━━━ ادمین ها ━━━\n` +
-    `مالک از « ادمین های ربات » به دیگران دسترسی میده: شناسه عددی رو بفرست (با <code>/id</code> یا @userinfobot) و تو ویرایشگری که باز میشه چنل هاش رو انتخاب کن.\n` +
-    `افزودن گروهی (v2.1) — به جای یه شناسه، لیست بفرست: با کاما یا خط جدید جدا کن (مثال: <code>111, 222, 333</code>؛ حداکثر ۵۰). برای ادمین، ناظر و ادمین سازی داخل چنل کار میکنه.\n` +
-    `نام و منشن (v2.2) — تو همه لیست ها و گزارش های گروهی، نام و منشن هر نفر کنار شناسه ش نمایش داده میشه تا دیگه لازم نباشه شناسه ها رو تک تک چک کنی.\n\n` +
-    `━━━ ناظرها (فقط مشاهده) ━━━\n` +
-    `ناظر فقط تخلف های چنل های تعیین شده ش رو میبینه — گزارش پیوی، آخرین تخلف ها و آمار. هیچ تنظیمی نمیتونه تغییر بده؛ مناسب نظارت و جبران سریع اگه ربات اشتباهی چیزی رو پاک کرده باشه.\n\n` +
-    `━━━ نردبان وضعیت (v1.8) ━━━\n` +
-    `دکمه وضعیت سه حالته ست و با هر زدن میچرخه: خاموش، زرد، قرمز.\n` +
-    `زرد — هرکی پست مدیادار رو ادیت کنه: پیام فوراً پاک میشه، متخلف عزل میشه و گزارش میاد (بدون بن).\n` +
-    `قرمز — همون + بن از چنل؛ گزارش قرمز دکمه « لغو بن » و « بازگردانی دسترسی های قبلی » رو داره.\n` +
-    `تو زرد و قرمز، ادیت پست فقط-متنی هم پاک میشه؛ تو حالت خاموش فقط قفل ها اجرا میشن.\n` +
-    `بازگردانی — قبل از عزل، دسترسی های متخلف ۲۴ ساعت نگه داشته میشه؛ اگه تطبیق امضا اشتباه بود با یه دکمه برمی گرده.\n` +
-    `شناسایی از فرستنده ست؛ تو چنل های ناشناس با تطبیق امضا (فقط وقتی قطعی باشه). خود ربات و مالک چنل هیچ وقت عزل یا بن نمیشن.\n\n` +
-    `━━━ ادمین سازی تو چنل (v1.8 + گروهی v2.1) ━━━\n` +
-    `از « ادمین های چنل » تو منوی هر چنل: « افزودن ادمین جدید » ← شناسه عددی یا لیست شناسه ها (یا @یوزرنیم تکی) ← پریست یک ضربه ای: « ادمین معمولی » (ارسال + حذف)، « ادمین کامل » (همه به جز ناشناس)، « ناشناس » (پست با نام چنل) — یا دسترسی ها رو دستی تنظیم کن و « تأیید و ارتقا » رو بزن.\n` +
-    `تو حالت گروهی یه پریست به همه اعمال میشه و آخرش گزارش نفر به نفر میاد: هر ✅ ادمین شده و هر ❌ با دلیل فارسی (مثل « کاربر شناخته نشد » یا « مالک چنل است »). شناسه های تکراری و نامعتبر خودکار نادیده گرفته میشن.\n` +
-    `بعد از هر ارتقا دکمه « ادمین بعدی » هست؛ فهرست ادمین های فعلی برای هر نفر دو دکمه داره: « عزل » و « ویرایش دسترسی » (v2.2) — ویرایش، دسترسی های فعلی رو لود میکنه؛ عوضشون کن و « تأیید و ارتقا » رو بزن. ربات باید دسترسی « Add New Admins » رو داشته باشه.\n\n` +
-    `━━━ هم گام با آخرین تلگرام (v2.4) ━━━\n` +
-    `آلبوم/اسلایدشو: تخلف تو هر قسمت آلبوم (عکس/ویدیوی چندتایی) ⇒ « کل آلبوم » حذف میشه. ` +
-    `تایپ های جدید تلگرام (پیام ریچ، چک لیست، عکس زنده، مدیای پولی) هم مثل بقیه زیر قفل ها و نردبان زرد/قرمز هستن. ` +
-    `تغییر یا ترک مالکیت چنل، هشدار فوری به مالک ربات میره. ` +
-    `دکمه های خطرناک قرمز، تأییدی ها سبز و اطلاعاتی ها آبی هستن .\n\n` +
-    `━━━ قفل پست ناشناس (v1.9) ━━━\n` +
-    `اگه روشن باشه، هر پست « بدون امضا » — یعنی از طرف خودِ چنل — فوراً پاک میشه؛ هیچ کس نمیتونه بدون هویت واقعی خودش پست بده.\n` +
-    `برای اینکه امضا زیر پست بیاد، تو دسترسی هر ادمین « Sign messages » رو روشن کن (و برای پست های خودت « امضای چنل »). قفل « ارسال متن » رو هم میتونی همراهش روشن کنی تا پست فقط-متنی اصلاً ارسال نشه.\n\n` +
-    `━━━ مدت بن خودکار (v1.9) ━━━\n` +
-    `چهار حالت داره: همیشگی، ۱ ساعت، ۲۴ ساعت، ۷ روز. تو وضعیت قرمز، متخلف علاوه بر عزل به همین مدت بن میشه و تلگرام بعد از مدت خودش بازش میکنه؛ دکمه « لغو بن » تو گزارش همیشه هست.\n\n` +
-    `━━━ بکاپ تنظیمات (v1.9) ━━━\n` +
-    `« بکاپ » کل تنظیمات (قفل ها، وضعیت زرد/قرمز، مدت بن، قفل زمان دار، اعلان قفل و…) رو تو یه متن میده و « بازگردانی » همون متن رو میگیره و دقیقاً همون وضعیت رو برمی گردونه — مناسب انتقال تنظیمات بین چنل ها و بازیابی سریع.\n\n` +
-    `━━━ آمار امروز و گزارش آزمایشی (v1.9) ━━━\n` +
-    `تو « آمار تخلفات » شمارنده « امروز » به وقت تهران جدا نمایش داده میشه. تو « ادمین های ربات » دکمه « گزارش آزمایشی » به مالک و همه ادمین ها و ناظرها پیام تستی میفرسته تا مطمئن شی گزارش ها به همه میرسه.\n\n` +
-    `━━━ سکوت فرد خاص (v3.3) ━━━\n` +
-    `منوی چنل ⇒ « 🔇 سکوت فرد » : شناسه + مدت ( گرید یا دلخواه ) ؛ از همان لحظه هر پست و ادیتِ اون فرد فوراً حذف میشه — فقط پیام های « بعد از سکوت » ؛ پیام های قبلی دست نمیخورن . پایان مدت خودکار خبر داده میشه و آزادسازی دستی هم هست ؛ دکمه های سریع « سکوت 24 ساعته / همیشه » روی گزارش های زرد/قرمز هم هست . پست بی امضا شناسه نداره و قابل سکوت نیست .\n` +
-    `اگه قفل ها کار نمیکنن، « سلامت » رو چک کن (دسترسی حذف پیام).\n` +
-    `محدودیت تلگرام — هیچ رباتی نمیتونه پیام های قدیمی تر از ۴۸ ساعت رو پاک کنه؛ ادیتِ چنین پیام هایی گزارش میشه ولی حذفش با توئه. پست های تازه همیشه فوراً پاک میشن.\n` +
-    `تغییر تنظیمات حداکثر چند ثانیه بعد همه جا اعمال میشه. ربات روی پلن رایگان Cloudflare اجرا میشه و برای چنل های عادی کاملاً کافیه.`
+    `<h3>راهنمای کامل ضد خیانت</h3>` +
+    `<p>هر موضوع یه دسته جمع شدنیه ؛ لمسش کن تا باز بشه :</p>` +
+    D(`راه اندازی در ۳ قدم`,
+      `<ol><li>ربات رو ادمین چنل کن (دسترسی « حذف پیام » الزامیه، بقیه اختیاری).</li>` +
+      `<li>چنل ثبت میشه و پیام تأیید میاد — فعالش کن. ربات چندچنله: هر تعداد چنل رو جداگانه فعال کن؛ همه همزمان میمونن.</li>` +
+      `<li>قفل ها رو روشن کن؛ از همون لحظه هر تخلف فوراً پاک میشه.</li></ol>`) +
+    D(`قفل ها`,
+      `<ul>` +
+      `<li><b>ادیت متن و ادیت مدیا</b> — هر ادیتی پیام رو فوراً پاک میکنه، حتی پیام های چند روز پیش.</li>` +
+      `<li><b>لینک تو ادیت</b> — فقط ادیت هایی که لینک دارن پاک میشن (ضد تبلیغ پنهان).</li>` +
+      `<li><b>ارسال ها</b> — هر نوع پست جداگانه بسته میشه: متن، عکس، ویدیو، گیف، استیکر، ویس، ویدیو نوت، موزیک، فایل، نظرسنجی، مخاطب، لوکیشن، بازی.</li>` +
+      `<li><b>فوروارد</b> — هر پست فورواردی پاک میشه. <b>لینک</b> — هر پست دارای لینک (entity یا متن) پاک میشه.</li>` +
+      `<li><b>قفل کامل</b> — هیچ چیز ارسال یا ادیت نمیشه.</li></ul>`) +
+    D(`اعلان قفل در چنل`,
+      `<p>با روشن/خاموش شدن « قفل آنی » و شروع/پایانِ قفل زمان دار، ربات یه اعلان با « پیام ریچ » ( تیتر + پاراگراف + پانویس ) تو خودِ چنل میفرسته و شناسه چنل (t.me/…) رو زیرش مینویسه.</p>` +
+      `<p>اگه نمیخوای متنی تو چنلت ارسال شه، تو پنل « قفل ها » دکمه « اعلان قفل در چنل » رو خاموش کن؛ قفل ها بدون اعلان به کارشون ادامه میدن.</p>`) +
+    D(`قفل زمان دار`,
+      `<p>بازه دلخواه ، همه به وقت تهران . ساعت شروع و پایان رو با دکمه های ۰ تا ۲۳ انتخاب کن یا تایپ کن ( مثلاً 4:30 ) ؛ پریست های آماده ( هر شب 4 تا 8 / هر شب 22 تا 6 / ۲۴ ساعته ) هم تو پنل هست . مثلاً شروع 4 و پایان 20 با حالت « ارسال و ادیت » یعنی تو این بازه هر پست یا ادیتی فوراً پاک میشه و بیرونِ بازه همه چیز آزاده . بازه های عبوری از نیمه شب هم پشتیبانی میشه .</p>`) +
+    D(`قفل آنی`,
+      `<p>با یه دکمه کل چنل کامل بسته میشه: هر پیام یا ادیتی، از هر نوعی، فوراً پاک میشه — تا وقتی خودت « باز کن » بزنی. این قفل مستقله و بعد از باز شدن همه چیز برمی گرده به حالت قبل.</p>`) +
+    D(`گزارش و آمار`,
+      `<p>گزارش هر حذف (چنل، دلیل، ساعت، متخلف با شناسه) به پیوی مالک و ادمین ها و ناظرهای همون چنل میاد. « آخرین تخلف ها » و آمار کامل — با شمارنده « امروز » به وقت تهران — تو بخش آمار هر چنله.</p>`) +
+    D(`چندچنله و دسترسی چنلی`,
+      `<ul><li>ربات همزمان تو هر تعداد چنل اجرا میشه؛ آمار، قفل ها و لاگ هر چنل جداست.</li>` +
+      `<li>مالک کنار هر ادمین/ناظر دکمه « چنل ها » رو داره و دقیقاً تعیین میکنه اون نفر فقط به کدوم چنل ها دسترسی داشته باشه.</li>` +
+      `<li>ادمین فقط چنل های خودش رو میبینه و مدیریت میکنه؛ تنظیمات ربات و بقیه چنل ها براش در دسترس نیست.</li>` +
+      `<li>گزارش تخلف هر چنل فقط برای مالک و ادمین ها/ناظرهای همون چنل میره. ادمینی که هنوز چنلی براش تعیین نشده چیزی نمیبینه.</li></ul>`) +
+    D(`غیرفعال کردن چنل`,
+      `<p>از منوی هر چنل با « ⛔ غیرفعال کردن چنل » ربات رو روی همون چنل موقتاً خاموش کن : هیچ پیام یا ادیتی پردازش یا حذف نمیشه و قفل آنی و قفل زمان دار هم تا فعال سازی دوباره متوقفن — ولی تنظیمات و آمار و سکوت ها میمونن و سکوت ها سر وقت خودشون تموم میشن.</p>` +
+      `<p>چنل غیرفعال تو « چنل های من » با برچسب « ⛔ غیرفعال ( توسط مالک ) » دیده میشه و برگردوندنش یه دکمه است : « فعال سازی این چنل ».</p>`) +
+    D(`تشخیص ادیت واقعی`,
+      `<p>خیلی از « ادیت ها » اصلاً ادیت نیستن : رأی خوردن پست نظرسنجی، تیک چک لیست، به روز شدن لوکیشن زنده و مارکاپ سرویس های دیگر همه به شکل edited_channel_post میآیند بدون آن که متن یا کپشن عوض بشه.</p>` +
+      `<p>ربات اثر انگشت محتوای هر پست ( متن + نوع مدیا + پرسش نظرسنجی ) رو نگه میداره و فقط وقتی محتوا واقعاً عوض شده باشه ادیت رو تخلف حساب میکنه — نه حذف اشتباه، نه گزارش بیخودی.</p>`) +
+    D(`همگام با Bot API 10.4 ( نوامبر 2026 )`,
+      `<ul>` +
+      `<li>ظاهر همه پیام ها با « پیام ریچ » بازنویسی شده : <b>جدول های پرمیومی</b> ، تیتر ، دسته های جمع شدن و پانویس — به جای متن ساده .</li>` +
+      `<li>تأیید عملیات های مهم ( باز/بستن قفل آنی ، فعال/غیرفعال کردن چنل ، ریست آمار ، آزادسازی سکوت ) با « کارت فوری » میاد : پیامی که فقط برای خودت نمایش داده میشه و بعد از لحظاتی خودش محو میشه ؛ هیچ اثری تو چت نمی مونه ( Ephemeral ) .</li>` +
+      `<li>زمان ها با tg-time ارسال میشن : پایان سکوت و تاریخ تخلف ها برای هر کس به ساعت و زبان محلی خودش نمایش داده میشه .</li>` +
+      `<li>ایموجی های پرمیوم ( tg-emoji ) تو پنل ها و گزارش ها وقتی مالک ربات پرمیوم داشته باشه نمایش داده میشن .</li>` +
+      `<li>وقتی چنل غیرفعاله ، دکمه های اقدام واقعاً « غیرفعال » و غیرقابل کلیک نمایش داده میشن ( Bot API 10.3 ) .</li></ul>`) +
+    D(`ادمین ها`,
+      `<ul><li>مالک از « ادمین های ربات » به دیگران دسترسی میده: شناسه عددی رو بفرست (با <code>/id</code> یا @userinfobot) و تو ویرایشگری که باز میشه چنل هاش رو انتخاب کن.</li>` +
+      `<li><b>افزودن گروهی</b> — به جای یه شناسه، لیست بفرست: با کاما یا خط جدید جدا کن (مثال: <code>111, 222, 333</code>؛ حداکثر ۵۰). برای ادمین، ناظر و ادمین سازی داخل چنل کار میکنه.</li>` +
+      `<li><b>نام و منشن</b> — تو همه لیست ها و گزارش های گروهی، نام و منشن هر نفر کنار شناسه ش نمایش داده میشه تا دیگه لازم نباشه شناسه ها رو تک تک چک کنی.</li></ul>`) +
+    D(`ناظرها ( فقط مشاهده )`,
+      `<p>ناظر فقط تخلف های چنل های تعیین شده ش رو میبینه — گزارش پیوی، آخرین تخلف ها و آمار. هیچ تنظیمی نمیتونه تغییر بده؛ مناسب نظارت و جبران سریع اگه ربات اشتباهی چیزی رو پاک کرده باشه.</p>`) +
+    D(`نردبان وضعیت ( زرد / قرمز )`,
+      `<ul><li>دکمه وضعیت سه حالته ست و با هر زدن میچرخه: خاموش، زرد، قرمز.</li>` +
+      `<li><b>زرد</b> — هرکی پست مدیادار رو ادیت کنه: پیام فوراً پاک میشه، متخلف عزل میشه و گزارش میاد (بدون بن).</li>` +
+      `<li><b>قرمز</b> — همون + بن از چنل؛ گزارش قرمز دکمه « لغو بن » و « بازگردانی دسترسی های قبلی » رو داره.</li>` +
+      `<li>تو زرد و قرمز، ادیت پست فقط-متنی هم پاک میشه؛ تو حالت خاموش فقط قفل ها اجرا میشن.</li>` +
+      `<li><b>بازگردانی</b> — قبل از عزل، دسترسی های متخلف ۲۴ ساعت نگه داشته میشه؛ اگه تطبیق امضا اشتباه بود با یه دکمه برمی گرده.</li>` +
+      `<li>شناسایی از فرستنده ست؛ تو چنل های ناشناس با تطبیق امضا (فقط وقتی قطعی باشه). خود ربات و مالک چنل هیچ وقت عزل یا بن نمیشن.</li></ul>`) +
+    D(`ادمین سازی تو چنل`,
+      `<p>از « ادمین های چنل » تو منوی هر چنل: « افزودن ادمین جدید » ← شناسه عددی یا لیست شناسه ها (یا @یوزرنیم تکی) ← پریست یک ضربه ای: « ادمین معمولی » (ارسال + حذف)، « ادمین کامل » (همه به جز ناشناس)، « ناشناس » (پست با نام چنل) — یا دسترسی ها رو دستی تنظیم کن و « تأیید و ارتقا » رو بزن.</p>` +
+      `<p>تو حالت گروهی یه پریست به همه اعمال میشه و آخرش گزارش نفر به نفر میاد: هر ✅ ادمین شده و هر ❌ با دلیل فارسی (مثل « کاربر شناخته نشد » یا « مالک چنل است »). شناسه های تکراری و نامعتبر خودکار نادیده گرفته میشن.</p>` +
+      `<p>بعد از هر ارتقا دکمه « ادمین بعدی » هست؛ فهرست ادمین های فعلی برای هر نفر دو دکمه داره: « عزل » و « ویرایش دسترسی » — ویرایش، دسترسی های فعلی رو لود میکنه؛ عوضشون کن و « تأیید و ارتقا » رو بزن. ربات باید دسترسی « Add New Admins » رو داشته باشه.</p>`) +
+    D(`هم گام با آخرین تلگرام`,
+      `<p>آلبوم/اسلایدشو: تخلف تو هر قسمت آلبوم (عکس/ویدیوی چندتایی) ⇒ « کل آلبوم » حذف میشه. تایپ های جدید تلگرام (پیام ریچ، چک لیست، عکس زنده، مدیای پولی) هم مثل بقیه زیر قفل ها و نردبان زرد/قرمز هستن. تغییر یا ترک مالکیت چنل، هشدار فوری به مالک ربات میره. دکمه های خطرناک قرمز، تأییدی ها سبز و اطلاعاتی ها آبی هستن .</p>`) +
+    D(`قفل پست ناشناس`,
+      `<p>اگه روشن باشه، هر پست « بدون امضا » — یعنی از طرف خودِ چنل — فوراً پاک میشه؛ هیچ کس نمیتونه بدون هویت واقعی خودش پست بده.</p>` +
+      `<p>برای اینکه امضا زیر پست بیاد، تو دسترسی هر ادمین « Sign messages » رو روشن کن (و برای پست های خودت « امضای چنل »). قفل « ارسال متن » رو هم میتونی همراهش روشن کنی تا پست فقط-متنی اصلاً ارسال نشه.</p>`) +
+    D(`مدت بن خودکار`,
+      `<p>چهار حالت داره: همیشگی، ۱ ساعت، ۲۴ ساعت، ۷ روز. تو وضعیت قرمز، متخلف علاوه بر عزل به همین مدت بن میشه و تلگرام بعد از مدت خودش بازش میکنه؛ دکمه « لغو بن » تو گزارش همیشه هست.</p>`) +
+    D(`بکاپ تنظیمات`,
+      `<p>« بکاپ » کل تنظیمات (قفل ها، وضعیت زرد/قرمز، مدت بن، قفل زمان دار، اعلان قفل و…) رو تو یه متن میده و « بازگردانی » همون متن رو میگیره و دقیقاً همون وضعیت رو برمی گردونه — مناسب انتقال تنظیمات بین چنل ها و بازیابی سریع.</p>`) +
+    D(`آمار امروز و گزارش آزمایشی`,
+      `<p>تو « آمار تخلفات » شمارنده « امروز » به وقت تهران جدا نمایش داده میشه. تو « ادمین های ربات » دکمه « گزارش آزمایشی » به مالک و همه ادمین ها و ناظرها پیام تستی میفرسته تا مطمئن شی گزارش ها به همه میرسه.</p>`) +
+    D(`سکوت فرد خاص`,
+      `<p>منوی چنل ⇒ « 🔇 سکوت فرد » : شناسه + مدت ( گرید یا دلخواه ) ؛ از همان لحظه هر پست و ادیتِ اون فرد فوراً حذف میشه — فقط پیام های « بعد از سکوت » ؛ پیام های قبلی دست نمیخورن . پایان مدت خودکار خبر داده میشه و آزادسازی دستی هم هست ؛ دکمه های سریع « سکوت 24 ساعته / همیشه » روی گزارش های زرد/قرمز هم هست . پست بی امضا شناسه نداره و قابل سکوت نیست .</p>`) +
+    D(`محدودیت های تلگرام`,
+      `<ul><li>اگه قفل ها کار نمیکنن، « سلامت » رو چک کن (دسترسی حذف پیام).</li>` +
+      `<li>هیچ رباتی نمیتونه پیام های قدیمی تر از ۴۸ ساعت رو پاک کنه؛ ادیتِ چنین پیام هایی گزارش میشه ولی حذفش با توئه. پست های تازه همیشه فوراً پاک میشن.</li>` +
+      `<li>تغییر تنظیمات حداکثر چند ثانیه بعد همه جا اعمال میشه. ربات روی پلن رایگان Cloudflare اجرا میشه و برای چنل های عادی کاملاً کافیه.</li></ul>`) +
+    FOOT()
   ), (
-    `<b>Anti-Treason Bot Guide</b>\n\n` +
-    `━━━ Setup ━━━\n` +
-    `1) Make the bot an admin of your channel (the "Delete messages" permission is required; the rest are optional).\n` +
-    `2) The channel registers and an activation message arrives — approve it. The bot is multi-channel: activate as many channels as you like, one by one; they all stay active together.\n` +
-    `3) Turn on the locks; from that moment every violation is deleted instantly.\n\n` +
-    `━━━ Locks ━━━\n` +
-    `Text edit & media edit — any edit deletes the message instantly, even messages from days ago.\n` +
-    `Link in edit — only edits containing links are deleted (anti-hidden-ads).\n` +
-    `Posts — every post type can be locked separately: text, photo, video, GIF, sticker, voice, video note, music, file, poll, contact, location, dice.\n` +
-    `Forwards — every forwarded post is deleted. Links — any post containing a link (entity or text) is deleted.\n` +
-    `Full lock — nothing can be sent or edited.\n\n` +
-    `━━━ Lock announcements (v2.6) ━━━\n` +
-    `When the instant lock turns on/off or the scheduled window starts/ends, the bot posts a bold announcement in the channel itself, with the channel's t.me handle under it.\n` +
-    `If you don't want any text posted in your channel, turn off "Channel lock announcements" in the Locks panel; the locks keep working silently.\n\n` +
-    `━━━ Scheduled lock ━━━\n` +
-    `Any window you like, all in Tehran time. Example: start 4:00 and end 20:00 in "send & edit" mode means every post or edit inside the window is deleted instantly, and everything is free outside it. Windows crossing midnight are supported too.\n\n` +
-    `━━━ Instant lock ━━━\n` +
-    `One button closes the entire channel completely: every message or edit, of any type, is deleted instantly — until you press "Open". This lock is independent; after opening, everything returns to how it was.\n\n` +
-    `━━━ Reports & stats ━━━\n` +
-    `Every deletion report (channel, reason, time, offender with ID) arrives in the DM of the owner and that channel's admins and viewers. "Latest violations" and full stats — with a "today" counter in Tehran time — live in each channel's stats section.\n\n` +
-    `━━━ Multi-channel & scoped access (v2.0) ━━━\n` +
-    `The bot runs in any number of channels at once; stats, locks and logs are separate per channel.\n` +
-    `Next to each admin/viewer the owner has a "Channels" button defining exactly which channels that person can access.\n` +
-    `An admin only sees and manages their own channels; bot settings and other channels are out of their reach.\n` +
-    `A channel's violation report goes only to the owner and that channel's admins/viewers. An admin with no channels assigned sees nothing.\n\n` +
-    `━━━ Disable a channel (v3.4) ━━━\n` +
-    `From each channel's menu, "⛔ Disable channel" pauses the bot on that channel: no message or edit is processed or deleted, and instant/scheduled locks pause until re-enabled — while settings, stats and mutes are preserved (mutes still expire on time).\n` +
-    `Disabled channels show "⛔ Disabled (by owner)" in "My channels" and come back with one tap: "Activate this channel".\n\n` +
-    `━━━ True-edit detection (v3.5) ━━━\n` +
-    `Many "edits" aren't edits at all: poll votes, checklist ticks, live-location updates and other services' markup all arrive as edited_channel_post without changing the text or caption.\n` +
-    `The bot keeps a content fingerprint (text + media type + poll question) of every post and only treats an edit as a violation when the content actually changed — no false deletes, no noise.\n\n` +
-    `━━━ In sync with November 2026 (v4.0) ━━━\n` +
-    `Lock announcements in the channel are sent as rich messages (Bot API 10.1): a heading, separate paragraphs and a footer — instead of one plain line.\n` +
-    `Key action confirmations (instant lock open/close, channel enable/disable, stats reset, mute release) arrive as ephemeral cards: visible only to you and auto-disappearing after a few moments — nothing is left behind in the chat (Bot API 10.4).\n` +
-    `Times use tg-time: mute endings and violation timestamps render in every viewer's own locale and timezone (Bot API 10.4).\n` +
-    `While a channel is paused, its action buttons render as truly disabled and unclickable (Bot API 10.3).\n\n` +
-    `━━━ Admins ━━━\n` +
-    `The owner grants access from "Bot admins": send the numeric ID (via <code>/id</code> or @userinfobot) and pick their channels in the editor that opens.\n` +
-    `Batch add (v2.1) — send a list instead of one ID: separate with commas or new lines (e.g. <code>111, 222, 333</code>; max 50). Works for admins, viewers and in-channel promotion.\n` +
-    `Names & mentions (v2.2) — in every list and batch report, each person's name and mention appear next to their ID, so you no longer need to check IDs one by one.\n\n` +
-    `━━━ Viewers (view-only) ━━━\n` +
-    `A viewer only sees violations of their assigned channels — DM reports, latest violations and stats. They cannot change any setting; ideal for oversight and quick fixes if the bot deletes something by mistake.\n\n` +
-    `━━━ Punish ladder (v1.8) ━━━\n` +
-    `The mode button has three states and cycles on each tap: off, yellow, red.\n` +
-    `Yellow — anyone editing a media post: the message is deleted instantly, the offender is demoted and a report arrives (no ban).\n` +
-    `Red — same + ban from the channel; the red report has "Unban" and "Restore previous access" buttons.\n` +
-    `In yellow and red, text-only edits are deleted as well; when off, only the locks apply.\n` +
-    `Restore — before demotion, the offender's permissions are kept for 24 hours; if the signature match was wrong, one button brings them back.\n` +
-    `Identification uses the sender; in anonymous channels it matches signatures (only when conclusive). The bot itself and the channel owner are never demoted or banned.\n\n` +
-    `━━━ In-channel promotion (v1.8 + batch v2.1) ━━━\n` +
-    `From "Channel admins" in each channel's menu: "Add new admin" ← a numeric ID or a list (or a single @username) ← one-tap presets: "Basic admin" (post + delete), "Full admin" (everything except anonymous), "Anonymous" (posts as the channel) — or set permissions manually and hit "Apply & promote".\n` +
-    `In batch mode one preset applies to everyone and a per-person report arrives at the end: each ✅ was promoted and each ❌ failed with a reason (like "user not recognized" or "channel owner"). Duplicate and invalid IDs are ignored automatically.\n` +
-    `After each promotion there is a "Next admin" button; the current admin list shows two buttons per person: "Demote" and "Edit permissions" (v2.2) — editing loads their current permissions; adjust them and hit "Apply & promote". The bot needs the "Add New Admins" permission.\n\n` +
-    `━━━ In sync with the latest Telegram (v2.4) ━━━\n` +
-    `Albums/slideshows: a violation in any part of a multi-photo/video album ⇒ the whole album is deleted. ` +
-    `New Telegram types (rich messages, checklists, live photos, paid media) are covered by the locks and the yellow/red ladder too. ` +
-    `Channel ownership change/left triggers an instant alert to the bot owner. ` +
-    `Dangerous buttons are red (danger), confirmations green (success), informational blue (primary).\n\n` +
-    `━━━ Anonymous-post lock (v1.9) ━━━\n` +
-    `When enabled, any "unsigned" post — i.e. from the channel itself — is deleted instantly; nobody can post without their real identity.\n` +
-    `For signatures to appear under posts, enable "Sign messages" for each admin (and "channel signature" for your own posts). You can also enable the "Text posts" lock so text-only posts are never sent at all.\n\n` +
-    `━━━ Auto-ban duration (v1.9) ━━━\n` +
-    `Four options: permanent, 1 hour, 24 hours, 7 days. In red mode the offender is banned for that duration in addition to being demoted, and Telegram lifts the ban automatically; an "Unban" button is always in the report.\n\n` +
-    `━━━ Settings backup (v1.9) ━━━\n` +
-    `"Backup" produces all settings (locks, yellow/red mode, ban duration, scheduled lock, …) as one text, and "Restore" takes that text back and returns exactly that state — great for moving settings between channels and quick recovery.\n\n` +
-    `━━━ Today's stats & test report (v1.9) ━━━\n` +
-    `The stats section shows a separate "today" counter in Tehran time. "Bot admins" has a "Test report" button that sends a test message to the owner, all admins and viewers so you can confirm reports reach everyone.\n\n` +
-    `━━━ Mute a person (v3.3) ━━━\n` +
-    `Channel menu → "🔇 Mute a person": send their ID + duration (grid or custom); from that moment every post/edit of theirs is deleted instantly — only messages after the mute, older ones stay untouched. Expiry is announced automatically and manual release is one tap away; quick "Mute 24h / Permanent" buttons also sit on yellow/red alerts. Unsigned posts carry no sender ID, so they cannot be attributed or muted.\n` +
-    `If locks don't work, check "Health" (the delete-messages permission).\n` +
-    `Telegram limitation — no bot can delete messages older than 48 hours; edits of such messages are reported but deletion is up to Telegram. Fresh posts are always deleted instantly.\n` +
-    `Setting changes apply everywhere within a few seconds. The bot runs on Cloudflare's free plan — fully sufficient for normal channels.`
+    `<h3>Anti-Treason Bot Guide</h3>` +
+    `<p>Every topic is a collapsible section — tap to expand:</p>` +
+    D(`Setup in 3 steps`,
+      `<ol><li>Make the bot an admin of your channel (the "Delete messages" permission is required; the rest are optional).</li>` +
+      `<li>The channel registers and an activation message arrives — approve it. The bot is multi-channel: activate as many channels as you like, one by one; they all stay active together.</li>` +
+      `<li>Turn on the locks; from that moment every violation is deleted instantly.</li></ol>`) +
+    D(`Locks`,
+      `<ul><li><b>Text edit &amp; media edit</b> — any edit deletes the message instantly, even messages from days ago.</li>` +
+      `<li><b>Link in edit</b> — only edits containing links are deleted (anti-hidden-ads).</li>` +
+      `<li><b>Posts</b> — every post type can be locked separately: text, photo, video, GIF, sticker, voice, video note, music, file, poll, contact, location, dice.</li>` +
+      `<li><b>Forwards</b> — every forwarded post is deleted. <b>Links</b> — any post containing a link (entity or text) is deleted.</li>` +
+      `<li><b>Full lock</b> — nothing can be sent or edited.</li></ul>`) +
+    D(`Lock announcements`,
+      `<p>When the instant lock turns on/off or the scheduled window starts/ends, the bot posts a rich announcement in the channel itself (heading + paragraphs + footer), with the channel's t.me handle under it.</p>` +
+      `<p>If you don't want any text posted in your channel, turn off "Channel lock announcements" in the Locks panel; the locks keep working silently.</p>`) +
+    D(`Scheduled lock`,
+      `<p>Any window you like, all in Tehran time. Example: start 4:00 and end 20:00 in "send &amp; edit" mode means every post or edit inside the window is deleted instantly, and everything is free outside it. Windows crossing midnight are supported too.</p>`) +
+    D(`Instant lock`,
+      `<p>One button closes the entire channel completely: every message or edit, of any type, is deleted instantly — until you press "Open". This lock is independent; after opening, everything returns to how it was.</p>`) +
+    D(`Reports &amp; stats`,
+      `<p>Every deletion report (channel, reason, time, offender with ID) arrives in the DM of the owner and that channel's admins and viewers. "Latest violations" and full stats — with a "today" counter in Tehran time — live in each channel's stats section.</p>`) +
+    D(`Multi-channel &amp; scoped access`,
+      `<ul><li>The bot runs in any number of channels at once; stats, locks and logs are separate per channel.</li>` +
+      `<li>Next to each admin/viewer the owner has a "Channels" button defining exactly which channels that person can access.</li>` +
+      `<li>An admin only sees and manages their own channels; bot settings and other channels are out of their reach.</li>` +
+      `<li>A channel's violation report goes only to the owner and that channel's admins/viewers. An admin with no channels assigned sees nothing.</li></ul>`) +
+    D(`Disable a channel`,
+      `<p>From each channel's menu, "⛔ Disable channel" pauses the bot on that channel: no message or edit is processed or deleted, and instant/scheduled locks pause until re-enabled — while settings, stats and mutes are preserved (mutes still expire on time).</p>` +
+      `<p>Disabled channels show "⛔ Disabled (by owner)" in "My channels" and come back with one tap: "Activate this channel".</p>`) +
+    D(`True-edit detection`,
+      `<p>Many "edits" aren't edits at all: poll votes, checklist ticks, live-location updates and other services' markup all arrive as edited_channel_post without changing the text or caption.</p>` +
+      `<p>The bot keeps a content fingerprint (text + media type + poll question) of every post and only treats an edit as a violation when the content actually changed — no false deletes, no noise.</p>`) +
+    D(`In sync with Bot API 10.4 (Nov 2026)`,
+      `<ul><li>The look of every message is rebuilt with rich messages: <b>premium tables</b>, headings, collapsible sections and footers — instead of plain text.</li>` +
+      `<li>Key action confirmations (instant lock open/close, channel enable/disable, stats reset, mute release) arrive as ephemeral cards: visible only to you and auto-disappearing after a few moments — nothing is left behind in the chat.</li>` +
+      `<li>Times use tg-time: mute endings and violation timestamps render in every viewer's own locale and timezone.</li>` +
+      `<li>Premium emoji (tg-emoji) render in panels and reports when the bot owner has Telegram Premium.</li>` +
+      `<li>While a channel is paused, its action buttons render as truly disabled and unclickable (Bot API 10.3).</li></ul>`) +
+    D(`Admins`,
+      `<ul><li>The owner grants access from "Bot admins": send the numeric ID (via <code>/id</code> or @userinfobot) and pick their channels in the editor that opens.</li>` +
+      `<li><b>Batch add</b> — send a list instead of one ID: separate with commas or new lines (e.g. <code>111, 222, 333</code>; max 50). Works for admins, viewers and in-channel promotion.</li>` +
+      `<li><b>Names &amp; mentions</b> — in every list and batch report, each person's name and mention appear next to their ID, so you no longer need to check IDs one by one.</li></ul>`) +
+    D(`Viewers (view-only)`,
+      `<p>A viewer only sees violations of their assigned channels — DM reports, latest violations and stats. They cannot change any setting; ideal for oversight and quick fixes if the bot deletes something by mistake.</p>`) +
+    D(`Punish ladder (yellow / red)`,
+      `<ul><li>The mode button has three states and cycles on each tap: off, yellow, red.</li>` +
+      `<li><b>Yellow</b> — anyone editing a media post: the message is deleted instantly, the offender is demoted and a report arrives (no ban).</li>` +
+      `<li><b>Red</b> — same + ban from the channel; the red report has "Unban" and "Restore previous access" buttons.</li>` +
+      `<li>In yellow and red, text-only edits are deleted as well; when off, only the locks apply.</li>` +
+      `<li><b>Restore</b> — before demotion, the offender's permissions are kept for 24 hours; if the signature match was wrong, one button brings them back.</li>` +
+      `<li>Identification uses the sender; in anonymous channels it matches signatures (only when conclusive). The bot itself and the channel owner are never demoted or banned.</li></ul>`) +
+    D(`In-channel promotion`,
+      `<p>From "Channel admins" in each channel's menu: "Add new admin" ← a numeric ID or a list (or a single @username) ← one-tap presets: "Basic admin" (post + delete), "Full admin" (everything except anonymous), "Anonymous" (posts as the channel) — or set permissions manually and hit "Apply &amp; promote".</p>` +
+      `<p>In batch mode one preset applies to everyone and a per-person report arrives at the end: each ✅ was promoted and each ❌ failed with a reason (like "user not recognized" or "channel owner"). Duplicate and invalid IDs are ignored automatically.</p>` +
+      `<p>After each promotion there is a "Next admin" button; the current admin list shows two buttons per person: "Demote" and "Edit permissions" — editing loads their current permissions; adjust them and hit "Apply &amp; promote". The bot needs the "Add New Admins" permission.</p>`) +
+    D(`In sync with the latest Telegram`,
+      `<p>Albums/slideshows: a violation in any part of a multi-photo/video album ⇒ the whole album is deleted. New Telegram types (rich messages, checklists, live photos, paid media) are covered by the locks and the yellow/red ladder too. Channel ownership change/left triggers an instant alert to the bot owner. Dangerous buttons are red (danger), confirmations green (success), informational blue (primary).</p>`) +
+    D(`Anonymous-post lock`,
+      `<p>When enabled, any "unsigned" post — i.e. from the channel itself — is deleted instantly; nobody can post without their real identity.</p>` +
+      `<p>For signatures to appear under posts, enable "Sign messages" for each admin (and "channel signature" for your own posts). You can also enable the "Text posts" lock so text-only posts are never sent at all.</p>`) +
+    D(`Auto-ban duration`,
+      `<p>Four options: permanent, 1 hour, 24 hours, 7 days. In red mode the offender is banned for that duration in addition to being demoted, and Telegram lifts the ban automatically; an "Unban" button is always in the report.</p>`) +
+    D(`Settings backup`,
+      `<p>"Backup" produces all settings (locks, yellow/red mode, ban duration, scheduled lock, …) as one text, and "Restore" takes that text back and returns exactly that state — great for moving settings between channels and quick recovery.</p>`) +
+    D(`Today's stats &amp; test report`,
+      `<p>The stats section shows a separate "today" counter in Tehran time. "Bot admins" has a "Test report" button that sends a test message to the owner, all admins and viewers so you can confirm reports reach everyone.</p>`) +
+    D(`Mute a person`,
+      `<p>Channel menu → "🔇 Mute a person": send their ID + duration (grid or custom); from that moment every post/edit of theirs is deleted instantly — only messages after the mute, older ones stay untouched. Expiry is announced automatically and manual release is one tap away; quick "Mute 24h / Permanent" buttons also sit on yellow/red alerts. Unsigned posts carry no sender ID, so they cannot be attributed or muted.</p>`) +
+    D(`Telegram limitations`,
+      `<ul><li>If locks don't work, check "Health" (the delete-messages permission).</li>` +
+      `<li>No bot can delete messages older than 48 hours; edits of such messages are reported but deletion is up to Telegram. Fresh posts are always deleted instantly.</li>` +
+      `<li>Setting changes apply everywhere within a few seconds. The bot runs on Cloudflare's free plan — fully sufficient for normal channels.</li></ul>`) +
+    FOOT()
   ));
 }
 
 const helpKB = () => kb([[BTN('🔙 بازگشت', 'home')]]);
 
 function deniedText() {
-  return L(`<b>دسترسی ندارید !</b>\n\nاین پنل فقط برای مالک ربات و افرادیه که مالک براشون دسترسی تعیین کرده ؛ و هر نفر هم فقط تو محدوده چنل های خودش .`,
-           `<b>You do not have access!</b>\n\nThis panel is only for the bot owner and people the owner has granted access to — and each person only within their assigned channels.`);
+  return L(`<h4>دسترسی ندارید !</h4><p>این پنل فقط برای مالک ربات و افرادیه که مالک براشون دسترسی تعیین کرده ؛ و هر نفر هم فقط تو محدوده چنل های خودش .</p>`,
+           `<h4>You do not have access!</h4><p>This panel is only for the bot owner and people the owner has granted access to — and each person only within their assigned channels.</p>`);
 }
 
 /* ============================================================================
@@ -3108,16 +3238,16 @@ async function cmdStart(msg, env) {
     const chats = await listChats(env);
     let known = '';
     if (chats.length) {
-      known = L(`<b>${chats.length} چنل از قبل ثبت شده :</b>\n` +
-        chats.map((c) => `• ${esc(c.title)}`).join('\n') +
-        `\nاز « چنل های من » مدیریتشون کن ؛ همه میتونن همزمان فعال باشن .\n\n`,
-        `<b>${chats.length} channels were already registered:</b>\n` +
-        chats.map((c) => `• ${esc(c.title)}`).join('\n') +
-        `\nManage them from "My channels" — all can be active at once.\n\n`);
+      known = L(`<h4>${faNum(chats.length)} چنل از قبل ثبت شده :</h4>` +
+        `<ul>${chats.map((c) => `<li>${esc(c.title)}</li>`).join('')}</ul>` +
+        `<p><i>از « چنل های من » مدیریتشون کن ؛ همه میتونن همزمان فعال باشن .</i></p>`,
+        `<h4>${chats.length} channels were already registered:</h4>` +
+        `<ul>${chats.map((c) => `<li>${esc(c.title)}</li>`).join('')}</ul>` +
+        `<p><i>Manage them from "My channels" — all can be active at once.</i></p>`);
     }
     await send(env, msg.chat.id,
-      L(`تو به عنوان <b>مالک</b> ربات ثبت شدی ؛ همه تنظیمات از اینجا دست توئه .\n\n`,
-        `You are registered as the bot's <b>owner</b> — every setting is in your hands from here.\n\n`) + known + mainText(from, { role: 'owner', chs: '*' }), mainKB(true));
+      L(`<p>${tgE('star', '⭐️')} تو به عنوان <b>مالک</b> ربات ثبت شدی ؛ همه تنظیمات از اینجا دست توئه .</p>`,
+        `<p>${tgE('star', '⭐️')} You are registered as the bot's <b>owner</b> — every setting is in your hands from here.</p>`) + known + mainText(from, { role: 'owner', chs: '*' }), mainKB(true));
     return;
   }
   const scope = await accessOf(env, from.id);
@@ -3139,14 +3269,16 @@ async function handlePrivate(msg, env, ctx) {
       const me = await botInfo(env);
       const sc0 = await accessOf(env, msg.from.id);
       return send(env, msg.chat.id,
-        L(`<b>شناسه تو :</b> <code>${msg.from.id}</code>\n` +
-        `<b>شناسه این چت :</b> <code>${msg.chat.id}</code>\n` +
-        `ربات : @${esc(me.username || 'bot')}\n\n` +
-        `این عدد رو برای افزودن ادمین به مالک بده .`,
-        `<b>Your ID:</b> <code>${msg.from.id}</code>\n` +
-        `<b>This chat's ID:</b> <code>${msg.chat.id}</code>\n` +
-        `Bot: @${esc(me.username || 'bot')}\n\n` +
-        `Give this number to the owner to be added as an admin.`), mainKB(!!(sc0 && sc0.role === 'owner')));
+        L(`<h3>شناسه ها</h3>` +
+        `<table bordered striped compact><tr><td><b>شناسه تو</b></td><td><code>${msg.from.id}</code></td></tr>` +
+        `<tr><td><b>شناسه این چت</b></td><td><code>${msg.chat.id}</code></td></tr>` +
+        `<tr><td><b>ربات</b></td><td>@${esc(me.username || 'bot')}</td></tr></table>` +
+        `<p>این عدد رو برای افزودن ادمین به مالک بده .</p>`,
+        `<h3>IDs</h3>` +
+        `<table bordered striped compact><tr><td><b>Your ID</b></td><td><code>${msg.from.id}</code></td></tr>` +
+        `<tr><td><b>This chat's ID</b></td><td><code>${msg.chat.id}</code></td></tr>` +
+        `<tr><td><b>Bot</b></td><td>@${esc(me.username || 'bot')}</td></tr></table>` +
+        `<p>Give this number to the owner to be added as an admin.</p>`), mainKB(!!(sc0 && sc0.role === 'owner')));
     }
     if (cmd === '/setlang') {
       // 🌐 v2.3 — فقط مالک: زبان پیش فرض ربات (برای گزارش های چنل و کاربران جدید)
@@ -3207,16 +3339,16 @@ async function handlePrivate(msg, env, ctx) {
                 `Destination: <b>${bcDstLabelEn(st.tgt || 'ch')}</b> (${bcDstN(st.tgt || 'ch', cntB)} targets)`);
       }
       return send(env, msg.chat.id,
-        L(`<b>📣 این پیام ارسال بشه؟</b>
+        L(`<h4>این پیام ارسال بشه؟</h4>
 ${dst}
 
 ` +
-          `پیام بالا پیش نمایشه — با « ارسال ✅ » کپی میشه (بدون هدر فوروارد و با اسم ربات)، با « لغو » بی اثر میشه.`,
-          `<b>📣 Send this message?</b>
+          `<blockquote>پیام بالا پیش نمایشه — با « ارسال ✅ » کپی میشه (بدون هدر فوروارد و با اسم ربات)، با « لغو » بی اثر میشه .</blockquote>`,
+          `<h4>Send this message?</h4>
 ${dst}
 
 ` +
-          `The message above is the preview — "Send ✅" copies it as the bot (no forward header), "Cancel" does nothing.`),
+          `<blockquote>The message above is the preview — "Send ✅" copies it as the bot (no forward header), "Cancel" does nothing.</blockquote>`),
         kb([[BTN('ارسال ✅', 'bcGo', 'success'), BTN('لغو', 'bcX', 'danger')]]));
     }
     if (st && st.exp && st.exp > Date.now() && typeof msg.text === 'string' && msg.text.trim()) {
@@ -3262,10 +3394,11 @@ async function dlConfirm(env, uid, chatId, cid, n) {
   const take = list.slice(-n);
   await setPanelState(env, uid, { t: 'dLGo', cid, ids: take });
   await send(env, chatId,
-    L(`<b>پاک سازی ${faNum(take.length)} پیام آخر</b>\n` +
-      `چنل : <b>${esc(sD.title || cid)}</b>\n` +
-      `قدیمی ترین : <code>${take[0]}</code> — جدیدترین : <code>${take[take.length - 1]}</code>\n\n` +
-      `اگه بعضی از این پیام ها قبلاً حذف شده باشن ، فقط بی اثر میشن و بقیه پاک میشن .`,
+    L(`<h4>پاک سازی ${faNum(take.length)} پیام آخر</h4>` +
+      `<table bordered striped compact><tr><td><b>چنل</b></td><td><b>${esc(sD.title || cid)}</b></td></tr>` +
+      `<tr><td><b>قدیمی ترین</b></td><td><code>${take[0]}</code></td></tr>` +
+      `<tr><td><b>جدیدترین</b></td><td><code>${take[take.length - 1]}</code></td></tr></table>` +
+      `<blockquote>اگه بعضی از این پیام ها قبلاً حذف شده باشن ، فقط بی اثر میشن و بقیه پاک میشن .</blockquote>`,
       `<b>Batch-delete the last ${take.length} messages</b>\n` +
       `Channel: <b>${esc(sD.title || cid)}</b>\n` +
       `Oldest: <code>${take[0]}</code> — Newest: <code>${take[take.length - 1]}</code>\n\n` +
@@ -3678,27 +3811,37 @@ async function adminsText(env, arr) {
   for (const c of chats) titles[c.cid] = c.title;
   const labels = await userLabels(env, arr); // 📋 v2.2 — نام/منشن کنار شناسه
   const lab = (i) => labels[String(i)] || `<code>${esc(i)}</code>`;
-  let t =
-    L(`ادمین های ربات\n\n` +
-    `هر ادمین فقط چنل هایی رو میبینه و مدیریت میکنه که مالک براش تعیین کرده ؛ تنظیمات ربات و بقیه چنل ها براش در دسترس نیست :\n\n`,
-    `👥 <b>Bot admins</b>\n\n` +
-    `Each admin only sees and manages the channels the owner assigned to them — bot settings and other channels are out of their reach:\n\n`);
-  if (!arr.length) t += L(`• فعلاً هیچ ادمینی تعریف نشده.\n`, `• No admin is defined yet.\n`);
+  let rows = '';
+  if (!arr.length) rows = L(`<tr><td>هنوز هیچ ادمینی تعریف نشده</td><td>—</td></tr>`, `<tr><td>No admin is defined yet</td><td>—</td></tr>`);
   else for (const id of arr) {
     const e = acc.a[String(id)];
-    t += `• ${lab(id)} — 📡 ${chsLabel(e ? e.ch : await defaultChs(env), titles)}\n`;
+    rows += `<tr><td>${lab(id)}</td><td>${chsLabel(e ? e.ch : await defaultChs(env), titles)}</td></tr>`;
   }
-  t += L(`\n👤 نام و منشن هر نفر کنار شناسه اش میاد ؛ اگه فقط شناسه میبینی یعنی اون فرد هنوز ربات رو استارت نکرده .` +
-       `\n✅ گزارش هر تخلف فقط برای ادمین هایی میره که به اون چنل دسترسی دارن ( مالک همیشه همه رو میبینه ) .` +
-       `\n📡 با دکمه « چنل ها » کنار هر ادمین دسترسی اش رو تعیین کن .` +
-       `\n📣 با دکمه « گزارش آزمایشی » مطمئن شو گزارش ها به همه میرسه .` +
-       `\n➕ برای افزودن دکمه پایین رو بزن و شناسه عددی فرد رو بفرست ( با /id یا @userinfobot میگیره ) ؛ بعد چنل هایش رو انتخاب میکنی .`,
-       `\n👤 Each person's name and mention appear next to their ID; if you only see an ID, that person hasn't started the bot yet.` +
-       `\n✅ Each violation report goes only to admins who have access to that channel (the owner always sees everything).` +
-       `\n📡 Use the "Channels" button next to each admin to set their access.` +
-       `\n📣 Use "Test report" to confirm reports reach everyone.` +
-       `\n➕ To add someone, tap the button below and send their numeric ID (they can get it via /id or @userinfobot) — then pick their channels.`);
-  return t;
+  return L((
+    `<h3>ادمین های ربات</h3>` +
+    `<p>هر ادمین فقط چنل هایی رو میبینه و مدیریت میکنه که مالک براش تعیین کرده ؛ تنظیمات ربات و بقیه چنل ها براش در دسترس نیست :</p>` +
+    `<table bordered striped compact><caption>${faNum(arr.length)} ادمین</caption><tr><th>ادمین</th><th>چنل های مجاز</th></tr>${rows}</table>` +
+    `<blockquote>` +
+    `👤 نام و منشن هر نفر کنار شناسه اش میاد ؛ اگه فقط شناسه میبینی یعنی اون فرد هنوز ربات رو استارت نکرده .<br/>` +
+    `✅ گزارش هر تخلف فقط برای ادمین هایی میره که به اون چنل دسترسی دارن ( مالک همیشه همه رو میبینه ) .<br/>` +
+    `📡 با دکمه « چنل ها » کنار هر ادمین دسترسی اش رو تعیین کن .<br/>` +
+    `📣 با دکمه « گزارش آزمایشی » مطمئن شو گزارش ها به همه میرسه .<br/>` +
+    `➕ برای افزودن دکمه پایین رو بزن و شناسه عددی فرد رو بفرست ( با /id یا @userinfobot میگیره ) ؛ بعد چنل هایش رو انتخاب میکنی .` +
+    `</blockquote>` +
+    FOOT()
+  ), (
+    `<h3>Bot admins</h3>` +
+    `<p>Each admin only sees and manages the channels the owner assigned to them — bot settings and other channels are out of their reach:</p>` +
+    `<table bordered striped compact><caption>${arr.length} admins</caption><tr><th>Admin</th><th>Allowed channels</th></tr>${rows}</table>` +
+    `<blockquote>` +
+    `👤 Each person's name and mention appear next to their ID; if you only see an ID, that person hasn't started the bot yet.<br/>` +
+    `✅ Each violation report goes only to admins who have access to that channel (the owner always sees everything).<br/>` +
+    `📡 Use the "Channels" button next to each admin to set their access.<br/>` +
+    `📣 Use "Test report" to confirm reports reach everyone.<br/>` +
+    `➕ To add someone, tap the button below and send their numeric ID (they can get it via /id or @userinfobot) — then pick their channels.` +
+    `</blockquote>` +
+    FOOT()
+  ));
 }
 
 function adminsKB(arr) {
@@ -3716,23 +3859,25 @@ async function viewersText(env, arr) {
   for (const c of chats) titles[c.cid] = c.title;
   const labels = await userLabels(env, arr); // 📋 v2.2 — نام/منشن کنار شناسه
   const lab = (i) => labels[String(i)] || `<code>${esc(i)}</code>`;
-  let t =
-    L(`ناظرها ( فقط مشاهده )\n\n` +
-    `ناظرها فقط تخلف های چنل های تعیین شده رو میبینن : گزارش پیوی ، « آخرین تخلف ها » و آمار .\n` +
-    `هیچ تنظیمی نمیتونن عوض کنن ؛ مناسب نظارت و جبران سریع اگه ربات اشتباهی چیزی پاک کرده باشه .\n\n`,
-    `👁 <b>Viewers (view-only)</b>\n\n` +
-    `Viewers only see violations of their assigned channels: DM reports, "📜 Latest violations" and stats.\n` +
-    `They cannot change any setting — ideal for oversight and quick fixes if the bot makes a mistake.\n\n`);
-  if (!arr.length) t += L(`• فعلاً هیچ ناظری تعریف نشده.\n`, `• No viewer is defined yet.\n`);
+  let rows = '';
+  if (!arr.length) rows = L(`<tr><td>هنوز هیچ ناظری تعریف نشده</td><td>—</td></tr>`, `<tr><td>No viewer is defined yet</td><td>—</td></tr>`);
   else for (const id of arr) {
     const e = acc.v[String(id)];
-    t += `• ${lab(id)} — 📡 ${chsLabel(e ? e.ch : await defaultChs(env), titles)}\n`;
+    rows += `<tr><td>${lab(id)}</td><td>${chsLabel(e ? e.ch : await defaultChs(env), titles)}</td></tr>`;
   }
-  t += L(`\n📡 با دکمه « چنل ها » کنار هر ناظر دسترسی اش رو تعیین کن .` +
-       `\n➕ برای افزودن دکمه پایین رو بزن و شناسه عددی فرد رو بفرست ( با /id یا @userinfobot ) .`,
-       `\n📡 Use the "Channels" button next to each viewer to set their access.` +
-       `\n➕ To add someone, tap the button below and send their numeric ID (via /id or @userinfobot).`);
-  return t;
+  return L((
+    `<h3>ناظرها ( فقط مشاهده )</h3>` +
+    `<p>ناظرها فقط تخلف های چنل های تعیین شده رو میبینن : گزارش پیوی ، « آخرین تخلف ها » و آمار .<br/>هیچ تنظیمی نمیتونن عوض کنن ؛ مناسب نظارت و جبران سریع اگه ربات اشتباهی چیزی پاک کرده باشه .</p>` +
+    `<table bordered striped compact><caption>${faNum(arr.length)} ناظر</caption><tr><th>ناظر</th><th>چنل های مجاز</th></tr>${rows}</table>` +
+    `<blockquote>📡 با دکمه « چنل ها » کنار هر ناظر دسترسی اش رو تعیین کن .<br/>➕ برای افزودن دکمه پایین رو بزن و شناسه عددی فرد رو بفرست ( با /id یا @userinfobot ) .</blockquote>` +
+    FOOT()
+  ), (
+    `<h3>Viewers (view-only)</h3>` +
+    `<p>Viewers only see violations of their assigned channels: DM reports, "Latest violations" and stats.<br/>They cannot change any setting — ideal for oversight and quick fixes if the bot makes a mistake.</p>` +
+    `<table bordered striped compact><caption>${arr.length} viewers</caption><tr><th>Viewer</th><th>Allowed channels</th></tr>${rows}</table>` +
+    `<blockquote>📡 Use the "Channels" button next to each viewer to set their access.<br/>➕ To add someone, tap the button below and send their numeric ID (via /id or @userinfobot).</blockquote>` +
+    FOOT()
+  ));
 }
 
 function viewersKB(arr) {
@@ -3759,20 +3904,22 @@ async function scopeView(env, kind, target) {
   const backTo = kind === 'a' ? 'admins' : 'viewers';
   const whoLab = await userLabel(env, S); // 📋 v2.2 — نام/منشن کنار شناسه
   let t =
-    L(`📡 <b>دسترسی چنلی — ${who} ${whoLab}</b>\n\n` +
-    `دسترسی فعلی : <b>${chsLabel(chs, titles)}</b>\n\n` +
+    L(`<h3>دسترسی چنلی — ${who} ${whoLab}</h3>` +
+    `<p>دسترسی فعلی : <b>${chsLabel(chs, titles)}</b></p>` +
+    `<blockquote>` +
     (kind === 'a'
-      ? `این ادمین فقط چنل های انتخاب شده رو میبینه و مدیریت میکنه ؛ تنظیمات ربات و بقیه چنل ها براش در دسترس نیست و گزارش ها فقط از چنل های همین لیست بهش میرسه .\n\n`
-      : `این ناظر فقط تخلف های چنل های انتخاب شده رو میبینه .\n\n`) +
-    `برای افزودن یا گرفتن دسترسی روی نام هر چنل بزن :\n` +
-    `✅ = دسترسی داره   |   ❌ = دسترسی نداره`,
-    `📡 <b>Channel access — ${who} ${whoLab}</b>\n\n` +
-    `Current access: <b>${chsLabel(chs, titles)}</b>\n\n` +
+      ? `این ادمین فقط چنل های انتخاب شده رو میبینه و مدیریت میکنه ؛ تنظیمات ربات و بقیه چنل ها براش در دسترس نیست و گزارش ها فقط از چنل های همین لیست بهش میرسه .`
+      : `این ناظر فقط تخلف های چنل های انتخاب شده رو میبینه .`) +
+    `<br/>برای افزودن یا گرفتن دسترسی روی نام هر چنل بزن : ✅ = دسترسی داره | ❌ = دسترسی نداره` +
+    `</blockquote>`,
+    `<h3>Channel access — ${who} ${whoLab}</h3>` +
+    `<p>Current access: <b>${chsLabel(chs, titles)}</b></p>` +
+    `<blockquote>` +
     (kind === 'a'
-      ? `This admin only sees and manages the selected channels — bot settings and other channels are out of their reach, and reports only arrive from the channels in this list.\n\n`
-      : `This viewer only sees violations of the selected channels.\n\n`) +
-    `Tap a channel's name to grant/revoke access:\n` +
-    `✅ = has access   |   ❌ = no access`);
+      ? `This admin only sees and manages the selected channels — bot settings and other channels are out of their reach, and reports only arrive from the channels in this list.`
+      : `This viewer only sees violations of the selected channels.`) +
+    `<br/>Tap a channel's name to grant/revoke access: ✅ = has access | ❌ = no access` +
+    `</blockquote>`);
   const rows = chats.map((c) => [BTN(`${chHas(chs, c.cid) ? '✅' : '❌'} ${c.title.slice(0, 36)}`, actPre + c.cid)]);
   if (!rows.length) t += L(`\n\n⚠️ هنوز هیچ چنلی ثبت نشده ؛ اول یه چنل اضافه و فعال کن .`, `\n\n⚠️ No channel is registered yet — add and activate one first.`);
   rows.push([BTN(chs === '*' ? '🎯 محدود به انتخاب ها' : '🌐 همه چنل ها', allPre)]);
@@ -3810,12 +3957,10 @@ function bcDstN(t, cnt) {
 
 function bcTargetText(cnt) {
   return L(
-    `<b>پیام همگانی</b>\n\n` +
-    `هر پیامی که بفرستی عیناً کپی میشه تو مقصدی که همینجا انتخاب میکنی ( الان ${faNum(cnt.ch)} چنل فعال ثبت شده ) .\n` +
-    `اول مقصد رو انتخاب کن ؛ بعدش پیامت رو بفرست تا پیش نمایشش رو نشونت بدم و تأیید بگیرم .`,
-    `<b>Broadcast</b>\n\n` +
-    `Whatever you send gets copied exactly as-is to the destination you pick here (${cnt.ch} active channels registered).\n` +
-    `Pick a destination first; then send your message — you'll get a preview and confirm before it goes out.`);
+    `<h4>پیام همگانی</h4><p>هر پیامی که بفرستی عیناً کپی میشه تو مقصدی که همینجا انتخاب میکنی ( الان <b>${faNum(cnt.ch)}</b> چنل فعال ثبت شده ) .</p>` +
+    `<p>اول مقصد رو انتخاب کن ؛ بعدش پیامت رو بفرست تا پیش نمایشش رو نشونت بدم و تأیید بگیرم .</p>`,
+    `<h4>Broadcast</h4><p>Whatever you send gets copied exactly as-is to the destination you pick here (<b>${cnt.ch}</b> active channels registered).</p>` +
+    `<p>Pick a destination first; then send your message — you'll get a preview and confirm before it goes out.</p>`);
 }
 
 function bcTargetKB(cnt) {
@@ -3831,16 +3976,12 @@ function bcTargetKB(cnt) {
 function bcGuideText(sel, cnt) {
   const d = BC_DST[bcTgt(sel)];
   return L(
-    `<b>پیام همگانی</b>\n\n` +
-    `هر پیامی که بفرستی عیناً کپی میشه ( الان ${faNum(cnt.ch)} چنل فعال ثبت شده ) .\n` +
-    `مقصد : <b>${d.fa}</b> ( ${faNum(bcDstN(sel, cnt))} مقصد ) .\n` +
-    `قبل از ارسال ، پیش نمایشش رو نشونت میدم و تأیید میگیری .\n\n` +
-    `هر لحظه پشیمون شدی « لغو » رو بزن .`,
-    `<b>Broadcast</b>\n\n` +
-    `Whatever you send gets copied exactly as-is (${cnt.ch} active channels registered).\n` +
-    `Destination: <b>${d.en}</b> (${bcDstN(sel, cnt)} targets).\n` +
-    `You'll get a preview and confirm before it goes out.\n\n` +
-    `Tap "Cancel" anytime to abort.`);
+    `<h4>پیام همگانی</h4><p>هر پیامی که بفرستی عیناً کپی میشه ( الان <b>${faNum(cnt.ch)}</b> چنل فعال ثبت شده ) .</p>` +
+    `<blockquote>مقصد : <b>${d.fa}</b> ( ${faNum(bcDstN(sel, cnt))} مقصد ) .<br/>قبل از ارسال ، پیش نمایشش رو نشونت میدم و تأیید میگیری .</blockquote>` +
+    `<p>هر لحظه پشیمون شدی « لغو » رو بزن .</p>`,
+    `<h4>Broadcast</h4><p>Whatever you send gets copied exactly as-is (<b>${cnt.ch}</b> active channels registered).</p>` +
+    `<blockquote>Destination: <b>${d.en}</b> (${bcDstN(sel, cnt)} targets).<br/>You'll get a preview and confirm before it goes out.</blockquote>` +
+    `<p>Tap "Cancel" anytime to abort.</p>`);
 }
 
 /** 📣 v3.0 — پنل « مخاطبین ثبت شده » ( گروه ها با نام ، پیوی ها با تعداد ) */
@@ -3848,17 +3989,21 @@ async function audText(env) {
   const aud = await audIndex(env);
   const grs = Object.entries(aud).filter(([, v]) => v.t !== 'private');
   const pvs = Object.entries(aud).filter(([, v]) => v.t === 'private');
+  let rows = '';
+  if (grs.length) {
+    for (const [id, v] of grs) rows += `<tr><td>${esc(String(v.title || id).slice(0, 40))}</td><td><code>${id}</code></td></tr>`;
+  } else {
+    rows = L(`<tr><td>هنوز گروهی ثبت نشده</td><td>—</td></tr>`, `<tr><td>No groups yet</td><td>—</td></tr>`);
+  }
   return L(
-    `<b>مخاطبین ثبت شده</b>\n\n` +
-    `گروه ها ( ${faNum(grs.length)} ) :\n` +
-    (grs.length ? grs.map(([id, v], i) => `${faNum(i + 1)} ) ${esc(String(v.title || id).slice(0, 40))} — <code>${id}</code>`).join('\n') : '• هنوز گروهی ثبت نشده') +
-    `\n\nپیوی ها ( ${faNum(pvs.length)} نفر ) ثبت شدن .\n` +
-    `هر چتی که با ربات حرف بزنه ( گروه یا پیوی ) خودکار همینجا ثبت میشه و میتونه مقصد « پیام همگانی » باشه .`,
-    `<b>Registered audience</b>\n\n` +
-    `Groups (${grs.length}):\n` +
-    (grs.length ? grs.map(([id, v], i) => `${i + 1}) ${esc(String(v.title || id).slice(0, 40))} — <code>${id}</code>`).join('\n') : '• No groups yet') +
-    `\n\nDMs: ${pvs.length} registered.\n` +
-    `Any chat that talks to the bot (group or DM) is auto-registered here and can receive broadcasts.`);
+    `<h3>مخاطبین ثبت شده</h3>` +
+    `<table bordered striped compact><caption>گروه ها ( ${faNum(grs.length)} )</caption><tr><th>گروه</th><th>شناسه</th></tr>${rows}</table>` +
+    `<p>پیوی ها ( ${faNum(pvs.length)} نفر ) ثبت شدن .</p>` +
+    `<blockquote>هر چتی که با ربات حرف بزنه ( گروه یا پیوی ) خودکار همینجا ثبت میشه و میتونه مقصد « پیام همگانی » باشه .</blockquote>`,
+    `<h3>Registered audience</h3>` +
+    `<table bordered striped compact><caption>Groups (${grs.length})</caption><tr><th>Group</th><th>ID</th></tr>${rows}</table>` +
+    `<p>DMs: ${pvs.length} registered.</p>` +
+    `<blockquote>Any chat that talks to the bot (group or DM) is auto-registered here and can receive broadcasts.</blockquote>`);
 }
 
 async function handleCallback(cb, env, ctx) {
@@ -4390,20 +4535,23 @@ Note: only posts made after v2.7 are tracked; older ones are out of reach for an
       const owner = await getOwnerId(env);
       if (owner) {
         await send(env, owner,
-          L(`<b>🔇 سکوت ثبت شد</b>\n\n` +
-            `چنل : <b>${esc(s.title)}</b>\n` +
-            `کاربر : <a href="tg://user?id=${tu}">${esc(m.n)}</a> — شناسه : <code>${tu}</code>\n` +
-            `مدت : ${muteDurLabel(mins)}\n` +
-            `پایان : ${m.u == null ? '— ( تا ازادسازی دستی )' : tgTime(m.u)}\n` +
-            `تأثیر : از همین لحظه هر پست/ادیتش فوراً حذف میشه ؛ پیام های قبلیش دست نخورده میمونن\n` +
-            `ساعت تهران : <code>${tehranHM()}</code> — ${tgTime(Date.now(), 'dt')}`,
-            `<b>🔇 Mute saved</b>\n\n` +
-            `Channel: <b>${esc(s.title)}</b>\n` +
-            `User: <a href="tg://user?id=${tu}">${esc(m.n)}</a> — ID: <code>${tu}</code>\n` +
-            `Duration: ${muteDurLabel(mins)}\n` +
-            `Ends: ${m.u == null ? '— (until freed manually)' : `<code>${jalaliStamp(m.u)}</code>`}\n` +
-            `Effect: from now on every post/edit of theirs is deleted instantly — older messages stay untouched\n` +
-            `Tehran time: <code>${tehranHM()}</code>`), null).catch(() => {});
+          L(`<h4>سکوت ثبت شد</h4>` +
+            `<table bordered striped compact>` +
+            `<tr><td><b>چنل</b></td><td><b>${esc(s.title)}</b></td></tr>` +
+            `<tr><td><b>کاربر</b></td><td><a href="tg://user?id=${tu}">${esc(m.n)}</a> — <code>${tu}</code></td></tr>` +
+            `<tr><td><b>مدت</b></td><td>${muteDurLabel(mins)}</td></tr>` +
+            `<tr><td><b>پایان</b></td><td>${m.u == null ? '— ( تا ازادسازی دستی )' : tgTime(m.u)}</td></tr>` +
+            `</table>` +
+            `<blockquote>تأثیر : از همین لحظه هر پست/ادیتش فوراً حذف میشه ؛ پیام های قبلیش دست نخورده میمونن</blockquote>`,
+            `<h4>Mute saved</h4>` +
+            `<table bordered striped compact>` +
+            `<tr><td><b>Channel</b></td><td><b>${esc(s.title)}</b></td></tr>` +
+            `<tr><td><b>User</b></td><td><a href="tg://user?id=${tu}">${esc(m.n)}</a> — <code>${tu}</code></td></tr>` +
+            `<tr><td><b>Duration</b></td><td>${muteDurLabel(mins)}</td></tr>` +
+            `<tr><td><b>Ends</b></td><td>${m.u == null ? '— (until freed manually)' : tgTime(m.u, 'wDT')}</td></tr>` +
+            `</table>` +
+            `<blockquote>Effect: from now on every post/edit of theirs is deleted instantly — older messages stay untouched</blockquote>` +
+            FOOT()), null).catch(() => {});
       }
       if (act === 'muGo') {
         await edit(env, msg.chat.id, msg.message_id, muteCenterText(s), muteCenterKB(a1, s));
@@ -4683,14 +4831,14 @@ After saving, tap "Channels" for each person and pick which channels they can se
       if (!s) return answerCb(env, cb.id, '⚠️ این چنل دیگه ثبت نیست.', true);
       const bak = backupOf(s);
       await send(env, msg.chat.id,
-        L(`<b>بکاپ تنظیمات — ${esc(s.title)}</b>\n\n` +
-        `<blockquote expandable><pre>${esc(JSON.stringify(bak))}</pre></blockquote>\n\n` +
-        `برای بازگردانی دکمه « بازگردانی » رو تو پنل چنل بزن و همین متن رو بفرست .\n` +
-        `این متن رو جایی نگه دار ؛ اگه تنظیمات اشتباهی عوض شد با همین برمیگردی .`,
-        `💾 <b>Settings backup — ${esc(s.title)}</b>\n\n` +
-        `<blockquote expandable><pre>${esc(JSON.stringify(bak))}</pre></blockquote>\n\n` +
-        `📥 To restore: tap "📥 Restore" in the channel panel and send this exact text.\n` +
-        `💡 Keep this text somewhere safe — if settings get messed up, this brings them back.`), null);
+        L(`<h4>بکاپ تنظیمات — ${esc(s.title)}</h4>` +
+        `<blockquote expandable><pre>${esc(JSON.stringify(bak))}</pre></blockquote>` +
+        `<p>برای بازگردانی دکمه « بازگردانی » رو تو پنل چنل بزن و همین متن رو بفرست .<br/>این متن رو جایی نگه دار ؛ اگه تنظیمات اشتباهی عوض شد با همین برمیگردی .</p>` +
+        FOOT(),
+        `<h4>Settings backup — ${esc(s.title)}</h4>` +
+        `<blockquote expandable><pre>${esc(JSON.stringify(bak))}</pre></blockquote>` +
+        `<p>📥 To restore: tap "Restore" in the channel panel and send this exact text.<br/>💡 Keep this text somewhere safe — if settings get messed up, this brings them back.</p>` +
+        FOOT()), null);
       return answerCb(env, cb.id, '💾 بکاپ در پیام بالا آمد');
     }
     if (act === 'bakI') {
@@ -4729,7 +4877,7 @@ All channel settings return to that state instantly: locks, yellow/red mode, ban
       const r = await tgSmart(env, 'promoteChatMember', p);
       if (r.ok) await env.KV.delete(`undo:${a1}:${cu}`).catch(() => {});
       if (r.ok && msg && msg.text) {
-        await edit(env, msg.chat.id, msg.message_id, msg.text + L('\n\n↩️ <b>دسترسی های قبلی متخلف بازگردانی شد ✅</b>', "\n\n↩️ <b>The offender's previous access was restored ✅</b>")).catch(() => {});
+        await edit(env, msg.chat.id, msg.message_id, ((msg.text || '') + L('\n\n↩️ <b>دسترسی های قبلی متخلف بازگردانی شد ✅</b>', "\n\n↩️ <b>The offender's previous access was restored ✅</b>"))).catch(() => {});
       }
       return answerCb(env, cb.id, r.ok
         ? L('↩️ بازگردانی شد ✅ — دسترسی ها: ', '↩️ Restored ✅ — permissions: ') + (CAM_ORDER.filter((k) => prev[k]).map((k) => tr(CAM_OPTS[k].label)).join('، ') || tr('هیچ'))
@@ -5039,22 +5187,34 @@ async function handleMyChatMember(mcm, env) {
         if (owner) {
           // قبلاً ثبت شده اما هنوز فعال نشده (یا غیرفعال شده) ⇒ دوباره درخواست تأیید
           await send(env, owner,
-            L(`<b>ربات تو چنل ادمین شد</b>\n\nچنل : <b>${esc(chat.title)}</b>\nشناسه : <code>${cid}</code>\n\nاین چنل هنوز فعال نیست ؛ تا فعال سازی هیچ قفلی تو چنل اجرا نمیشه :`,
-              `<b>The bot became an admin in a channel</b>\n\nChannel: <b>${esc(chat.title)}</b>\nID: <code>${cid}</code>\n\nThis channel is not active yet — until activation, no lock is enforced:`),
+            L(`<h4>ربات تو چنل ادمین شد</h4>` +
+              `<table bordered striped compact><tr><td><b>چنل</b></td><td><b>${esc(chat.title)}</b></td></tr><tr><td><b>شناسه</b></td><td><code>${cid}</code></td></tr></table>` +
+              `<p><mark>این چنل هنوز فعال نیست</mark> ؛ تا فعال سازی هیچ قفلی تو چنل اجرا نمیشه :</p>`,
+              `<h4>The bot became an admin in a channel</h4>` +
+              `<table bordered striped compact><tr><td><b>Channel</b></td><td><b>${esc(chat.title)}</b></td></tr><tr><td><b>ID</b></td><td><code>${cid}</code></td></tr></table>` +
+              `<p><mark>This channel is not active yet</mark> — until activation, no lock is enforced:</p>`),
             kb([[BTN('فعال سازی این چنل', `enb:${cid}`, 'success'), BTN('رد کردن', `rej:${cid}`, 'danger')]]));
         }
       } else if (owner) {
         await send(env, owner,
-          L(`<b>ربات دوباره تو چنل ادمین شد</b>\n\nچنل : <b>${esc(chat.title)}</b>\nشناسه : <code>${cid}</code>\n\nاین چنل فعاله و قفل ها مثل قبل اجرا میشن .`,
-            `<b>The bot became a channel admin again</b>\n\nChannel: <b>${esc(chat.title)}</b>\nID: <code>${cid}</code>\n\nThis channel is active and the locks keep working as before.`),
+          L(`<h4>ربات دوباره تو چنل ادمین شد</h4>` +
+            `<table bordered striped compact><tr><td><b>چنل</b></td><td><b>${esc(chat.title)}</b></td></tr><tr><td><b>شناسه</b></td><td><code>${cid}</code></td></tr></table>` +
+            `<p>این چنل <b>فعاله</b> و قفل ها مثل قبل اجرا میشن .</p>`,
+            `<h4>The bot became a channel admin again</h4>` +
+            `<table bordered striped compact><tr><td><b>Channel</b></td><td><b>${esc(chat.title)}</b></td></tr><tr><td><b>ID</b></td><td><code>${cid}</code></td></tr></table>` +
+            `<p>This channel is <b>active</b> and the locks keep working as before.</p>`),
           kb([[BTN(`${L('مدیریت ', 'Manage ')}${(chat.title || '').slice(0, 24)}`, `chat:${cid}`)]]));
       }
     } else {
       await saveSettings(env, cid, defaultSettings(chat));
       if (owner) {
         await send(env, owner,
-          L(`<b>ربات تو چنل ادمین شد</b>\n\nچنل : <b>${esc(chat.title)}</b>\nشناسه : <code>${cid}</code>\n\nتا وقتی خودت فعال سازی نکنی هیچ قفلی تو این چنل اجرا نمیشه . ربات چندچنله ست ؛ هر چنل جداگانه فعال میشه و همه همزمان میمونن :`,
-            `<b>The bot became an admin in a channel</b>\n\nChannel: <b>${esc(chat.title)}</b>\nID: <code>${cid}</code>\n\nUntil you activate it yourself, no lock is enforced in this channel. The bot is multi-channel — each channel is activated separately and they all stay active together:`),
+          L(`<h4>ربات تو چنل ادمین شد</h4>` +
+            `<table bordered striped compact><tr><td><b>چنل</b></td><td><b>${esc(chat.title)}</b></td></tr><tr><td><b>شناسه</b></td><td><code>${cid}</code></td></tr></table>` +
+            `<p><mark>تا وقتی خودت فعال سازی نکنی هیچ قفلی تو این چنل اجرا نمیشه .</mark><br/>ربات چندچنله ست ؛ هر چنل جداگانه فعال میشه و همه همزمان میمونن :</p>`,
+            `<h4>The bot became an admin in a channel</h4>` +
+            `<table bordered striped compact><tr><td><b>Channel</b></td><td><b>${esc(chat.title)}</b></td></tr><tr><td><b>ID</b></td><td><code>${cid}</code></td></tr></table>` +
+            `<p><mark>Until you activate it yourself, no lock is enforced in this channel.</mark><br/>The bot is multi-channel — each channel is activated separately and they all stay active together:</p>`),
           kb([[BTN('فعال سازی این چنل', `enb:${cid}`, 'success'), BTN('رد کردن', `rej:${cid}`, 'danger')]]));
       }
     }
@@ -5069,8 +5229,10 @@ async function handleMyChatMember(mcm, env) {
     scache.delete('chat:' + cid);
     if (owner) {
       await send(env, owner,
-        L(`<b>ربات از چنل حذف شد</b>\n\nچنل : <b>${esc(chat.title)}</b>\nشناسه : <code>${cid}</code>`,
-          `<b>The bot was removed from a channel</b>\n\nChannel: <b>${esc(chat.title)}</b>\nID: <code>${cid}</code>`));
+        L(`<h4>ربات از چنل حذف شد</h4>` +
+          `<table bordered striped compact><tr><td><b>چنل</b></td><td><b>${esc(chat.title)}</b></td></tr><tr><td><b>شناسه</b></td><td><code>${cid}</code></td></tr></table>`,
+          `<h4>The bot was removed from a channel</h4>` +
+          `<table bordered striped compact><tr><td><b>Channel</b></td><td><b>${esc(chat.title)}</b></td></tr><tr><td><b>ID</b></td><td><code>${cid}</code></td></tr></table>`));
     }
   }
 }
@@ -5185,7 +5347,7 @@ export default {
         }
         const status = !env.BOT_TOKEN
           ? 'ربات ضد خیانت کانال دیپلوی شده؛ اما BOT_TOKEN هنوز ست نشده.'
-          : 'anti-treason bot v4.0 (in sync with Bot API 10.4 — November 9, 2026: in-channel lock announcements sent as rich messages with heading/paragraphs/footer via sendRichMessage, ephemeral confirmation cards visible only to the button presser that auto-disappear, client-localized tg-time stamps for mute endings and violation times, truly disabled action buttons on paused channels (Bot API 10.3) — edit reports show old/new text in separate blockquote boxes, settings backup & latest-violations collapse into expandable quotes + true-edit detection — technical edits like poll votes / live-location updates / checklist ticks / service markup that leave the content fingerprint (text+caption+media kind+poll question) unchanged are no longer deleted or reported (deterministic content-hash map, one extra KV write per flush only) + per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + bold lock announcements + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';
+          : 'anti-treason bot v5.0 (full rich display rebuilt on Bot API 10.4 — November 9, 2026: every panel, report and guide is a rich message with premium tables, headings, collapsible sections, footers and mark highlights via sendRichMessage + editMessageText rich_message, premium custom emoji (tg-emoji — verified IDs, rendered when the bot owner has Telegram Premium), client-localized tg-time stamps everywhere, ephemeral confirmation cards visible only to the button presser, truly disabled action buttons on paused channels (Bot API 10.3), edit reports show old/new text in expandable quotes + true-edit detection — technical edits like poll votes / live-location updates / checklist ticks / service markup that leave the content fingerprint (text+caption+media kind+poll question) unchanged are no longer deleted or reported (deterministic content-hash map, one extra KV write per flush only) + per-channel disable — pause a channel with one tap: nothing is processed or deleted until re-enabled while settings/stats/mutes are preserved and mutes still expire on time + manual mute — silence a specific person for a chosen duration or permanently: from save time every post/edit of theirs is deleted instantly while older messages stay untouched, automatic expiry via the minute cron with zero extra KV reads since mutes live inside the channel settings + quick mute-24h/permanent buttons on yellow/red alerts + quota-safe channel index + dynamic violation reports with automatic sender identity (signing admin matched via signature) + fully interactive: hour+minute picker grids, presets and confirm cards for scheduled locks, destination picker for broadcast, batch delete with follow-up buttons, guided flows + previous-bot fallback + command menu + post-to-channel + Bot API 10.x + bilingual fa/en + multi-channel + scoped admins)';;
         return new Response(status, { status: 200 });
       }
       const secret = env.WEBHOOK_SECRET;
