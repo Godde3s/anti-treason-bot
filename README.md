@@ -13,6 +13,8 @@ Everything is managed from a clean Persian panel in the bot's private chat. No c
 
 > 🌐 Documentation is bilingual: **English (this file)** · [فارسی (README-FA.md)](README-FA.md)
 
+> 🌍 **Live site:** [godde3s.github.io/anti-treason-bot](https://godde3s.github.io/anti-treason-bot/) — the full feature tour and deploy guide, in Persian and English.
+
 ## 🔀 Two versions, one bot
 
 The same bot ships in **two runtimes**. The live bot runs on **tgcloud**; the Cloudflare Worker is kept as a backup.

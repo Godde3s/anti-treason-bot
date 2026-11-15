@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ضد خیانت کانال — نگهبان تلگرامی کانال‌های شما | Anti-Treason Bot</title>
-<meta name="description" content="ربات نگهبان کانال تلگرام روی Cloudflare Workers: ۲۰ قفل هوشمند، چندکاناله، دوزبانه، رایگان. Telegram channel guard bot — 20 smart locks, multi-channel, bilingual, free.">
+<meta name="description" content="ربات نگهبان کانال تلگرام — دو نسخه: Cloudflare Workers و tgcloud Serverless: ۲۰ قفل هوشمند، چندکاناله، دوزبانه، رایگان. Telegram channel guard bot — 20 smart locks, multi-channel, bilingual, free. Two runtimes: Cloudflare Workers + tgcloud.">
 <meta property="og:title" content="🛡️ Anti-Treason Bot — ضد خیانت کانال">
-<meta property="og:description" content="Delete violations the second they happen — even days-old edits. Free, bilingual, multi-channel.">
+<meta property="og:description" content="Delete violations the second they happen — even days-old edits. Free, bilingual, multi-channel. Two runtimes: Cloudflare Workers + tgcloud Serverless.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -137,6 +137,7 @@ footer a:hover{color:var(--cy)}
   <div class="wrap nav-in">
     <a class="logo" href="#top"><span class="sh">🛡️</span><span data-i="brand">ضد خیانت کانال</span></a>
     <div class="nav-links">
+      <a href="#versions" data-i="navV">نسخه‌ها</a>
       <a href="#features" data-i="navF">قابلیت‌ها</a>
       <a href="#how" data-i="navH">راه‌اندازی</a>
       <a href="#ladder" data-i="navL">نردبان وضعیت</a>
@@ -150,22 +151,48 @@ footer a:hover{color:var(--cy)}
 <header class="hero" id="top">
   <div class="orbit"></div>
   <div class="wrap">
-    <span class="badge"><span class="dot"></span><span data-i="badge">متن‌باز · رایگان · روی Cloudflare Workers</span></span>
+    <span class="badge"><span class="dot"></span><span data-i="badge">متن‌باز · رایگان · دو نسخه: Cloudflare + tgcloud</span></span>
     <h1><span data-i="h1a">خیانت را همان</span> <span class="g" data-i="h1b">ثانیهٔ وقوع</span> <span data-i="h1c">پاک کن</span></h1>
-    <p class="sub" data-i="sub">ربات نگهبان کانال تلگرام: هر ادیت یا ارسالِ غیرمجاز را لحظه‌ای پیدا می‌کند و حذف می‌کند — حتی اگر پیام چند روز پیش باشد و همین حالا ادیت شده باشد. پنل دوزبانه، ۲۰ قفل هوشمند، بدون سرور و کاملاً رایگان.</p>
+    <p class="sub" data-i="sub">ربات نگهبان کانال تلگرام: هر ادیت یا ارسالِ غیرمجاز را لحظه‌ای پیدا می‌کند و حذف می‌کند — حتی اگر پیام چند روز پیش باشد و همین حالا ادیت شده باشد. پنل دوزبانه، ۲۰ قفل هوشمند، بدون سرور و کاملاً رایگان — در دو نسخه: tgcloud (لایو) و Cloudflare (بکاپ).</p>
     <div class="cta">
       <a class="btn primary" href="#deploy" data-i="cta1">🚀 استقرار یک‌کلیکی</a>
       <a class="btn ghost" href="https://github.com/Godde3s/anti-treason-bot" target="_blank" rel="noopener">⭐ GitHub</a>
       <a class="btn ghost" href="#learn" data-i="cta2">📘 آموزش گام‌به‌گام</a>
     </div>
     <div class="trust">
-      <div><b>396</b><span data-i="t1">تست خودکار سبز</span></div>
+      <div><b>641</b><span data-i="t1">تست خودکار سبز</span></div>
       <div><b>20</b><span data-i="t2">قفل مستقل</span></div>
       <div><b>∞</b><span data-i="t3">کانال همزمان</span></div>
       <div><b>0.3%</b><span data-i="t4">مصرف از سهمیهٔ پلن رایگان</span></div>
     </div>
   </div>
 </header>
+
+<section id="versions">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <span class="kicker" data-i="vk">TWO VERSIONS</span>
+      <h2 data-i="vH">دو نسخه، یک ربات</h2>
+      <p data-i="vP">همان ربات در دو ران‌تایم عرضه می‌شود — نسخهٔ لایو روی tgcloud اجرا می‌شود و ورکر کلادفلر بکاپ است. برای هر توکن ربات فقط یک ران‌تایم را اجرا کن.</p>
+    </div>
+    <div class="ladder">
+      <div class="mode rv" style="border-color:rgba(34,211,238,.45);box-shadow:inset 0 0 60px rgba(34,211,238,.06)">
+        <h3>⚡ <span data-i="v1h">tgcloud Serverless — لایو</span></h3>
+        <p data-i="v1p">نسخهٔ در حال اجرا (rev 12). دیتابیس SQL + KV تلگرام، دیپلوی با <code>npx tgcloud push</code>، اعلان‌های قفل زمان‌دار بدون تکرار، عضویت اجباری (force-join) و محافظ مالک ربات در وضعیت قرمز.</p>
+      </div>
+      <div class="mode rv">
+        <h3>☁️ <span data-i="v2h">Cloudflare Worker — بکاپ</span></h3>
+        <p data-i="v2p">نسخهٔ تک‌فایل (v5.2) روی Cloudflare Workers با KV. یوزربات همراه برای حذف پیام‌های قدیمی‌تر از ۴۸ ساعت، fallback به ربات قبلی و بهینه‌سازی بودجهٔ نوشتن KV.</p>
+      </div>
+    </div>
+    <div class="grid" style="margin-top:18px">
+      <div class="card rv"><div class="ic">👥</div><h3 data-i="v3h">عضویت اجباری (tgcloud)</h3><p data-i="v3p">عضو باید اول در چنل/گروه مشخص عضو شود تا بتواند از ربات استفاده کند — فقط چنل/گروه، پیش‌فرض خاموش.</p></div>
+      <div class="card rv"><div class="ic">🔔</div><h3 data-i="v4h">اعلان بدون تکرار (tgcloud)</h3><p data-i="v4p">شروع/پایان قفل زمان‌دار با claim اتمی در KV ثبت می‌شود، پس تشخیص دوباره بعد از نیمه‌شب هرگز دو بار اعلان نمی‌دهد.</p></div>
+      <div class="card rv"><div class="ic">🤖</div><h3 data-i="v5h">یوزربات +۴۸ ساعت (Cloudflare)</h3><p data-i="v5p">حذف پیام‌های قدیمی‌تر از ۴۸ ساعت با اکانت انسانی (Telethon) — محدودیت تلگرام برای ربات‌ها را دور می‌زند.</p></div>
+      <div class="card rv"><div class="ic">🔁</div><h3 data-i="v6h">ربات قبلی برای عزل (Cloudflare)</h3><p data-i="v6p">عزل/بن/لغوبن اگر با ربات اصلی ممکن نشد، خودکار با ربات قبلی (LEGACY_BOT_TOKEN) انجام می‌شود.</p></div>
+    </div>
+  </div>
+</section>
 
 <section id="features">
   <div class="wrap">
@@ -183,11 +210,13 @@ footer a:hover{color:var(--cy)}
       <div class="card rv"><div class="ic">👑</div><h3 data-i="f6h">ادمین‌سازی داخل ربات</h3><p data-i="f6p">تک‌نفره یا گروهی (تا ۵۰ شناسه)، با پریست‌های یک‌ضربه‌ای، فهرست ادمین‌ها با دکمهٔ عزل و ویرایش دسترسی — بدون خروج از ربات.</p></div>
       <div class="card rv"><div class="ic">👤</div><h3 data-i="f7h">نام و منشن کنار شناسه</h3><p data-i="f7p">در همهٔ لیست‌ها و گزارش‌های گروهی نام و منشن هر نفر کنار شناسه‌اش می‌آید تا هیچ‌وقت لازم نباشد آیدی‌ها را تک‌تک چک کنید.</p></div>
       <div class="card rv"><div class="ic">📊</div><h3 data-i="f8h">آمار و «آخرین تخلف‌ها»</h3><p data-i="f8p">شمارندهٔ امروز به وقت تهران، پرتکرارترین دلایل، ۱۵ تخلف آخر با لینک مستقیم پیام و ساعت شمسی.</p></div>
-      <div class="card rv"><div class="ic">🤖</div><h3 data-i="f9h">حذف پیام‌های +۴۸ ساعت</h3><p data-i="f9p">محدودیت تلگرام را با یوزرباتِ همراه دور بزن: پیام‌های قدیمی به صف می‌روند و با اکانت انسانی حذف می‌شوند (اختیاری).</p></div>
+      <div class="card rv"><div class="ic">🤖</div><h3 data-i="f9h">حذف پیام‌های +۴۸ ساعت (Cloudflare)</h3><p data-i="f9p">محدودیت تلگرام را با یوزرباتِ همراه دور بزن: پیام‌های قدیمی به صف می‌روند و با اکانت انسانی حذف می‌شوند (اختیاری).</p></div>
       <div class="card rv"><div class="ic">💾</div><h3 data-i="f10h">بکاپ و بازگردانی</h3><p data-i="f10p">کل تنظیمات هر کانال در یک متن قابل‌ذخیره؛ با یک ارسال دقیقاً همان وضعیت برمی‌گردد — انتقال آسان بین کانال‌ها.</p></div>
       <div class="card rv"><div class="ic">⚡</div><h3 data-i="f11h">سوپر بهینه</h3><p data-i="f11p">کش دولایه، فلاش گروهی آمار، گزارش‌های ادغام‌شده در موج تخلف — ۰٫۳٪ از سهمیهٔ پلن رایگان Cloudflare.</p></div>
       <div class="card rv"><div class="ic">🌐</div><h3 data-i="f12h">دوزبانهٔ کامل (v2.3)</h3><p data-i="f12p">هر کاربر زبان خودش را با دکمهٔ 🌐 انتخاب می‌کند؛ مالک زبان پیش‌فرض گزارش‌ها را با /setlang تعیین می‌کند.</p></div>
       <div class="card rv"><div class="ic">🧩</div><h3 data-i="f13h">هم‌گام با آخرین تلگرام (v2.4)</h3><p data-i="f13p">حذف «کل آلبوم» در تخلف، پوشش پیام ریچ/چ‌ک‌لیست/عکس زنده، هشدار فوری تغییر مالکیت کانال و دکمه‌های رنگی جدید تلگرام.</p></div>
+      <div class="card rv"><div class="ic">👥</div><h3 data-i="f14h">عضویت اجباری (tgcloud)</h3><p data-i="f14p">اعضا قبل از استفاده از ربات باید در چنل/گروه مشخص عضو شوند — فقط چنل/گروه، پیش‌فرض خاموش.</p></div>
+      <div class="card rv"><div class="ic">🔔</div><h3 data-i="f15h">اعلان بدون تکرار (tgcloud)</h3><p data-i="f15p">اعلان‌های شروع/پایان قفل زمان‌دار دقیقاً یک بار می‌آیند — حتی اگر تشخیص بعد از نیمه‌شب دوباره تکرار شود.</p></div>
     </div>
   </div>
 </section>
@@ -197,10 +226,10 @@ footer a:hover{color:var(--cy)}
     <div class="sec-head rv">
       <span class="kicker" data-i="kh">SETUP</span>
       <h2 data-i="hH">۳ دقیقه تا کانال امن</h2>
-      <p data-i="hP">بدون سرور، بدون دیتابیس، بدون پرداخت — فقط Cloudflare و یک توکن ربات.</p>
+      <p data-i="hP">بدون سرور، بدون دیتابیس، بدون پرداخت — Cloudflare یا tgcloud، فقط یک توکن ربات.</p>
     </div>
     <div class="steps">
-      <div class="step rv"><h3 data-i="s1h">استقرار در Cloudflare</h3><p data-i="s1p">دکمهٔ Deploy را بزن یا با wrangler دیپلوی کن؛ BOT_TOKEN و OWNER_ID را به‌عنوان Secret ثبت کن و آدرس <code>?setup=</code> را باز کن تا وب‌هوک خودکار وصل شود.</p></div>
+      <div class="step rv"><h3 data-i="s1h">استقرار (Cloudflare یا tgcloud)</h3><p data-i="s1p">در Cloudflare دکمهٔ Deploy را بزن یا با wrangler دیپلوی کن؛ در tgcloud دستور <code>npx tgcloud push</code> را بزن. BOT_TOKEN و OWNER_ID را به‌عنوان Secret ثبت کن و آدرس <code>?setup=</code> را باز کن تا وب‌هوک خودکار وصل شود.</p></div>
       <div class="step rv"><h3 data-i="s2h">ربات را ادمین کن</h3><p data-i="s2p">ربات را با دسترسی «حذف پیام» به کانال اضافه کن؛ خودکار ثبت می‌شود و پیام فعال‌سازی به پیوی مالک می‌آید.</p></div>
       <div class="step rv"><h3 data-i="s3h">قفل‌ها را بچین</h3><p data-i="s3p">از پنل، قفل‌های دلخواه را روشن کن، وضعیت زرد/قرمز را تنظیم کن و ادمین‌هایت را با دسترسی کانالی وارد کن — تمام!</p></div>
     </div>
@@ -234,8 +263,9 @@ footer a:hover{color:var(--cy)}
       <details class="q rv"><summary><span class="n">02</span><span data-i="q2">ادمین جدید چطور اضافه کنم؟</span></summary><div class="a" data-i="a2">ادمینِ ربات فقط از سوی مالک تعیین می‌شود: «👥 ادمین‌های ربات» → «➕ افزودن ادمین» → شناسهٔ عددی را بفرست (خود کاربر با <code>/id</code> از ربات می‌گیرد) یا لیست تا ۵۰ شناسه را یکجا بده. بعد در ویرایشگرِ بازشده، کانال‌های مجاز همان نفر را تیک بزن. برای ادمین کانال هم از منوی هر کانال: «👑 ادمین‌های کانال».</div></details>
       <details class="q rv"><summary><span class="n">03</span><span data-i="q3">چرا بعضی پیام‌های قدیمی حذف نمی‌شوند؟</span></summary><div class="a" data-i="a3">این محدودیت خود تلگرام است: <b>هیچ رباتی</b> نمی‌تواند پیام‌های قدیمی‌تر از ۴۸ ساعت را حذف کند. ربات ادیتِ چنین پیام‌هایی را شناسایی و گزارش می‌کند و لینک پیام را می‌دهد تا خودت دستی حذف کنی. اگر «یوزرباتِ همراه» را وصل کنی، حذفِ آن‌ها هم خودکار می‌شود.</div></details>
       <details class="q rv"><summary><span class="n">04</span><span data-i="q4">قفل پست ناشناس چطور کار می‌کند؟</span></summary><div class="a" data-i="a4">وقتی روشن باشد، هر پستی که «بدون امضای ادمین» (از طرف خودِ کانال) ارسال شود فوراً حذف می‌شود — هیچ‌کس نمی‌تواند بدون هویت واقعی خودش پست بدهد. برای اینکه امضا زیر پست بیاید، در دسترسی هر ادمین گزینهٔ «Sign messages» را روشن کن.</div></details>
-      <details class="q rv"><summary><span class="n">05</span><span data-i="q5">امنیت و حریم خصوصی چطور است؟</span></summary><div class="a" data-i="a5">هیچ‌کس جز مالک نمی‌تواند دسترسی تعیین یا تنظیمات را تغییر دهد. توکن‌ها فقط به‌عنوان Secret روی Cloudflare نگهداری می‌شوند و هرگز در کد یا ریپو نیستند. وب‌هوک با secret token تلگرام اعتبارسنجی می‌شود و کد کاملاً متن‌باز (MIT) است — خودت می‌توانی بخوانی و دیپلوی کنی.</div></details>
+      <details class="q rv"><summary><span class="n">05</span><span data-i="q5">امنیت و حریم خصوصی چطور است؟</span></summary><div class="a" data-i="a5">هیچ‌کس جز مالک نمی‌تواند دسترسی تعیین یا تنظیمات را تغییر دهد. توکن‌ها فقط به‌عنوان Secret روی Cloudflare یا در سیکرت‌های tgcloud نگهداری می‌شوند و هرگز در کد یا ریپو نیستند. وب‌هوک با secret token تلگرام اعتبارسنجی می‌شود و کد کاملاً متن‌باز (MIT) است — خودت می‌توانی بخوانی و دیپلوی کنی.</div></details>
       <details class="q rv"><summary><span class="n">06</span><span data-i="q6">پلن رایگان Cloudflare کافی است؟</span></summary><div class="a" data-i="a6">بله، با فاصله. ربات در مصرف واقعی حدود <b>۰٫۳٪</b> از سهمیهٔ روزانهٔ ۱۰۰ هزار ریکوئست پلن رایگان را استفاده می‌کند؛ فلاش گروهی آمار سهمیهٔ نوشتن KV را هم در موج تخلف زیر سقف نگه می‌دارد. برای ۳ کانال (و خیلی بیشتر) پلن رایگان کاملاً کافی است.</div></details>
+      <details class="q rv"><summary><span class="n">07</span><span data-i="q7">دو نسخه چه فرقی با هم دارن؟</span></summary><div class="a" data-i="a7">هر دو همان ربات‌اند و قابلیت‌های اصلی (۲۰ قفل، نردبان زرد/قرمز، چندکاناله، بکاپ، گزارش پویا) در هر دو هست. نسخهٔ <b>tgcloud</b> لایو است و عضویت اجباری، اعلان بدون تکرار و محافظ مالک ربات را اضافه دارد؛ نسخهٔ <b>Cloudflare</b> بکاپ است و یوزربات (+۴۸ ساعت) و fallback به ربات قبلی را دارد. برای هر توکن فقط یکی را اجرا کن.</div></details>
     </div>
   </div>
 </section>
@@ -244,9 +274,10 @@ footer a:hover{color:var(--cy)}
   <div class="wrap">
     <div class="deploy-box rv">
       <h2 data-i="dH">آماده‌ای کانالت را امن کنی؟</h2>
-      <p data-i="dP">دیپلوی در Cloudflare حدود یک دقیقه طول می‌کشد — بدون سرور، رایگان و متن‌باز.</p>
+      <p data-i="dP">دیپلوی حدود یک دقیقه طول می‌کشد — بدون سرور، رایگان و متن‌باز، در Cloudflare یا tgcloud.</p>
       <a class="big-btn" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot" target="_blank" rel="noopener">⚡ <span data-i="dBtn">استقرار روی Cloudflare</span></a>
-      <p class="note" data-i="dNote">ترجیح می‌دهی دستی دیپلوی کنی؟ راهنمای کامل فارسی در ریپو هست — <code>README-FA.md</code></p>
+      <a class="btn ghost" href="https://github.com/Godde3s/anti-treason-bot/tree/main/tgcloud" target="_blank" rel="noopener" style="margin-inline-start:12px">⚡ <span data-i="dBtn2">نسخهٔ tgcloud (لایو)</span></a>
+      <p class="note" data-i="dNote">ترجیح می‌دهی دستی دیپلوی کنی؟ راهنمای کامل فارسی در ریپو هست — <code>README-FA.md</code>؛ برای tgcloud دستور <code>npx tgcloud push</code> کافی است.</p>
     </div>
   </div>
 </section>
@@ -266,12 +297,13 @@ footer a:hover{color:var(--cy)}
 /* ── 🌐 دوزبانه — دیکشنری کامل FA/EN + جهت RTL/LTR ── */
 const I18N = {
   fa:{dir:'rtl',htmlLang:'fa',btn:'🌐 English',brand:'ضد خیانت کانال',
-    navF:'قابلیت‌ها',navH:'راه‌اندازی',navL:'نردبان وضعیت',navE:'آموزش',navD:'استقرار',
-    badge:'متن‌باز · رایگان · روی Cloudflare Workers',
+    navV:'نسخه‌ها',navF:'قابلیت‌ها',navH:'راه‌اندازی',navL:'نردبان وضعیت',navE:'آموزش',navD:'استقرار',
+    badge:'متن‌باز · رایگان · دو نسخه: Cloudflare + tgcloud',
     h1a:'خیانت را همان',h1b:'ثانیهٔ وقوع',h1c:'پاک کن',
-    sub:'ربات نگهبان کانال تلگرام: هر ادیت یا ارسالِ غیرمجاز را لحظه‌ای پیدا می‌کند و حذف می‌کند — حتی اگر پیام چند روز پیش باشد و همین حالا ادیت شده باشد. پنل دوزبانه، ۲۰ قفل هوشمند، بدون سرور و کاملاً رایگان.',
+    sub:'ربات نگهبان کانال تلگرام: هر ادیت یا ارسالِ غیرمجاز را لحظه‌ای پیدا می‌کند و حذف می‌کند — حتی اگر پیام چند روز پیش باشد و همین حالا ادیت شده باشد. پنل دوزبانه، ۲۰ قفل هوشمند، بدون سرور و کاملاً رایگان — در دو نسخه: tgcloud (لایو) و Cloudflare (بکاپ).',
     cta1:'🚀 استقرار یک‌کلیکی',cta2:'📘 آموزش گام‌به‌گام',
     t1:'تست خودکار سبز',t2:'قفل مستقل',t3:'کانال همزمان',t4:'مصرف از سهمیهٔ پلن رایگان',
+    vk:'TWO VERSIONS',vH:'دو نسخه، یک ربات',vP:'همان ربات در دو ران‌تایم عرضه می‌شود — نسخهٔ لایو روی tgcloud اجرا می‌شود و ورکر کلادفلر بکاپ است. برای هر توکن ربات فقط یک ران‌تایم را اجرا کن.',v1h:'tgcloud Serverless — لایو',v1p:'نسخهٔ در حال اجرا (rev 12). دیتابیس SQL + KV تلگرام، دیپلوی با npx tgcloud push، اعلان‌های قفل زمان‌دار بدون تکرار، عضویت اجباری (force-join) و محافظ مالک ربات در وضعیت قرمز.',v2h:'Cloudflare Worker — بکاپ',v2p:'نسخهٔ تک‌فایل (v5.2) روی Cloudflare Workers با KV. یوزربات همراه برای حذف پیام‌های قدیمی‌تر از ۴۸ ساعت، fallback به ربات قبلی و بهینه‌سازی بودجهٔ نوشتن KV.',v3h:'عضویت اجباری (tgcloud)',v3p:'عضو باید اول در چنل/گروه مشخص عضو شود تا بتواند از ربات استفاده کند — فقط چنل/گروه، پیش‌فرض خاموش.',v4h:'اعلان بدون تکرار (tgcloud)',v4p:'شروع/پایان قفل زمان‌دار با claim اتمی در KV ثبت می‌شود، پس تشخیص دوباره بعد از نیمه‌شب هرگز دو بار اعلان نمی‌دهد.',v5h:'یوزربات +۴۸ ساعت (Cloudflare)',v5p:'حذف پیام‌های قدیمی‌تر از ۴۸ ساعت با اکانت انسانی (Telethon) — محدودیت تلگرام برای ربات‌ها را دور می‌زند.',v6h:'ربات قبلی برای عزل (Cloudflare)',v6p:'عزل/بن/لغوبن اگر با ربات اصلی ممکن نشد، خودکار با ربات قبلی (LEGACY_BOT_TOKEN) انجام می‌شود.',
     kf:'FEATURES',fH:'هر چیزی که یک کانال تمیز می‌خواهد',fP:'از قفل‌های ریز تا نردبان مجازات — همه‌چیز از یک پنل سادهٔ دوزبانه در پیوی ربات مدیریت می‌شود.',
     f1h:'۲۰ قفل مستقل',f1p:'ادیت متن و مدیا، لینک در ادیت، ارسال متن/عکس/ویدیو/گیف/استیکر/ویس/موزیک/فایل/نظرسنجی/مخاطب/لوکیشن/بازی، فوروارد، لینک، پست ناشناس و قفل کامل.',
     f2h:'چندکاناله واقعی',f2p:'هر تعداد کانال، همزمان فعال؛ آمار، قفل‌ها و گزارش هر کانال کاملاً جداست و هر کانال جداگانه فعال می‌شود.',
@@ -281,13 +313,13 @@ const I18N = {
     f6h:'ادمین‌سازی داخل ربات',f6p:'تک‌نفره یا گروهی (تا ۵۰ شناسه)، با پریست‌های یک‌ضربه‌ای، فهرست ادمین‌ها با دکمهٔ عزل و ویرایش دسترسی — بدون خروج از ربات.',
     f7h:'نام و منشن کنار شناسه',f7p:'در همهٔ لیست‌ها و گزارش‌های گروهی نام و منشن هر نفر کنار شناسه‌اش می‌آید تا هیچ‌وقت لازم نباشد آیدی‌ها را تک‌تک چک کنید.',
     f8h:'آمار و «آخرین تخلف‌ها»',f8p:'شمارندهٔ امروز به وقت تهران، پرتکرارترین دلایل، ۱۵ تخلف آخر با لینک مستقیم پیام و ساعت شمسی.',
-    f9h:'حذف پیام‌های +۴۸ ساعت',f9p:'محدودیت تلگرام را با یوزرباتِ همراه دور بزن: پیام‌های قدیمی به صف می‌روند و با اکانت انسانی حذف می‌شوند (اختیاری).',
+    f9h:'حذف پیام‌های +۴۸ ساعت (Cloudflare)',f9p:'محدودیت تلگرام را با یوزرباتِ همراه دور بزن: پیام‌های قدیمی به صف می‌روند و با اکانت انسانی حذف می‌شوند (اختیاری).',
     f10h:'بکاپ و بازگردانی',f10p:'کل تنظیمات هر کانال در یک متن قابل‌ذخیره؛ با یک ارسال دقیقاً همان وضعیت برمی‌گردد — انتقال آسان بین کانال‌ها.',
     f11h:'سوپر بهینه',f11p:'کش دولایه، فلاش گروهی آمار، گزارش‌های ادغام‌شده در موج تخلف — ۰٫۳٪ از سهمیهٔ پلن رایگان Cloudflare.',
     f12h:'دوزبانهٔ کامل (v2.3)',f12p:'هر کاربر زبان خودش را با دکمهٔ 🌐 انتخاب می‌کند؛ مالک زبان پیش‌فرض گزارش‌ها را با /setlang تعیین می‌کند.',
-    f13h:'هم‌گام با آخرین تلگرام (v2.4)',f13p:'حذف «کل آلبوم» در تخلف، پوشش پیام ریچ/چ‌ک‌لیست/عکس زنده، هشدار فوری تغییر مالکیت کانال و دکمه‌های رنگی جدید تلگرام.',
-    kh:'SETUP',hH:'۳ دقیقه تا کانال امن',hP:'بدون سرور، بدون دیتابیس، بدون پرداخت — فقط Cloudflare و یک توکن ربات.',
-    s1h:'استقرار در Cloudflare',s1p:'دکمهٔ Deploy را بزن یا با wrangler دیپلوی کن؛ BOT_TOKEN و OWNER_ID را به‌عنوان Secret ثبت کن و آدرس ?setup= را باز کن تا وب‌هوک خودکار وصل شود.',
+    f13h:'هم‌گام با آخرین تلگرام (v2.4)',f13p:'حذف «کل آلبوم» در تخلف، پوشش پیام ریچ/چ‌ک‌لیست/عکس زنده، هشدار فوری تغییر مالکیت کانال و دکمه‌های رنگی جدید تلگرام.',f14h:'عضویت اجباری (tgcloud)',f14p:'اعضا قبل از استفاده از ربات باید در چنل/گروه مشخص عضو شوند — فقط چنل/گروه، پیش‌فرض خاموش.',f15h:'اعلان بدون تکرار (tgcloud)',f15p:'اعلان‌های شروع/پایان قفل زمان‌دار دقیقاً یک بار می‌آیند — حتی اگر تشخیص بعد از نیمه‌شب دوباره تکرار شود.',
+    kh:'SETUP',hH:'۳ دقیقه تا کانال امن',hP:'بدون سرور، بدون دیتابیس، بدون پرداخت — Cloudflare یا tgcloud، فقط یک توکن ربات.',
+    s1h:'استقرار (Cloudflare یا tgcloud)',s1p:'در Cloudflare دکمهٔ Deploy را بزن یا با wrangler دیپلوی کن؛ در tgcloud دستور npx tgcloud push را بزن. BOT_TOKEN و OWNER_ID را به‌عنوان Secret ثبت کن و آدرس ?setup= را باز کن تا وب‌هوک خودکار وصل شود.',
     s2h:'ربات را ادمین کن',s2p:'ربات را با دسترسی «حذف پیام» به کانال اضافه کن؛ خودکار ثبت می‌شود و پیام فعال‌سازی به پیوی مالک می‌آید.',
     s3h:'قفل‌ها را بچین',s3p:'از پنل، قفل‌های دلخواه را روشن کن، وضعیت زرد/قرمز را تنظیم کن و ادمین‌هایت را با دسترسی کانالی وارد کن — تمام!',
     kl:'PUNISH LADDER',lH:'نردبان وضعیت — از هشدار تا مجازات',lP:'برای ادیتِ پست‌های مدیادار، خودت انتخاب می‌کنی ربات چقدر سخت‌گیر باشد.',
@@ -304,19 +336,20 @@ const I18N = {
     q4:'قفل پست ناشناس چطور کار می‌کند؟',
     a4:'وقتی روشن باشد، هر پستی که «بدون امضای ادمین» (از طرف خودِ کانال) ارسال شود فوراً حذف می‌شود — هیچ‌کس نمی‌تواند بدون هویت واقعی خودش پست بدهد. برای اینکه امضا زیر پست بیاید، در دسترسی هر ادمین گزینهٔ «Sign messages» را روشن کن.',
     q5:'امنیت و حریم خصوصی چطور است؟',
-    a5:'هیچ‌کس جز مالک نمی‌تواند دسترسی تعیین یا تنظیمات را تغییر دهد. توکن‌ها فقط به‌عنوان Secret روی Cloudflare نگهداری می‌شوند و هرگز در کد یا ریپو نیستند. وب‌هوک با secret token تلگرام اعتبارسنجی می‌شود و کد کاملاً متن‌باز (MIT) است — خودت می‌توانی بخوانی و دیپلوی کنی.',
+    a5:'هیچ‌کس جز مالک نمی‌تواند دسترسی تعیین یا تنظیمات را تغییر دهد. توکن‌ها فقط به‌عنوان Secret روی Cloudflare یا در سیکرت‌های tgcloud نگهداری می‌شوند و هرگز در کد یا ریپو نیستند. وب‌هوک با secret token تلگرام اعتبارسنجی می‌شود و کد کاملاً متن‌باز (MIT) است — خودت می‌توانی بخوانی و دیپلوی کنی.',
     q6:'پلن رایگان Cloudflare کافی است؟',
-    a6:'بله، با فاصله. ربات در مصرف واقعی حدود <b>۰٫۳٪</b> از سهمیهٔ روزانهٔ ۱۰۰ هزار ریکوئست پلن رایگان را استفاده می‌کند؛ فلاش گروهی آمار سهمیهٔ نوشتن KV را هم در موج تخلف زیر سقف نگه می‌دارد. برای ۳ کانال (و خیلی بیشتر) پلن رایگان کاملاً کافی است.',
-    dH:'آماده‌ای کانالت را امن کنی؟',dP:'دیپلوی در Cloudflare حدود یک دقیقه طول می‌کشد — بدون سرور، رایگان و متن‌باز.',
-    dBtn:'استقرار روی Cloudflare',dNote:'ترجیح می‌دهی دستی دیپلوی کنی؟ راهنمای کامل فارسی در ریپو هست — <code>README-FA.md</code>',
+    a6:'بله، با فاصله. ربات در مصرف واقعی حدود <b>۰٫۳٪</b> از سهمیهٔ روزانهٔ ۱۰۰ هزار ریکوئست پلن رایگان را استفاده می‌کند؛ فلاش گروهی آمار سهمیهٔ نوشتن KV را هم در موج تخلف زیر سقف نگه می‌دارد. برای ۳ کانال (و خیلی بیشتر) پلن رایگان کاملاً کافی است.',q7:'دو نسخه چه فرقی با هم دارن؟',a7:'هر دو همان ربات‌اند و قابلیت‌های اصلی (۲۰ قفل، نردبان زرد/قرمز، چندکاناله، بکاپ، گزارش پویا) در هر دو هست. نسخهٔ <b>tgcloud</b> لایو است و عضویت اجباری، اعلان بدون تکرار و محافظ مالک ربات را اضافه دارد؛ نسخهٔ <b>Cloudflare</b> بکاپ است و یوزربات (+۴۸ ساعت) و fallback به ربات قبلی را دارد. برای هر توکن فقط یکی را اجرا کن.',
+    dH:'آماده‌ای کانالت را امن کنی؟',dP:'دیپلوی حدود یک دقیقه طول می‌کشد — بدون سرور، رایگان و متن‌باز، در Cloudflare یا tgcloud.',
+    dBtn:'استقرار روی Cloudflare',dBtn2:'نسخهٔ tgcloud (لایو)',dNote:'ترجیح می‌دهی دستی دیپلوی کنی؟ راهنمای کامل فارسی در ریپو هست — <code>README-FA.md</code>؛ برای tgcloud دستور <code>npx tgcloud push</code> کافی است.',
     fA:'سازنده',fT:'🛡️ ضد خیانت کانال — متن‌باز تحت مجوز MIT · ساخته‌شده برای کانال‌های تمیز'},
   en:{dir:'ltr',htmlLang:'en',btn:'🌐 فارسی',brand:'Anti-Treason Bot',
-    navF:'Features',navH:'Setup',navL:'Punish Ladder',navE:'Guide',navD:'Deploy',
-    badge:'Open source · Free · Runs on Cloudflare Workers',
+    navV:'Versions',navF:'Features',navH:'Setup',navL:'Punish Ladder',navE:'Guide',navD:'Deploy',
+    badge:'Open source · Free · Two versions: Cloudflare + tgcloud',
     h1a:'Delete betrayals the',h1b:'second they happen',h1c:'',
-    sub:'A Telegram channel guard bot: any unauthorized edit or post is detected and deleted instantly — even if the message is days old and was just edited. Bilingual panel, 20 smart locks, serverless and completely free.',
+    sub:'A Telegram channel guard bot: any unauthorized edit or post is detected and deleted instantly — even if the message is days old and was just edited. Bilingual panel, 20 smart locks, serverless and completely free — in two versions: tgcloud (live) and Cloudflare (backup).',
     cta1:'🚀 One-click deploy',cta2:'📘 Step-by-step guide',
     t1:'automated tests green',t2:'independent locks',t3:'channels at once',t4:'of the free-plan quota used',
+    vk:'TWO VERSIONS',vH:'Two versions, one bot',vP:'The same bot ships in two runtimes — the live version runs on tgcloud and the Cloudflare Worker is the backup. Run only one runtime per bot token.',v1h:'tgcloud Serverless — Live',v1p:'The running version (rev 12). Telegram SQL database + KV, deploy with npx tgcloud push, exactly-once scheduled-lock announcements, force-join and a bot-owner guard in red mode.',v2h:'Cloudflare Worker — Backup',v2p:'The single-file version (v5.2) on Cloudflare Workers with KV. Companion userbot for deleting messages older than 48 hours, previous-bot fallback and the KV write-budget optimization.',v3h:'Force-join (tgcloud)',v3p:'Members must join a required channel/group before they can use the bot — channel/group only, ships off.',v4h:'Exactly-once announcements (tgcloud)',v4p:'Scheduled-lock start/end announcements are claimed atomically in KV, so a re-detection after midnight can never announce twice.',v5h:'Userbot 48h+ (Cloudflare)',v5p:'Deleting messages older than 48 hours via a human account (Telethon) — bypassing Telegram\'s bot limit.',v6h:'Previous bot for demotion (Cloudflare)',v6p:'Demote/ban/unban automatically retry through the previous bot (LEGACY_BOT_TOKEN) when Telegram refuses.',
     kf:'FEATURES',fH:'Everything a clean channel needs',fP:'From fine-grained locks to the punishment ladder — all managed from one simple bilingual panel in the bot\'s DM.',
     f1h:'20 independent locks',f1p:'Text & media edits, link-in-edit, text/photo/video/GIF/sticker/voice/music/file/poll/contact/location/dice posts, forwards, links, anonymous posts and a full lock.',
     f2h:'Truly multi-channel',f2p:'Any number of channels active at once; stats, locks and reports are fully separate per channel.',
@@ -326,13 +359,13 @@ const I18N = {
     f6h:'In-bot promotion',f6p:'Single or batch (up to 50 IDs), one-tap presets, an admin list with demote and edit-permissions buttons — without leaving the bot.',
     f7h:'Names next to IDs',f7p:'Every list and batch report shows each person\'s name and mention next to their ID — no more checking IDs one by one.',
     f8h:'Stats & latest violations',f8p:'A "today" counter in Tehran time, top reasons, the last 15 violations with direct message links and Jalali timestamps.',
-    f9h:'Delete 48h+ messages',f9p:'Bypass Telegram\'s limit with the companion userbot: old messages are queued and deleted via a human account (optional).',
+    f9h:'Delete 48h+ messages (Cloudflare)',f9p:'Bypass Telegram\'s limit with the companion userbot: old messages are queued and deleted via a human account (optional).',
     f10h:'Backup & restore',f10p:'A channel\'s entire settings in one saveable text; one send restores the exact state — easy transfer between channels.',
     f11h:'Super efficient',f11p:'Two-layer caching, batched stats flush, merged burst reports — uses ~0.3% of Cloudflare\'s free plan quota.',
     f12h:'Fully bilingual (v2.3)',f12p:'Each user picks their language with the 🌐 button; the owner sets the reports default with /setlang.',
-    f13h:'Up to date with Telegram (v2.4)',f13p:'Whole-album deletion on violation, rich-message/checklist/live-photo/paid-media coverage, instant ownership-change alerts and Telegram’s new colored buttons.',
-    kh:'SETUP',hH:'3 minutes to a safe channel',hP:'No server, no database, no payment — just Cloudflare and a bot token.',
-    s1h:'Deploy to Cloudflare',s1p:'Hit the Deploy button or deploy with wrangler; set BOT_TOKEN and OWNER_ID as Secrets, then open the ?setup= URL to connect the webhook automatically.',
+    f13h:'Up to date with Telegram (v2.4)',f13p:'Whole-album deletion on violation, rich-message/checklist/live-photo/paid-media coverage, instant ownership-change alerts and Telegram’s new colored buttons.',f14h:'Force-join (tgcloud)',f14p:'Members must join a required channel/group before using the bot — channel/group only, ships off.',f15h:'Exactly-once announcements (tgcloud)',f15p:'Scheduled-lock start/end announcements arrive exactly once — even if detection repeats after midnight.',
+    kh:'SETUP',hH:'3 minutes to a safe channel',hP:'No server, no database, no payment — Cloudflare or tgcloud, just a bot token.',
+    s1h:'Deploy (Cloudflare or tgcloud)',s1p:'On Cloudflare hit the Deploy button or deploy with wrangler; on tgcloud run npx tgcloud push. Set BOT_TOKEN and OWNER_ID as Secrets, then open the ?setup= URL to connect the webhook automatically.',
     s2h:'Make the bot an admin',s2p:'Add the bot to your channel with the "Delete messages" permission; it registers automatically and an activation message arrives in the owner\'s DM.',
     s3h:'Arrange the locks',s3p:'Turn on the locks you want from the panel, set the yellow/red mode and onboard your admins with scoped access — done!',
     kl:'PUNISH LADDER',lH:'The punish ladder — from warning to consequence',lP:'You decide how strict the bot gets when someone edits a media post.',
@@ -349,11 +382,11 @@ const I18N = {
     q4:'How does the anonymous-post lock work?',
     a4:'When enabled, any post made "without an admin signature" (i.e. as the channel itself) is deleted instantly — nobody can post without their real identity. Enable "Sign messages" for each admin so signatures appear under posts.',
     q5:'What about security & privacy?',
-    a5:'Nobody but the owner can grant access or change settings. Tokens are stored only as Cloudflare Secrets and never appear in code or the repo. The webhook is validated with Telegram\'s secret token, and the code is fully open source (MIT) — read it and deploy it yourself.',
+    a5:'Nobody but the owner can grant access or change settings. Tokens are stored only as Cloudflare Secrets or tgcloud platform secrets and never appear in code or the repo. The webhook is validated with Telegram\'s secret token, and the code is fully open source (MIT) — read it and deploy it yourself.',
     q6:'Is the Cloudflare free plan enough?',
-    a6:'Yes, by a wide margin. In real usage the bot consumes about <b>0.3%</b> of the free plan\'s 100k daily requests; batched stats flushing also keeps KV write quota under the cap during violation bursts. For 3 channels (and many more) the free plan is fully sufficient.',
-    dH:'Ready to secure your channel?',dP:'Deploying to Cloudflare takes about a minute — serverless, free and open source.',
-    dBtn:'Deploy to Cloudflare',dNote:'Prefer manual deployment? The full Persian guide lives in the repo — <code>README-FA.md</code>',
+    a6:'Yes, by a wide margin. In real usage the bot consumes about <b>0.3%</b> of the free plan\'s 100k daily requests; batched stats flushing also keeps KV write quota under the cap during violation bursts. For 3 channels (and many more) the free plan is fully sufficient.',q7:'How do the two versions differ?',a7:'Both are the same bot and the core features (20 locks, yellow/red ladder, multi-channel, backup, dynamic reports) are in both. The <b>tgcloud</b> version is live and adds force-join, exactly-once announcements and the bot-owner guard; the <b>Cloudflare</b> version is the backup and has the userbot (48h+) and previous-bot fallback. Run only one per token.',
+    dH:'Ready to secure your channel?',dP:'Deploying takes about a minute — serverless, free and open source, on Cloudflare or tgcloud.',
+    dBtn:'Deploy to Cloudflare',dBtn2:'tgcloud version (live)',dNote:'Prefer manual deployment? The full Persian guide lives in the repo — <code>README-FA.md</code>; for tgcloud, npx tgcloud push is enough.',
     fA:'Author',fT:'🛡️ Anti-Treason Bot — open source under MIT · built for clean channels'}
 };
 function setLang(l){
