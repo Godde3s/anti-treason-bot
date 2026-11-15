@@ -1,834 +1,486 @@
 <!doctype html>
-<!-- type: software | page-type: software | site-kind: software
-     deal: hero split, nav nav-cards, close close-type, footer footer-statement,
-     rhythm dark-band, buttons arrow, mark ring, palette steel-orange, type host
-     moments: line-carries-colour (#flow), word-highlight (#faq)
-     Voice: technical-dry. Category: Telegram channel guard bot. Primary action: Deploy.
-     The page is a stack of screens (layout-v4.md): the hero alone on the first, every other
-     section and the footer exactly one or two, its h2 first. -->
-<html lang="fa" dir="rtl" data-type="software" data-radius="soft" data-ground="sand" data-buttons="arrow" data-motion>
+<html lang="fa" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AntiCh34t: Telegram channel guard bot</title>
-<meta name="description" content="A Telegram channel guard bot: it deletes any unauthorized edit or post in milliseconds, even if the message is days old. 20 locks, a yellow and red ladder, free and open source.">
-<meta property="og:type" content="website">
-<meta property="og:title" content="AntiCh34t: Telegram channel guard bot">
-<meta property="og:description" content="Deletes any unauthorized edit or post in milliseconds, even if the message is days old. 20 locks, a yellow and red ladder, free and open source.">
-<meta property="og:image" content="share.jpg">
-<meta name="twitter:card" content="summary_large_image">
+<meta name="viewport" content="initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F2F2F7">
+<meta name="description" content="AntiCh34t — Telegram channel guard bot. Live on tgcloud, rev 12.">
+<title>AntiCh34t — Telegram channel guard bot</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta name="theme-color" content="#F7F2E9">
-<meta name="site-kind" content="software">
-<meta name="page-type" content="software">
-<!-- <link rel="canonical" href="https://godde3s.github.io/anti-treason-bot/"> -->
-<link rel="stylesheet" href="assets/fonts/fonts.css">
-<link rel="stylesheet" href="assets/system.css">
-<link rel="stylesheet" href="assets/ui/cards.css">
-<link rel="stylesheet" href="assets/motion/motion.css">
-<link rel="stylesheet" href="assets/backgrounds/backgrounds.css">
-<link rel="stylesheet" href="assets/layout/layout.css">
-<link rel="stylesheet" href="assets/icons/icon.css">
-<link rel="stylesheet" href="assets/diagrams/diagram.css">
-<link rel="stylesheet" href="assets/ui/base.css">
 <style>
-:root {
-  /* Three colours, 80/20: warm paper covers ~80% of every screen, warm ink carries the
-     type and the dark band, one signal red does all the pointing (buttons, live dot, red
-     mode). Paper tints (surface, ground) are the same colour in a different value. */
-  --p-bg: #F7F2E9; --p-surface: #EFE7D6; --p-ink: #1B1A18; --p-muted: #6E675C;
-  --p-accent: #D9381E; --p-accent-ink: #ffffff; --p-action: #D9381E; --p-action-ink: #ffffff;
-  --p-inv-bg: #1B1A18; --p-inv-surface: #262422; --p-inv-ink: #F7F2E9; --p-inv-muted: #A8A094;
-  --p-inv-accent: #D9381E; --p-inv-accent-ink: #ffffff; --p-inv-action: #D9381E; --p-inv-action-ink: #ffffff;
-  /* the kit's lit ground (panels, footer slab) in the same paper, not the old tan sand */
-  --ground-bg: #EAE1CE; --ground-surface: #F2EBDC; --ground-ink: #1B1A18; --ground-muted: #6E675C; --ground-accent: #D9381E;
-  /* more air: sections breathe further apart, headings stand further from their content */
-  --section: 72px; --head-gap: 64px; --card-gap: 20px;
-  --font-display: "Host Grotesk", "Vazirmatn", system-ui, sans-serif;
-  --font-text: "Host Grotesk", "Vazirmatn", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  --display-weight: 500;
-  --display-tracking: -0.035em;
-  --display-tracking-xl: -0.04em;
+/* ============ iOS tokens (HIG: semantic colours, light + dark re-derived) ============ */
+:root{
+  --font-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Vazirmatn",sans-serif;
+  --t-large:34px; --lh-large:41px;
+  --t-t2:22px; --lh-t2:28px;
+  --t-t3:20px; --lh-t3:25px;
+  --t-head:17px; --lh-head:22px;
+  --t-body:17px; --lh-body:22px;
+  --t-sub:15px; --lh-sub:20px;
+  --t-foot:13px; --lh-foot:18px;
+  --t-cap:12px; --lh-cap:16px;
+  --margin:16px;
+  --hit:44px;
+  --row:53px;
+  --list-r:26px;
+  --tab-h:62px;
+  --btn-h:50px;
+  --bg:#ffffff; --bg2:#F2F2F7; --bg3:#E9E9EB;
+  --label:#000000; --label2:#8E8E93; --label3:#AEAEB2;
+  --sep:rgba(60,60,67,.18);
+  --tint:#007AFF; --danger:#FF3B30; --green:#34C759;
+  --bubble:#E9E9EB; --bubble-out:#007AFF;
+  --glass:rgba(255,255,255,.72);
+  --card:#ffffff;
+  --desk:#E9E9EB;
 }
-</style>
-<script>document.documentElement.classList.add('m-enter');setTimeout(()=>document.documentElement.classList.add('m-enter-done'),700)</script>
-<script src="assets/backgrounds/backgrounds.js"></script>
-<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
-<link rel="modulepreload" href="assets/moments/moments.js">
-<link rel="modulepreload" href="assets/moments/lib.js">
-<link rel="modulepreload" href="assets/moments/line-carries-colour/moment.js">
-<link rel="modulepreload" href="assets/moments/word-highlight/moment.js">
-<style>
-  /* The language toggle is plain text, like a nav link — not a third button style. */
-  .lang-btn { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
-  .lang-btn:hover { color: var(--p-accent); }
-  /* Page CSS: only what sits inside a visual and the kit lacks. */
-  /* Persian text uses Vazirmatn; Latin uses Host Grotesk (font fallback handles it). */
-  html[lang="fa"] body { font-family: "Vazirmatn", "Host Grotesk", system-ui, sans-serif; }
-  /* Telegram panel mock (the product's real UI): Telegram blue is the product's own colour. */
-  .tg { --tg-blue: #1273a8; --tg-bg: #ffffff; --tg-chat: #f4f4f5; --tg-ink: #111111;
-    --tg-muted: #5c5e62; --tg-line: #e4e4e7; background: var(--tg-chat); border: 1px solid var(--tg-line);
-    border-radius: var(--r-lg); overflow: hidden; text-align: start; }
-  .tg__bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px;
-    border-bottom: 1px solid var(--tg-line); background: var(--tg-bg); }
-  .tg__av { width: 36px; height: 36px; border-radius: 50%; background: var(--tg-blue);
-    color: #fff; display: grid; place-items: center; font-size: 15px; font-weight: 700; flex: none; }
-  .tg__name { font-weight: 700; font-size: 15px; color: var(--tg-ink); line-height: 1.3; }
-  .tg__sub { font-size: 12px; color: var(--tg-blue); line-height: 1.3; }
-  .tg__body { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
-  .tg__msg { background: var(--tg-bg); border-radius: 12px; padding: 12px 14px;
-    box-shadow: 0 1px 2px rgba(0,0,0,.06); max-width: 100%; }
-  .tg__msg p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--tg-ink); }
-  .tg__msg .muted { color: var(--tg-muted); }
-  .tg__keys { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
-  .tg__key { border: 1px solid var(--tg-line); border-radius: 8px; background: var(--tg-bg);
-    padding: 8px 10px; font-size: 13px; color: var(--tg-ink); display: flex; align-items: center; gap: 8px; }
-  .tg__key .st { margin-inline-start: auto; font-size: 12px; font-weight: 700; }
-  .tg__key .on { color: #146c2e; }
-  .tg__key .off { color: var(--tg-muted); }
-  .tg__key.wide { grid-column: 1 / -1; }
-  .tg__key.hot { border-color: rgba(217,56,30,.5); }
-  /* App-frame: the bot's panel, list + open item (sections-library.md, app-frame). */
-  .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7);
-    background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r);
-    box-shadow: var(--u-shadow); }
-  .app > .app__pane { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
-  .app > .app__pane + .app__pane { border-left: 1px solid var(--u-line); }
-  .app > .app__pane > .ui-panel { width: 100%; border: 0; border-radius: 0; box-shadow: none; }
-  .app > .app__pane::after { content: ""; position: absolute; inset: auto 0 0 0; height: 64px;
-    background: linear-gradient(transparent, var(--u-bg)); pointer-events: none; }
-  @media (min-width: 1024px) and (max-width: 1279px) { .app.ui { grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); } }
-  @media (max-width: 1023px) {
-    .app.ui { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-    .app > .app__pane--list { max-height: 252px; }
-    .app > .app__pane--list::after { display: none; }
-    .app .ui-win__side { display: none; }
-    .app .ui-win__body { grid-template-columns: minmax(0, 1fr); }
-    .app > .app__pane + .app__pane { border-left: 0; border-top: 1px solid var(--u-line); }
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#000000; --bg2:#1C1C1E; --bg3:#2C2C2E;
+    --label:#ffffff; --label2:#98989D; --label3:#636366;
+    --sep:rgba(235,235,245,.16);
+    --tint:#0A84FF; --danger:#FF453A; --green:#30D158;
+    --bubble:#26262A; --bubble-out:#0A84FF;
+    --glass:rgba(28,28,30,.72);
+    --card:#1C1C1E;
+    --desk:#000000;
   }
-  @media (max-width: 639px) {
-    .app.ui { grid-template-rows: minmax(0, 1fr); }
-    .app > .app__pane--list { display: none; }
-    .app > .app__pane + .app__pane { border-top: 0; }
-  }
-  /* Feature card panels. */
-  #locks .panel { --p-h: 336px; }
-  #ladder .panel { --p-h: 336px; }
-  @media (max-width: 1279px) { #locks .panel, #ladder .panel { --p-h: 300px; } }
-  @media (max-width: 1023px) { #locks .panel, #ladder .panel { --p-h: 260px; } }
-  @media (max-width: 639px) { #locks .panel, #ladder .panel { --p-h: 220px; } }
-  /* Comparison table. */
-  .cmp { width: 100%; border-collapse: collapse; font-size: 16px; table-layout: fixed; }
-  .cmp th, .cmp td { overflow-wrap: break-word; }
-  @media (max-width: 639px) {
-    .cmp { font-size: 14px; }
-    .cmp th, .cmp td { padding: 8px 10px; }
-    .cmp td:first-child { white-space: normal; }
-  }
-  .cmp th, .cmp td { text-align: start; padding: 9px 16px; border-bottom: 1px solid var(--p-ink);
-    border-bottom-color: color-mix(in srgb, var(--p-ink) 12%, transparent); vertical-align: top; }
-  .cmp th { font-size: 13px; font-weight: 500; color: var(--p-muted); }
-  .cmp td:first-child { font-weight: 500; white-space: nowrap; }
-  .cmp .live { color: #a03f14; font-weight: 700; }
-  /* Deploy code block. */
-  .code { font-family: var(--font-mono); font-size: 15px; background: var(--p-inv-bg); color: var(--p-inv-ink);
-    border-radius: var(--r-md); padding: 16px 20px; direction: ltr; text-align: left; overflow-x: auto; }
-  /* Word-highlight statement. */
-  .statement { font-size: clamp(28px, 4vw, 44px); line-height: 1.3; font-weight: var(--display-weight);
-    letter-spacing: var(--display-tracking); max-width: 20ch; }
-  /* The Live dot pulses twice, then rests on the solid dot (the checker wants motion settled in 5 s). */
-  .ly-live::before { animation-iteration-count: 2; }
-  /* App-frame: flat Telegram panes inside .app.ui. */
-  .tg--flat { border: 0; border-radius: 0; }
-  .tg__list { list-style: none; margin: 0; padding: 0; }
-  .tg__item { display: flex; gap: 12px; align-items: center; padding: 12px 16px;
-    border-bottom: 1px solid var(--tg-line); font-size: 14px; }
-  .tg__item.is-on { background: #eaf4fb; }
-  .tg__item .tg__av { width: 40px; height: 40px; font-size: 16px; }
-  .tg__item .tg__name { font-size: 14px; overflow-wrap: break-word; }
-  .tg__item > span:last-child { min-width: 0; }
-  .tg__item .tg__sub { font-size: 12px; color: var(--tg-muted); }
-  .tg__stat { display: flex; gap: 16px; margin-top: 10px; font-size: 13px; color: var(--tg-muted); }
-  .tg__stat b { color: var(--tg-ink); }
-  /* Feature panel visuals (small, real UI mocks). */
-  .lk { display: flex; flex-direction: column; gap: 8px; }
-  .lk__row { display: flex; align-items: center; gap: 10px; font-size: 14px; padding: 10px 12px;
-    background: var(--p-bg); border-radius: var(--r-md); }
-  .lk__row .st { margin-inline-start: auto; font-size: 12px; font-weight: 700; color: #146c2e; }
-  .lk__row .st.off { color: var(--p-muted); }
-  .diff { font-size: 14px; line-height: 1.7; }
-  .diff__old { background: #fbe9e7; padding: 10px 12px; border-radius: var(--r-md); }
-  .diff__new { background: #e8f5e9; padding: 10px 12px; border-radius: var(--r-md); margin-top: 8px; }
-  .diff__old s { text-decoration-color: #D9381E; }
-  .diff__tag { font-size: 12px; font-weight: 700; color: var(--p-muted); display: block; margin-bottom: 4px; }
-  .ladder { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .ladder__step { border: 1px solid color-mix(in srgb, var(--p-ink) 14%, transparent); border-radius: var(--r-md);
-    padding: 14px; font-size: 14px; line-height: 1.5; }
-  .ladder__step .t { font-weight: 700; display: block; margin-bottom: 4px; }
-  .ladder__step--y { border-color: #d4a017; background: #fdf6e3; }
-  .ladder__step--r { border-color: #D9381E; background: #FDECE8; }
-  .rep { font-size: 14px; line-height: 1.6; }
-  .rep__head { font-weight: 700; margin-bottom: 6px; }
-  .rep__meta { color: var(--p-ink); font-size: 13px; }
-  .rep__box { background: var(--p-bg); border-radius: var(--r-md); padding: 10px 12px; margin-top: 10px; }
-  /* Persian glyphs are taller than Latin: the kit's tight display leading (h1 1.04, h2 1.1)
-     overlaps FA lines (the reports heading collided with its paragraph). Loosen heading
-     leading in RTL so lines never collide; EN keeps the tight leading. */
-  [dir="rtl"] h1, [dir="rtl"] .t-h1 { line-height: 1.25; }
-  [dir="rtl"] h2, [dir="rtl"] .t-h2 { line-height: 1.3; }
-  [dir="rtl"] h3, [dir="rtl"] .t-h3 { line-height: 1.4; }
-  /* feature-card panels: the kit's 264-340px stage leaves a big empty sand area under a
-     small fragment; shrink the stage so the fragment is the visual, not the empty ground */
-  #locks .card > .panel, #ladder .card > .panel, #manage .card > .panel, #reports .card > .panel { --p-h: 190px; }
-  /* the manage list is a long read: give each row room to breathe */
-  #manage .rows > li { padding-block: var(--s-5); }
-  /* the story is ~2.5 screens of real content, so it sizes to its content —
-     the kit's fixed N-screen height would overflow and overlap the next section */
-  #story { height: auto; }
-  #story > .wrap { height: auto; }
-  #panel, #manage, #versions { height: auto; }
-  #panel > .wrap, #manage > .wrap, #versions > .wrap { height: auto; }
-  /* the story: three steps, one after another, like a timeline — not cards.
-     A big red numeral carries the step; the real Telegram message is the visual. */
-  .story { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-9); }
-  .story__step { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s-5); align-items: start; }
-  .story__num { font-family: var(--font-display); font-size: 56px; font-weight: 500; line-height: 1;
-    color: var(--p-accent); letter-spacing: var(--display-tracking); }
-  .story__body h3 { font-size: 22px; font-weight: 700; line-height: 1.3; margin: 0 0 8px; }
-  .story__body p { margin: 0 0 16px; max-width: 560px; }
-  .story__body .tg { max-width: 560px; }
-  /* the locks panel: one complete settings list, two columns, no fragments */
-  .locks-panel { margin-top: var(--s-10); background: var(--p-surface); border: 1px solid var(--u-border, rgba(27,26,24,.14));
-    border-radius: var(--r-lg); padding: var(--s-7); }
-  .locks-panel h3 { font-size: 22px; font-weight: 700; margin: 0 0 8px; }
-  .locks-panel .t-body { margin: 0 0 24px; max-width: 560px; }
-  .locks-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--s-7); }
-  .locks-list li { display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
-    padding-block: 12px; border-bottom: 1px solid var(--line); font-size: 15px; }
-  .locks-list .st { font-weight: 700; font-size: 13px; }
-  .locks-list .st.off { color: var(--p-muted); }
-  @media (max-width: 639px) {
-    .story__step { grid-template-columns: 1fr; gap: var(--s-3); }
-    .story__num { font-size: 40px; }
-    .locks-list { grid-template-columns: 1fr; }
-    .locks-panel { padding: var(--s-5); }
-  }
-  /* the hero float card is absolute over the panel's empty foot on desktop;
-     on a phone the panel fills the media box, so the card flows below it instead of covering the locks */
-  @media (max-width: 639px) {
-    .hero__media .ly-float { position: static; width: 100%; margin-top: var(--s-4); }
-  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--desk); color:var(--label);
+  font-family:var(--font-ui); font-size:var(--t-body); line-height:var(--lh-body);
+  -webkit-tap-highlight-color:transparent;
+}
+/* ============ the app column — ONE layout, every width.
+   Max 430px, centred on desktop; full-bleed on a phone. No breakpoints
+   reflow the content: mobile and desktop are the same column. ============ */
+.app{
+  max-width:430px; margin:0 auto; min-height:100dvh;
+  background:var(--bg2);
+  padding-bottom:calc(var(--tab-h) + 28px + env(safe-area-inset-bottom));
+}
+@media (min-width:460px){
+  .app{ border-inline-start:1px solid var(--sep); border-inline-end:1px solid var(--sep); }
+}
+a{color:var(--tint); text-decoration:none}
+:focus-visible{outline:2px solid var(--tint); outline-offset:2px; border-radius:8px}
+button{font-family:inherit; -webkit-tap-highlight-color:transparent}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none !important; transition:none !important}
+}
 
+/* ============ header: iOS large title ============ */
+.app-head{ padding:calc(12px + env(safe-area-inset-top)) var(--margin) 0; }
+.app-head__row{ display:flex; align-items:center; justify-content:space-between; min-height:var(--hit); }
+.app-head__live{
+  display:inline-flex; align-items:center; gap:6px;
+  font-size:var(--t-foot); line-height:var(--lh-foot); font-weight:600; color:var(--label2);
+}
+.app-head__live i{ width:8px; height:8px; border-radius:50%; background:var(--danger); display:inline-block; }
+.lang-btn{
+  min-height:var(--hit); min-width:var(--hit); padding:0 12px;
+  border:0; background:transparent; color:var(--tint);
+  font-size:var(--t-body); font-weight:600; cursor:pointer; border-radius:12px;
+}
+.lang-btn:active{ opacity:.5; }
+.large-title{
+  margin:8px 0 6px; font-size:var(--t-large); line-height:var(--lh-large);
+  font-weight:700; letter-spacing:-.5px;
+}
+.lede{ margin:0 0 4px; color:var(--label2); font-size:var(--t-body); line-height:var(--lh-body); max-width:340px; }
+.lede b{ color:var(--label); font-weight:600; }
+
+/* ============ iOS Messages chat ============ */
+.chat{ padding:18px 12px 4px; display:flex; flex-direction:column; gap:2px; }
+.chat__day{
+  text-align:center; color:var(--label2); font-size:var(--t-foot); line-height:var(--lh-foot);
+  font-weight:600; margin:6px 0 10px;
+}
+.msg{ display:flex; gap:8px; align-items:flex-end; margin-bottom:2px; }
+.msg__av{
+  width:28px; height:28px; border-radius:50%; flex:0 0 auto;
+  background:var(--bubble); color:var(--label2);
+  display:grid; place-items:center; font-size:10px; font-weight:700;
+}
+.bubble{
+  background:var(--bubble); color:var(--label);
+  border-radius:18px; border-end-start-radius:5px;
+  padding:10px 14px; max-width:82%;
+  font-size:var(--t-body); line-height:1.5; overflow-wrap:break-word;
+}
+.bubble p{ margin:0; }
+.bubble p + p{ margin-top:6px; }
+.bubble .muted{ color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
+.bubble b{ font-weight:600; }
+.bubble .red{ color:var(--danger); font-weight:600; }
+.bubble .mono{
+  background:rgba(120,120,128,.16); border-radius:6px; padding:1px 6px;
+  font-size:14px; direction:ltr; display:inline-block;
+}
+.bubble .strike{ text-decoration:line-through; text-decoration-color:var(--danger); text-decoration-thickness:2px; }
+.bubble .tag{
+  display:inline-block; font-size:var(--t-cap); font-weight:700; color:var(--label2);
+  background:rgba(120,120,128,.16); border-radius:6px; padding:2px 7px; margin-inline-end:6px;
+}
+.chat__cap{ text-align:center; color:var(--label2); font-size:var(--t-foot); line-height:var(--lh-foot); margin:10px 16px 0; }
+
+/* ============ inset grouped list (iOS Settings) ============ */
+.group{ margin-top:28px; }
+.group__head{
+  font-size:var(--t-foot); line-height:var(--lh-foot); font-weight:400; color:var(--label2);
+  text-transform:uppercase; letter-spacing:.4px;
+  padding:0 calc(var(--margin) + 4px) 6px; margin:0;
+}
+.group__head b{ color:var(--label); font-weight:700; text-transform:none; letter-spacing:0; font-size:var(--t-t2); line-height:var(--lh-t2); display:block; }
+.group__sub{ margin:0; padding:0 calc(var(--margin) + 4px) 8px; color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
+.list{
+  list-style:none; margin:0 var(--margin); padding:0;
+  background:var(--card); border-radius:var(--list-r); overflow:hidden;
+}
+.list li{
+  display:flex; align-items:center; gap:12px;
+  min-height:var(--row); padding:10px 16px;
+  border-bottom:1px solid var(--sep);
+}
+.list li:last-child{ border-bottom:0; }
+.list li:active{ background:var(--bg2); }
+.list__ic{
+  width:30px; height:30px; border-radius:8px; flex:0 0 auto;
+  display:grid; place-items:center; font-size:15px; font-weight:700; color:#fff;
+  background:var(--tint);
+}
+.list__ic.red{ background:var(--danger); }
+.list__ic.gray{ background:#8E8E93; }
+.list__ic.green{ background:var(--green); }
+.list__body{ flex:1; min-width:0; }
+.list__t{ font-size:var(--t-body); line-height:var(--lh-body); font-weight:400; overflow-wrap:break-word; }
+.list__t b{ font-weight:600; }
+.list__s{ font-size:var(--t-sub); line-height:var(--lh-sub); color:var(--label2); overflow-wrap:break-word; }
+.list__v{ font-size:var(--t-body); color:var(--label2); white-space:nowrap; }
+.list__chev{ color:var(--label3); font-size:17px; font-weight:600; }
+.group__foot{ margin:0; padding:8px calc(var(--margin) + 4px) 0; color:var(--label2); font-size:var(--t-foot); line-height:var(--lh-foot); }
+
+/* ============ iOS toggle switch (UISwitch) ============ */
+.switch{
+  position:relative; flex:0 0 auto; width:51px; height:31px; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.switch input{ position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; }
+.switch__track{
+  position:absolute; inset:0; border-radius:999px; background:#E9E9EB;
+  transition:background .2s ease; pointer-events:none;
+}
+@media (prefers-color-scheme: dark){ .switch__track{ background:#39393D; } }
+.switch__knob{
+  position:absolute; top:2px; inset-inline-start:2px; width:27px; height:27px; border-radius:50%;
+  background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.25);
+  transition:transform .2s ease; pointer-events:none;
+}
+.switch input:checked ~ .switch__track{ background:var(--green); }
+.switch input:checked ~ .switch__knob{ transform:translateX(-20px); }
+[dir="ltr"] .switch input:checked ~ .switch__knob{ transform:translateX(20px); }
+
+/* ============ segmented control (versions) ============ */
+.seg{
+  display:flex; margin:0 var(--margin); padding:2px;
+  background:rgba(120,120,128,.16); border-radius:9px;
+}
+.seg button{
+  flex:1; min-height:30px; border:0; background:transparent; cursor:pointer;
+  font-size:var(--t-foot); font-weight:600; color:var(--label);
+  border-radius:7px; padding:4px 8px;
+}
+.seg button[aria-selected="true"]{
+  background:var(--card); box-shadow:0 1px 4px rgba(0,0,0,.18); color:var(--label);
+}
+.seg button:active{ opacity:.6; }
+.ver-card{
+  margin:12px var(--margin) 0; background:var(--card); border-radius:var(--list-r);
+  padding:16px; display:none;
+}
+.ver-card.on{ display:block; }
+.ver-card h3{ margin:0 0 4px; font-size:var(--t-t3); line-height:var(--lh-t3); font-weight:700; }
+.ver-card h3 .live{ color:var(--danger); font-size:var(--t-foot); font-weight:700; }
+.ver-card p{ margin:0 0 12px; color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
+.ver-card dl{ margin:0; display:grid; grid-template-columns:auto 1fr; gap:8px 16px; font-size:var(--t-sub); line-height:var(--lh-sub); }
+.ver-card dt{ color:var(--label2); }
+.ver-card dd{ margin:0; text-align:end; font-weight:600; }
+
+/* ============ FAQ disclosure ============ */
+.faq{ list-style:none; margin:0 var(--margin); padding:0; background:var(--card); border-radius:var(--list-r); overflow:hidden; }
+.faq li{ border-bottom:1px solid var(--sep); }
+.faq li:last-child{ border-bottom:0; }
+.faq summary{
+  list-style:none; cursor:pointer; min-height:var(--row);
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:12px 16px; font-size:var(--t-body); line-height:var(--lh-body); font-weight:600;
+}
+.faq summary::-webkit-details-marker{ display:none; }
+.faq summary:active{ background:var(--bg2); }
+.faq summary .chev{ color:var(--label3); font-size:17px; transition:transform .2s ease; }
+.faq li[open ] summary .chev{ transform:rotate(90deg); }
+.faq .ans{ padding:0 16px 14px; color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
+
+/* ============ deploy ============ */
+.deploy{ margin-top:32px; padding:0 var(--margin); }
+.deploy h2{ margin:0 0 6px; font-size:var(--t-t2); line-height:var(--lh-t2); font-weight:700; }
+.deploy p{ margin:0 0 16px; color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
+.btn-primary{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  min-height:var(--btn-h); border-radius:calc(var(--btn-h) / 2);
+  background:var(--tint); color:#fff; font-size:var(--t-body); font-weight:600;
+  border:0; cursor:pointer; width:100%; margin-bottom:10px; text-decoration:none;
+}
+.btn-primary:active{ opacity:.7; }
+.btn-ghost{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  min-height:var(--btn-h); border-radius:calc(var(--btn-h) / 2);
+  background:var(--bg3); color:var(--tint); font-size:var(--t-body); font-weight:600;
+  border:0; cursor:pointer; width:100%; text-decoration:none;
+}
+.btn-ghost:active{ opacity:.7; }
+.btn-ghost code{ font-family:ui-monospace,Menlo,monospace; font-size:14px; direction:ltr; }
+
+/* ============ closing + footer ============ */
+.closing{ margin-top:36px; padding:0 var(--margin); text-align:center; }
+.closing h2{ margin:0 0 6px; font-size:var(--t-t2); line-height:var(--lh-t2); font-weight:700; }
+.closing p{ margin:0; color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
+.foot{ margin-top:28px; padding:0 var(--margin) 8px; text-align:center; color:var(--label3); font-size:var(--t-cap); line-height:var(--lh-cap); }
+.foot a{ color:var(--label2); }
+
+/* ============ floating glass tab bar (bottom) ============ */
+.tabbar{
+  position:fixed; bottom:calc(12px + env(safe-area-inset-bottom)); inset-inline:21px;
+  max-width:388px; margin:0 auto; height:var(--tab-h); z-index:10;
+  display:flex; align-items:center; gap:10px; padding:0 8px;
+  background:var(--glass); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+  border-radius:calc(var(--tab-h) / 2);
+  border:1px solid rgba(255,255,255,.35);
+  box-shadow:0 8px 28px rgba(0,0,0,.18);
+}
+.tabbar__label{ flex:1; min-width:0; padding-inline-start:12px; }
+.tabbar__label b{ display:block; font-size:var(--t-sub); line-height:var(--lh-sub); font-weight:700; }
+.tabbar__label span{ display:block; font-size:var(--t-cap); line-height:var(--lh-cap); color:var(--label2); }
+.tabbar__go{
+  flex:0 0 auto; min-height:48px; padding:0 22px; border:0; cursor:pointer;
+  border-radius:24px; background:var(--tint); color:#fff;
+  font-size:var(--t-body); font-weight:700; text-decoration:none;
+  display:flex; align-items:center;
+}
+.tabbar__go:active{ opacity:.7; }
 </style>
 </head>
 <body>
-<!-- type: software
-     deal: hero split, nav nav-cards, close close-type, footer footer-statement, rhythm dark-band,
-     buttons arrow, mark ring, palette steel-orange, type host
-     moments: line-carries-colour (#flow), word-highlight (#faq) -->
+<div class="app" id="app">
 
-<header class="nav">
-  <div class="wrap nav__bar">
-    <a class="skip-link" href="#top" data-i="skip">Skip to content</a>
-    <a class="nav__logo" href="#top"><span class="mark" data-mark="ring" aria-hidden="true"></span>AntiCh34t</a>
-    <nav class="nav__links" aria-label="Main">
-      <div class="nav__item">
-        <a class="nav__link" href="#versions"><span data-i="navV">Versions</span> <svg class="chev" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
-        <div class="nav__menu">
-          <div class="wrap grid">
-            <a class="menu-card span-4" href="#versions">
-              <div class="panel"><div class="stage stage--fade-br"><div class="at-corner" style="--ax:24px;--ay:24px"><p class="t-card">tgcloud Serverless</p><p class="t-small muted">rev 12 · live</p></div></div></div>
-              <span class="t-card" data-i="nv1">tgcloud Serverless</span>
-              <span class="t-small muted" data-i="nv1s">Live · rev 12</span>
-            </a>
-            <a class="menu-card span-4" href="#versions">
-              <div class="panel"><div class="stage stage--fade-br"><div class="at-corner" style="--ax:24px;--ay:24px"><p class="t-card">Cloudflare Worker</p><p class="t-small muted">v5.2 · backup</p></div></div></div>
-              <span class="t-card" data-i="nv2">Cloudflare Worker</span>
-              <span class="t-small muted" data-i="nv2s">Backup · v5.2</span>
-            </a>
-            <a class="menu-card span-4" href="#deploy">
-              <div class="panel"><div class="stage stage--fade-br"><div class="at-corner" style="--ax:24px;--ay:24px"><p class="t-card">Deploy</p><p class="t-small muted">one minute · free</p></div></div></div>
-              <span class="t-card" data-i="nv3">Deploy</span>
-              <span class="t-small muted" data-i="nv3s">One minute · free</span>
-            </a>
-          </div>
-        </div>
-      </div>
-      <div class="nav__item"><a class="nav__link" href="#story" data-i="navL">How it works</a></div>
-      <div class="nav__item"><a class="nav__link" href="#manage" data-i="navR">Manage</a></div>
-      <div class="nav__item"><a class="nav__link" href="#faq" data-i="navQ">Questions</a></div>
-    </nav>
-    <div class="nav__actions">
-      <button class="lang-btn" id="langBtn" type="button" onclick="setLang(document.documentElement.lang==='fa'?'en':'fa')">🌐 English</button>
-      <a class="btn btn--primary" href="#deploy">Deploy<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+  <header class="app-head">
+    <div class="app-head__row">
+      <span class="app-head__live"><i></i><span data-i="notice">tgcloud is live · rev 12</span></span>
+      <button class="lang-btn" id="langBtn" type="button">🌐 English</button>
     </div>
-    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
-      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-    </button>
-  </div>
-</header>
+    <h1 class="large-title" data-i="h1">کانالت را نگه می‌دارد — حتی وقتی خوابیده‌ای</h1>
+    <p class="lede" data-i="sub"></p>
+  </header>
 
-<main id="top">
-  <section class="hero hero--split" data-enter aria-labelledby="hero-h">
-    <div class="wrap"><div class="hero-text grid hero__grid">
-      <div class="hero__text span-5">
-        <p class="hero__kicker"><span class="dot" aria-hidden="true"></span><span data-i="notice">The tgcloud version is live · rev 12</span></p>
-        <h1 id="hero-h" data-i="h1">Telegram channel guard bot</h1>
-        <p class="hero__lead" data-i="sub">It deletes any unauthorized edit or post in milliseconds, even if the message is days old. 20 locks and 641 tests green.</p>
-        <div class="btn-row">
-          <a class="btn btn--primary" href="#deploy">Deploy<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
-          <a class="btn btn--secondary" href="https://github.com/Godde3s/anti-treason-bot" target="_blank" rel="noopener" data-i="cta2">See the code</a>
-        </div>
+  <section class="chat" aria-label="AntiCh34t">
+    <div class="chat__day" data-i="chatDay">Today</div>
+    <div class="msg">
+      <span class="msg__av">A</span>
+      <div class="bubble">
+        <p><b data-i="tgTitle">K!NG MENTÆFIL</b></p>
+        <p class="muted"><span data-i="tgLocks">Active locks: 5 of 20</span> · <span data-i="tgMode">Mode: yellow</span></p>
+        <p class="muted"><span data-i="tgS1">12</span> <span data-i="tgS1l">violations today</span> · <span data-i="tgS2">3</span> <span data-i="tgS2l">muted</span> · <span data-i="tgS3">24 hours</span> <span data-i="tgS3l">undo window</span></p>
       </div>
-      <div class="hero__media span-6 start-7">
-        <div class="tg" role="img" aria-label="The bot's channel menu in Telegram">
-          <div class="tg__bar">
-            <span class="tg__av">A</span>
-            <span><span class="tg__name">AntiCh34t</span><br><span class="tg__sub" data-i="tgBot">bot</span></span>
-          </div>
-          <div class="tg__body">
-            <div class="tg__msg">
-              <p><b data-i="tgTitle">K!NG MENTÆFIL</b></p>
-              <p class="muted"><span data-i="tgLocks">Locks on: 5 of 20</span> · <span data-i="tgMode">Mode: yellow</span></p>
-              <div class="tg__keys">
-                <span class="tg__key"><span data-i="tgK1">Text edit</span><span class="st on" data-i="on">on</span></span>
-                <span class="tg__key"><span data-i="tgK2">Media edit</span><span class="st on" data-i="on2">on</span></span>
-                <span class="tg__key"><span data-i="tgK3">Anonymous post</span><span class="st on" data-i="on3">on</span></span>
-                <span class="tg__key"><span data-i="tgK4">Forward</span><span class="st off" data-i="off">off</span></span>
-                <span class="tg__key wide hot"><span data-i="tgK5">Instant lock</span><span class="st off" data-i="off2">off</span></span>
-              </div>
-            </div>
-            <div class="tg__msg">
-              <p><b data-i="tgRep">Edit deleted</b></p>
-              <p class="muted"><span data-i="tgRepM">K!NG MENTÆFIL · media edit</span></p>
-            </div>
-            <div class="tg__msg">
-              <p><b data-i="tgYel">Yellow: @user demoted</b></p>
-              <p class="muted"><span data-i="tgYelM">K!NG MENTÆFIL · media edit · 12:04</span></p>
-            </div>
-          </div>
-        </div>
-        <div class="ly-float">
-          <div class="ly-float__row"><span class="ly-live" data-i="flLive">Live</span><span data-i="flMeta">media edit</span></div>
-          <div class="ly-float__title" data-i="flTitle">Edit deleted</div>
-        </div>
+    </div>
+    <div class="msg">
+      <span class="msg__av">A</span>
+      <div class="bubble">
+        <p><b data-i="tgRep">Edit deleted</b></p>
+        <p class="muted"><span data-i="tgRepM">K!NG MENTÆFIL · media edit</span></p>
       </div>
-    </div></div>
+    </div>
+    <div class="msg">
+      <span class="msg__av">A</span>
+      <div class="bubble">
+        <p><b class="red" data-i="tgYel">Yellow: @user demoted</b></p>
+        <p class="muted"><span data-i="tgYelM">K!NG MENTÆFIL · media edit · 12:04</span></p>
+      </div>
+    </div>
+    <div class="msg">
+      <span class="msg__av">A</span>
+      <div class="bubble">
+        <p><b data-i="rpH">Media edit deleted</b></p>
+        <p class="muted"><span data-i="rpM">K!NG MENTÆFIL · by @user · 12:04</span></p>
+        <p><span class="tag" data-i="rpOld">old text</span><span class="strike" data-i="rpOldT">The price is 10</span></p>
+        <p><span class="tag" data-i="rpNew">new text</span><span data-i="rpNewT">The price is 100</span></p>
+      </div>
+    </div>
+    <p class="chat__cap" data-i="storyP">Someone edits a post in your channel. Here is what happens, in order.</p>
   </section>
 
-
-
-
-
-  <section id="panel" class="section" data-enter aria-labelledby="panel-h">
-    <div class="wrap">
-      <div class="section-head">
-        <h2 id="panel-h" data-i="panelH">The panel that runs the channel</h2>
-        <p class="t-lead" data-i="panelP">Every channel, its locks, its mode and its stats, in one panel in the bot's DM.</p>
-      </div>
-      <div class="app ui" data-ui="window">
-        <div class="app__pane app__pane--list">
-          <div class="tg tg--flat">
-            <div class="tg__bar"><span class="tg__av">A</span><span><span class="tg__name">AntiCh34t</span><br><span class="tg__sub" data-i="tgCh">7 channels</span></span></div>
-            <ul class="tg__list">
-              <li class="tg__item is-on"><span class="tg__av">K</span><span><span class="tg__name">K!NG MENTÆFIL</span><br><span class="tg__sub" data-i="ch1">5 locks · yellow</span></span></li>
-              <li class="tg__item"><span class="tg__av">ز</span><span><span class="tg__name">زَمین بآزی | Playground</span><br><span class="tg__sub" data-i="ch2">14 locks · yellow</span></span></li>
-              <li class="tg__item"><span class="tg__av">ا</span><span><span class="tg__name">اِتـحـآد هـَـــک / دیـپـورتِـر</span><br><span class="tg__sub" data-i="ch3">4 locks · yellow</span></span></li>
-              <li class="tg__item"><span class="tg__av">آ</span><span><span class="tg__name">آفــیـشــیــال هـَـــک</span><br><span class="tg__sub" data-i="ch4">7 locks · yellow</span></span></li>
-              <li class="tg__item"><span class="tg__av">ا</span><span><span class="tg__name">اتحاد دیجیتال</span><br><span class="tg__sub" data-i="ch5">5 locks · yellow</span></span></li>
-              <li class="tg__item"><span class="tg__av">پ</span><span><span class="tg__name">پـآدشـاهـی مـجـآزی</span><br><span class="tg__sub" data-i="ch6">10 locks · yellow</span></span></li>
-              <li class="tg__item"><span class="tg__av" style="background:#6e6e73">ـ</span><span><span class="tg__name">ـ</span><br><span class="tg__sub" data-i="ch7">disabled</span></span></li>
-            </ul>
-          </div>
-        </div>
-        <div class="app__pane">
-          <div class="tg tg--flat">
-            <div class="tg__bar"><span class="tg__av">K</span><span><span class="tg__name">K!NG MENTÆFIL</span><br><span class="tg__sub" data-i="tgMenu">channel menu</span></span></div>
-            <div class="tg__body">
-              <div class="tg__msg">
-                <p><b data-i="tgTitle2">K!NG MENTÆFIL</b></p>
-                <p class="muted"><span data-i="tgLocks2">Locks on: 5 of 20</span> · <span data-i="tgMode2">Mode: yellow</span></p>
-                <div class="tg__keys">
-                  <span class="tg__key"><span data-i="tgK1b">Text edit</span><span class="st on" data-i="on4">on</span></span>
-                  <span class="tg__key"><span data-i="tgK2b">Media edit</span><span class="st on" data-i="on5">on</span></span>
-                  <span class="tg__key"><span data-i="tgK3b">Anonymous post</span><span class="st on" data-i="on6">on</span></span>
-                  <span class="tg__key"><span data-i="tgK4b">Forward</span><span class="st off" data-i="off3">off</span></span>
-                  <span class="tg__key"><span data-i="tgK6">Send photo</span><span class="st on" data-i="on7">on</span></span>
-                  <span class="tg__key"><span data-i="tgK7">Send link</span><span class="st off" data-i="off4">off</span></span>
-                  <span class="tg__key"><span data-i="tgK8">Send video</span><span class="st on" data-i="on8">on</span></span>
-                  <span class="tg__key"><span data-i="tgK9">Send poll</span><span class="st on" data-i="on9">on</span></span>
-                </div>
-                <div class="tg__stat"><span><b data-i="tgS1">12</b> <span data-i="tgS1l">violations today</span></span><span><b data-i="tgS2">3</b> <span data-i="tgS2l">muted</span></span><span><b data-i="tgS3">24h</b> <span data-i="tgS3l">undo window</span></span></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <a class="link" href="#versions"><span data-i="panelLink">See the versions</span></a>
-    </div>
+  <section class="group" aria-labelledby="locks-h">
+    <h2 class="group__head" id="locks-h"><b data-i="lkPanelH">Twenty locks, one switch each</b><span data-i="lkPanelP">Every post type has its own switch. Turn one on and that kind of post is gone the moment it appears.</span></h2>
+    <ul class="list" id="locksList"></ul>
+    <p class="group__foot" data-i="lkFoot">Tap a switch to try it — the locks are live in the bot's panel, this page only previews them.</p>
   </section>
 
-  
-  <section id="story" class="section" data-enter aria-labelledby="story-h">
-    <div class="wrap">
-      <div class="section-head">
-        <h2 id="story-h" data-i="storyH">One edit, one answer.</h2>
-        <p class="t-lead" data-i="storyP">Someone edits a post in your channel. Here is what happens, in order.</p>
-      </div>
-      <ol class="story">
-        <li class="story__step">
-          <span class="story__num" aria-hidden="true">1</span>
-          <div class="story__body">
-            <h3 data-i="st1h">The edit is deleted</h3>
-            <p data-i="st1p">Any unauthorized edit disappears in milliseconds, even if the message is days old.</p>
-            <div class="tg"><div class="tg__body"><div class="tg__msg">
-              <p><b data-i="tgRep">Edit deleted</b></p>
-              <p class="muted"><span data-i="tgRepM">K!NG MENTÆFIL · media edit</span></p>
-            </div></div></div>
-          </div>
-        </li>
-        <li class="story__step">
-          <span class="story__num" aria-hidden="true">2</span>
-          <div class="story__body">
-            <h3 data-i="st2h">The offender is demoted</h3>
-            <p data-i="st2p">Yellow demotes the admin who edited. Red demotes and bans for 1h, 24h, 7 days, or permanent.</p>
-            <div class="tg"><div class="tg__body"><div class="tg__msg">
-              <p><b data-i="tgYel">Yellow: @user demoted</b></p>
-              <p class="muted"><span data-i="tgYelM">K!NG MENTÆFIL · media edit · 12:04</span></p>
-            </div></div></div>
-          </div>
-        </li>
-        <li class="story__step">
-          <span class="story__num" aria-hidden="true">3</span>
-          <div class="story__body">
-            <h3 data-i="st3h">You get the report</h3>
-            <p data-i="st3p">The owner and the channel's admins and viewers get the report, with the offender, the reason, and a link.</p>
-            <div class="tg"><div class="tg__body"><div class="tg__msg">
-              <p><b data-i="rpH">Media edit deleted</b></p>
-              <p class="muted"><span data-i="rpM">K!NG MENTÆFIL · by @user · 12:04</span></p>
-              <div class="rep__box"><span class="diff__tag" data-i="rpOld">old text</span><s data-i="rpOldT">The price is 10</s></div>
-              <div class="rep__box"><span class="diff__tag" data-i="rpNew">new text</span><span data-i="rpNewT">The price is 100</span></div>
-            </div>
-            <div class="tg__msg">
-              <p><b data-i="f3vH">Post without a signature</b></p>
-              <p class="muted"><span data-i="f3vM">Posted by Anonymous admin</span></p>
-            </div></div></div>
-          </div>
-        </li>
-      </ol>
-      <div class="locks-panel">
-        <h3 data-i="lkPanelH">Twenty locks, one switch each</h3>
-        <p class="t-body" data-i="lkPanelP">Every post type has its own switch. Turn one on and that kind of post is gone the moment it appears.</p>
-        <ul class="locks-list">
-          <li><span data-i="f4v1">Master lock</span><span class="st off">off</span></li>
-          <li><span data-i="lk1">Text edit</span><span class="st">on</span></li>
-          <li><span data-i="lk2">Media edit</span><span class="st">on</span></li>
-          <li><span data-i="lkA">Link edit</span><span class="st">on</span></li>
-          <li><span data-i="lk3">Anonymous post</span><span class="st">on</span></li>
-          <li><span data-i="lkB">Send text</span><span class="st">on</span></li>
-          <li><span data-i="tgK6">Send photo</span><span class="st">on</span></li>
-          <li><span data-i="tgK8">Send video</span><span class="st">on</span></li>
-          <li><span data-i="lkC">Send GIF</span><span class="st">on</span></li>
-          <li><span data-i="lkD">Send sticker</span><span class="st">on</span></li>
-          <li><span data-i="lkE">Send voice</span><span class="st">on</span></li>
-          <li><span data-i="lkF">Send video note</span><span class="st">on</span></li>
-          <li><span data-i="lkG">Send audio</span><span class="st">on</span></li>
-          <li><span data-i="lkH">Send file</span><span class="st">on</span></li>
-          <li><span data-i="tgK9">Send poll</span><span class="st">on</span></li>
-          <li><span data-i="lkI">Send contact</span><span class="st">on</span></li>
-          <li><span data-i="lkJ">Send location</span><span class="st">on</span></li>
-          <li><span data-i="lkK">Send dice</span><span class="st">on</span></li>
-          <li><span data-i="lk4">Forward</span><span class="st off">off</span></li>
-          <li><span data-i="tgK7">Send link</span><span class="st off">off</span></li>
-        </ul>
-      </div>
-    </div>
+  <section class="group" aria-labelledby="panel-h">
+    <h2 class="group__head" id="panel-h"><b data-i="panelH">Everything about the channel, in one panel.</b><span data-i="panelP">See and change every channel's locks, mode and stats from the bot's DM. You never open the channel.</span></h2>
+    <ul class="list" id="chanList"></ul>
   </section>
 
-<section id="manage" class="section" data-enter aria-labelledby="manage-h">
-    <div class="wrap">
-      <div class="section-head">
-        <h2 id="manage-h"><span data-i="mgH">The bot's panel does the rest.</span> <span class="muted" data-i="mgHg">Admins, access and tools.</span></h2>
-      </div>
-      <div class="grid" style="align-items:start">
-        <ul class="rows span-6">
-          <li><span class="rows__name" data-i="mgN1">Scoped admins</span><p data-i="mgP1">Each admin manages only the channels you tick.</p></li>
-          <li><span class="rows__name" data-i="mgN2">Batch add</span><p data-i="mgP2">Up to 50 IDs at once.</p></li>
-          <li><span class="rows__name" data-i="mgN3">Quick access</span><p data-i="mgP3">Grant by numeric ID.</p></li>
-          <li><span class="rows__name" data-i="mgN4">Per-channel bot access</span><p data-i="mgP4">Who may use the bot, per channel.</p></li>
-          <li><span class="rows__name" data-i="mgN5">Onboarding</span><p data-i="mgP5">A channel registers, the owner approves.</p></li>
-          <li><span class="rows__name" data-i="mgN6">One-tap presets</span><p data-i="mgP6">The common setups in one tap.</p></li>
-          <li><span class="rows__name" data-i="mgN7">Time-window lock</span><p data-i="mgP7">Tehran time, minute-precise.</p></li>
-          <li><span class="rows__name" data-i="mgN8">In-channel announcements</span><p data-i="mgP8">The bot tells the channel a lock started or ended.</p></li>
-          <li><span class="rows__name" data-i="mgN9">Broadcast</span><p data-i="mgP9">Post to a channel, with a destination picker.</p></li>
-          <li><span class="rows__name" data-i="mgN10">Delete recent</span><p data-i="mgP10">Wipe the last 1–40 messages.</p></li>
-          <li><span class="rows__name" data-i="mgN11">Rich messages</span><p data-i="mgP11">Bot API 10.4: tables, details and highlights.</p></li>
-          <li><span class="rows__name" data-i="mgN12">Update dedup</span><p data-i="mgP12">A duplicate update is processed once.</p></li>
-        </ul>
-        <div class="frame frame--split span-6 start-7">
-          <div class="stage stage--fade-br"><div class="at-corner" style="--ax:24px;--ay:24px">
-            <div class="tg" data-ui="chat" role="img" aria-label="A channel registration awaiting owner approval">
-              <div class="tg__bar"><span class="tg__av">A</span><span><span class="tg__name">AntiCh34t</span><br><span class="tg__sub" data-i="mgVsub">channel request</span></span></div>
-              <div class="tg__body">
-                <div class="tg__msg">
-                  <p><b data-i="mgVh">New channel: K!NG MENTÆFIL</b></p>
-                  <p class="muted" data-i="mgVp">Owner approval needed</p>
-                  <div class="tg__keys">
-                    <span class="tg__key"><span data-i="mgV1">Approve</span></span>
-                    <span class="tg__key"><span data-i="mgV2">Decline</span></span>
-                  </div>
-                </div>
-                <div class="tg__msg">
-                  <p><b data-i="mgVh2">K!NG MENTÆFIL added</b></p>
-                  <p class="muted" data-i="mgVp2">20 locks, yellow mode · ready</p>
-                </div>
-              </div>
-            </div>
-          </div></div>
-        </div>
-      </div>
-    </div>
+  <section class="group" aria-labelledby="mg-h">
+    <h2 class="group__head" id="mg-h"><b data-i="mgH">The panel handles the rest.</b><span data-i="mgHg">Admins, access and tools.</span></h2>
+    <ul class="list" id="mgList"></ul>
   </section>
 
-  <section id="versions" class="section" data-enter aria-labelledby="versions-h">
-    <div class="wrap">
-      <div class="section-head">
-        <h2 id="versions-h"><span data-i="verH">Two versions, one bot.</span> <span class="muted" data-i="verHg">Same rules, two runtimes.</span></h2>
-        <p class="t-lead" data-i="verP">The same bot in two runtimes. The live version runs on tgcloud; the Cloudflare Worker is the backup. Run only one per token.</p>
-      </div>
-      <table class="cmp">
-        <thead><tr><th data-i="cH1">Feature</th><th data-i="cH2">Cloudflare Worker</th><th data-i="cH3">tgcloud Serverless</th></tr></thead>
-        <tbody>
-          <tr><td data-i="cR1">Status</td><td data-i="cR1a">Backup</td><td><span class="live" data-i="cR1b">Live · rev 12</span></td></tr>
-          <tr><td data-i="cR2">Version</td><td data-i="cR2a">v5.2</td><td data-i="cR2b">rev 12</td></tr>
-          <tr><td data-i="cR3">Data</td><td data-i="cR3a">Cloudflare KV</td><td data-i="cR3b">SQL + KV</td></tr>
-          <tr><td data-i="cR4">Deploy</td><td data-i="cR4a">One-click button</td><td data-i="cR4b">npx tgcloud push</td></tr>
-          <tr><td data-i="cR5">Tests</td><td data-i="cR5a">641/641</td><td data-i="cR5b">Verified live</td></tr>
-          <tr><td data-i="cR6">Force-join</td><td data-i="cR6a">—</td><td data-i="cR6b">Yes</td></tr>
-          <tr><td data-i="cR7">Exactly-once announcements</td><td data-i="cR7a">—</td><td data-i="cR7b">Yes</td></tr>
-          <tr><td data-i="cR8">Bot-owner guard in red mode</td><td data-i="cR8a">—</td><td data-i="cR8b">Yes</td></tr>
-          <tr><td data-i="cR9">Userbot (48h+ deletions)</td><td data-i="cR9a">Yes</td><td data-i="cR9b">—</td></tr>
-          <tr><td data-i="cR10">Previous-bot fallback</td><td data-i="cR10a">Yes</td><td data-i="cR10b">—</td></tr>
-          <tr><td data-i="cR11">KV write-budget redesign</td><td data-i="cR11a">Yes</td><td data-i="cR11b">—</td></tr>
-        </tbody>
-      </table>
+  <section class="group" aria-labelledby="ver-h">
+    <h2 class="group__head" id="ver-h"><b data-i="verH">Two versions, one bot.</b><span data-i="verP">The same bot in two runtimes. The live version runs on tgcloud; the Cloudflare Worker is the backup.</span></h2>
+    <div class="seg" role="tablist" aria-label="Versions">
+      <button type="button" role="tab" id="segTg" aria-selected="true" data-i="nv1">tgcloud Serverless</button>
+      <button type="button" role="tab" id="segCf" aria-selected="false" data-i="nv2">Cloudflare Worker</button>
     </div>
+    <div class="ver-card on" id="verTg" role="tabpanel">
+      <h3><span data-i="nv1">tgcloud Serverless</span> · <span class="live" data-i="cR1b">Live · rev 12</span></h3>
+      <p data-i="verTgP">The live bot. Full feature set, verified live with server-side probes.</p>
+      <dl>
+        <dt data-i="cR2">Version</dt><dd data-i="cR2b">rev 12</dd>
+        <dt data-i="cR3">Data</dt><dd data-i="cR3b">SQL + KV</dd>
+        <dt data-i="cR4">Deploy</dt><dd data-i="cR4b">npx tgcloud push</dd>
+        <dt data-i="cR5">Tests</dt><dd data-i="cR5b">Verified live</dd>
+        <dt data-i="cR6">Force-join</dt><dd data-i="cR6b">Yes</dd>
+      </dl>
+    </div>
+    <div class="ver-card" id="verCf" role="tabpanel">
+      <h3><span data-i="nv2">Cloudflare Worker</span> · <span class="live" data-i="cR1a">Backup</span></h3>
+      <p data-i="verCfP">Deployed and ready, receives no traffic. The fallback if tgcloud ever stops.</p>
+      <dl>
+        <dt data-i="cR2">Version</dt><dd data-i="cR2a">v5.2</dd>
+        <dt data-i="cR3">Data</dt><dd data-i="cR3a">Cloudflare KV</dd>
+        <dt data-i="cR4">Deploy</dt><dd data-i="cR4a">One-click button</dd>
+        <dt data-i="cR5">Tests</dt><dd data-i="cR5a">641/641</dd>
+        <dt data-i="cR9">Userbot (48h+ deletes)</dt><dd data-i="cR9a">Yes</dd>
+      </dl>
+    </div>
+    <p class="group__foot" data-i="verFoot">Run only one runtime per bot token — never both against the same bot, or both will answer the same updates.</p>
   </section>
 
-  <section id="faq" class="section" data-enter style="--h:2" aria-labelledby="faq-h">
-    <div class="wrap">
-      <div data-moment="word-highlight">
-        <p class="mo-wh__text" data-i="wh">It sees every edit, even if the message is days old and was edited <strong>today</strong>.</p>
-      </div>
-      <div class="grid" style="align-items:start; margin-top: var(--s-8)">
-        <div class="span-5">
-          <h2 id="faq-h" data-i="faqH">Questions</h2>
-          <p class="t-lead muted" data-i="faqP">The answers, plainly.</p>
-          <a class="link" href="#deploy"><span data-i="faqLink">Deploy the bot</span></a>
-        </div>
-        <div class="faq span-6 start-7">
-          <div class="faq__item"><h3 data-i="q1">What permissions does the bot need?</h3><p data-i="a1">Only Delete messages is required. Add New Admins is needed for in-bot promotion and Ban Users for red mode.</p></div>
-          <div class="faq__item"><h3 data-i="q2">How do I add a new admin?</h3><p data-i="a2">The owner sends the numeric ID, or a list of up to 50 IDs at once. Then ticks the channels that person may manage.</p></div>
-          <div class="faq__item"><h3 data-i="q3">Why can't some old messages be deleted?</h3><p data-i="a3">That is Telegram's own limit: no bot can delete messages older than 48 hours. The Cloudflare userbot closes the gap.</p></div>
-          <div class="faq__item"><h3 data-i="q4">How does the anonymous-post lock work?</h3><p data-i="a4">Any post without an admin signature is deleted at once. Admins sign with Sign messages.</p></div>
-          <div class="faq__item"><h3 data-i="q5">How do the two versions differ?</h3><p data-i="a5">They are the same bot with the same core features. tgcloud is live and adds force-join and exactly-once announcements; Cloudflare is the backup and has the userbot and previous-bot fallback. Run only one per token.</p></div>
-          <div class="faq__item"><h3 data-i="q6">Is the Cloudflare free plan enough?</h3><p data-i="a6">Yes. The bot uses about 0.3% of the 100k daily requests, and batched flushing keeps KV writes under the cap.</p></div>
-          <div class="faq__item"><h3 data-i="q7">What about security and privacy?</h3><p data-i="a7">Tokens live only as secrets, never in code or the repo. Only the owner can change settings. The code is open source (MIT).</p></div>
-        </div>
-      </div>
-    </div>
+  <section class="group" aria-labelledby="faq-h">
+    <h2 class="group__head" id="faq-h"><b data-i="faqH">Questions</b><span data-i="faqP">The answers, plainly.</span></h2>
+    <ul class="faq" id="faqList"></ul>
   </section>
 
-  <section id="deploy" class="section" data-enter aria-labelledby="deploy-h">
-    <div class="wrap">
-      <div class="section-head">
-        <h2 id="deploy-h" data-i="depH">Deploy the bot in a minute.</h2>
-        <p class="t-lead" data-i="depP">Two ways: the Cloudflare button or the tgcloud command. Both are free.</p>
-      </div>
-      <div class="grid">
-        <div class="span-6">
-          <h3 class="t-card" data-i="dep1h">Cloudflare Worker</h3>
-          <p class="t-body" data-i="dep1p">Press the button, set BOT_TOKEN and OWNER_ID as Secrets, then open ?setup=.</p>
-          <div class="btn-row"><a class="btn btn--primary" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot" target="_blank" rel="noopener"><span data-i="dep1b">Deploy to Cloudflare</span><svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a></div>
-        </div>
-        <div class="span-6">
-          <h3 class="t-card" data-i="dep2h">tgcloud Serverless</h3>
-          <p class="t-body" data-i="dep2p">Clone the repo, set the token, and push. The live version, rev 12.</p>
-          <pre class="code" data-ui="terminal" role="img" aria-label="Terminal: npx tgcloud push">$ npx tgcloud push
-✓ Deployed rev 12 — webhook in sync</pre>
-          <a class="link" href="https://github.com/Godde3s/anti-treason-bot/tree/main/tgcloud" target="_blank" rel="noopener"><span data-i="dep2l">See the tgcloud folder</span></a>
-        </div>
-      </div>
-    </div>
+  <section class="deploy" aria-labelledby="dep-h">
+    <h2 id="dep-h" data-i="depH">Deploy the bot in a minute.</h2>
+    <p data-i="depP">Two ways: the Cloudflare button or the tgcloud command. Both are free.</p>
+    <a class="btn-primary" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot" data-i="dep1b">Deploy to Cloudflare</a>
+    <a class="btn-ghost" href="https://github.com/Godde3s/anti-treason-bot/tree/main/tgcloud"><code>npx tgcloud push</code></a>
   </section>
-</main>
 
-<footer class="footer closing footer--statement" id="contact" aria-labelledby="close-h">
-  <div class="wrap">
-    <div class="closing__cta close--type">
-      <div class="section-head">
-        <h2 id="close-h" data-i="closeH">Deploy the bot.</h2>
-        <p data-i="closeP">Free, open source (MIT), in a minute.</p>
-      </div>
-      <a class="btn btn--primary btn--xl btn--wide" href="#deploy">Deploy<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
-    </div>
-    <div class="closing__links">
-      <div class="grid">
-        <div class="span-4 stack-4">
-          <a class="nav__logo" href="#top"><span class="mark" data-mark="ring" aria-hidden="true"></span>AntiCh34t</a>
-          <p class="footer__lede" data-i="footLede">Telegram channel guard bot, open source under MIT.</p>
-        </div>
-        <div class="span-2 footer__col"><h3 data-i="ft1">Versions</h3><ul><li><a href="#versions" data-i="ft1a">Cloudflare Worker</a></li><li><a href="#versions" data-i="ft1b">tgcloud Serverless</a></li></ul></div>
-        <div class="span-2 footer__col"><h3 data-i="ft2">Features</h3><ul><li><a href="#locks" data-i="ft2a">Locks</a></li><li><a href="#ladder" data-i="ft2b">Ladder</a></li><li><a href="#reports" data-i="ft2c">Reports</a></li></ul></div>
-        <div class="span-2 footer__col"><h3 data-i="ft3">Docs</h3><ul><li><a href="https://github.com/Godde3s/anti-treason-bot" target="_blank" rel="noopener" data-i="ft3a">GitHub</a></li><li><a href="#faq" data-i="ft3b">Questions</a></li></ul></div>
-        <div class="span-2 footer__col"><h3 data-i="ft4">Deploy</h3><ul><li><a href="#deploy" data-i="ft4a">Deploy</a></li><li><a href="#top" data-i="ft4b">Top</a></li></ul></div>
-      </div>
-      <div class="footer__legal">
-        <span>&copy; 2026 AntiCh34t &nbsp; MIT</span>
-      </div>
-    </div>
-  </div>
-</footer>
+  <section class="closing">
+    <h2 data-i="closeH">Your channel is waiting.</h2>
+    <p data-i="closeP">One minute to deploy. Free, open source, no card.</p>
+  </section>
 
-<script type="module" src="assets/system.js"></script>
-<script type="module" src="assets/motion/motion.js"></script>
-<script type="module" src="assets/layout/layout.js"></script>
-<script type="module" src="assets/diagrams/mount.js"></script>
+  <footer class="foot">
+    <p><span data-i="footLede">Built for channels you care about — open source under MIT.</span><br>
+    <a href="https://github.com/Godde3s/anti-treason-bot" data-i="ft3a">GitHub</a> · <a href="#faq-h" data-i="ft3b">Questions</a> · <a href="#dep-h" data-i="ft4a">Deploy</a></p>
+  </footer>
+
+  <nav class="tabbar" aria-label="Deploy">
+    <div class="tabbar__label">
+      <b>AntiCh34t</b>
+      <span data-i="nv3s">One minute · free</span>
+    </div>
+    <a class="tabbar__go" href="#dep-h" data-i="nv3">Deploy</a>
+  </nav>
+
+</div>
+
 <script>
-const I18N = {
-fa: {
-skip:"پرش به محتوا", navV:"نسخه‌ها", navL:"چطور کار می‌کند", navR:"مدیریت", navQ:"پرسش‌ها",
-nv1:"tgcloud Serverless", nv1s:"لایو · rev 12", nv2:"Cloudflare Worker", nv2s:"بکاپ · v5.2", nv3:"Deploy", nv3s:"یک دقیقه · رایگان",
-notice:"نسخهٔ tgcloud لایو است · rev 12", h1:"کانالت را نگه می‌دارد — حتی وقتی خوابیده‌ای",
-sub:"هر ادیت یا پست غیرمجاز را در میلی‌ثانیه حذف می‌کند، حتی اگر پیام چند روز پیش باشد. ۲۰ قفل، ۶۴۱ تست سبز — رایگان و متن‌باز.",
-cta2:"دیدن کد", tgBot:"ربات", tgTitle:"K!NG MENTÆFIL", tgLocks:"قفل‌های فعال: ۵ از ۲۰", tgMode:"وضعیت: زرد",
-tgK1:"ادیت متن", on:"روشن", tgK2:"ادیت مدیا", on2:"روشن", tgK3:"پست ناشناس", on3:"روشن", tgK4:"فوروارد", off:"خاموش",
-tgK5:"قفل آنی", off2:"خاموش", tgRep:"ادیت حذف شد", tgRepM:"K!NG MENTÆFIL · ادیت مدیا", flLive:"زنده", flMeta:"ادیت مدیا", flTitle:"ادیت حذف شد",
-panelH:"همه‌چیزِ کانال، در یک پنل", panelP:"قفل‌ها، حالت و آمار هر کانال را از پیوی ربات می‌بینی و عوض می‌کنی. لازم نیست وارد کانال شوی.",
-tgCh:"۷ کانال", ch1:"۵ قفل · زرد", ch2:"۱۴ قفل · زرد", ch3:"۴ قفل · زرد", ch4:"۷ قفل · زرد", ch5:"۵ قفل · زرد", ch6:"۱۰ قفل · زرد", ch7:"غیرفعال",
-tgMenu:"منوی کانال", tgTitle2:"K!NG MENTÆFIL", tgLocks2:"قفل‌های فعال: ۵ از ۲۰", tgMode2:"وضعیت: زرد",
-tgK1b:"ادیت متن", on4:"روشن", tgK2b:"ادیت مدیا", on5:"روشن", tgK3b:"پست ناشناس", on6:"روشن", tgK4b:"فوروارد", off3:"خاموش",
-tgK6:"ارسال عکس", on7:"روشن", tgK7:"ارسال لینک", off4:"خاموش",
-tgS1:"۱۲", tgS1l:"تخلف امروز", tgS2:"۳", tgS2l:"سکوت‌شده", tgS3:"۲۴ ساعت", tgS3l:"پنجرهٔ بازگشت", panelLink:"دیدن نسخه‌ها",
- 
- 
-lk1:"ادیت متن", lk2:"ادیت مدیا", lk3:"پست ناشناس", lk4:"فوروارد", 
- 
-   
- 
-f3vH:"پست بدون امضا", f3vM:"ارسال‌شده توسط ادمین ناشناس", 
- 
-f4v1:"قفل کامل",     
- 
- 
-     
-   
-   
-   
-   
-mgH:"بقیه‌اش با پنل است.", mgHg:"ادمین‌ها، دسترسی و ابزار.",
-mgN1:"ادمین‌های محدوده‌دار", mgP1:"هر ادمین فقط کانال‌هایی را می‌چرخاند که تیک زده‌ای.",
-mgN2:"افزودن گروهی", mgP2:"تا ۵۰ شناسه یکجا.",
-mgN3:"دسترسی سریع", mgP3:"با شناسهٔ عددی بده.",
-mgN4:"دسترسی به ربات در هر کانال", mgP4:"چه کسی در هر کانال از ربات استفاده کند.",
-mgN5:"ثبت‌نام", mgP5:"کانال ثبت می‌شود، مالک تأیید می‌کند.",
-mgN6:"پیش‌فرض‌های یک‌ضربه‌ای", mgP6:"تنظیمات رایج با یک ضربه.",
-mgN7:"قفل زمان‌دار", mgP7:"وقت تهران، دقیق تا دقیقه.",
-mgN8:"اعلان در کانال", mgP8:"ربات به کانال می‌گوید قفل شروع یا تمام شد.",
-mgN9:"پخش همگانی", mgP9:"به کانال پست بفرست، با انتخاب مقصد.",
-mgN10:"حذف پیام‌های اخیر", mgP10:"۱ تا ۴۰ پیام آخر را پاک کن.",
-mgN11:"پیام‌های Rich", mgP11:"Bot API 10.4: جدول، جزئیات و هایلایت.",
-mgN12:"حذف به‌روزرسانی تکراری", mgP12:"به‌روزرسانی تکراری یک بار پردازش می‌شود.",
-mgVsub:"درخواست کانال", mgVh:"کانال جدید: K!NG MENTÆFIL", mgVp:"نیاز به تأیید مالک", mgV1:"تأیید", mgV2:"رد",
- 
-   
- rpH:"ادیت مدیا حذف شد", rpM:"K!NG MENTÆFIL · توسط @user · ۱۲:۰۴", rpOld:"متن قبلی", rpOldT:"قیمت ۱۰ است", rpNew:"متن جدید", rpNewT:"قیمت ۱۰۰ است",
-verH:"دو نسخه، یک ربات.", verHg:"قوانین یکی، ران‌تایم دوتا.", verP:"همان ربات در دو ران‌تایم. نسخهٔ لایو روی tgcloud است؛ ورکر کلادفلر بکاپ است. برای هر توکن فقط یکی را اجرا کن.",
-cH1:"قابلیت", cH2:"Cloudflare Worker", cH3:"tgcloud Serverless",
-cR1:"وضعیت", cR1a:"بکاپ", cR1b:"لایو · rev 12", cR2:"نسخه", cR2a:"v5.2", cR2b:"rev 12",
-cR3:"داده", cR3a:"Cloudflare KV", cR3b:"SQL + KV", cR4:"استقرار", cR4a:"دکمهٔ یک‌کلیکه", cR4b:"npx tgcloud push",
-cR5:"تست‌ها", cR5a:"641/641", cR5b:"لایو تأیید شده", cR6:"عضویت اجباری", cR6a:"—", cR6b:"دارد",
-cR7:"اعلان بدون تکرار", cR7a:"—", cR7b:"دارد", cR8:"محافظت از مالک در وضعیت قرمز", cR8a:"—", cR8b:"دارد",
-cR9:"یوزربات (حذف ۴۸ ساعت به بالا)", cR9a:"دارد", cR9b:"—", cR10:"fallback به ربات قبلی", cR10a:"دارد", cR10b:"—",
-cR11:"بازطراحی سهمیهٔ نوشتن KV", cR11a:"دارد", cR11b:"—",
- 
-wh:"هر ادیت را می‌بیند، حتی اگر پیام چند روز پیش باشد و <strong>امروز</strong> ادیت شده باشد.",
-faqH:"پرسش‌ها", faqP:"جواب‌ها، ساده.", faqLink:"استقرار ربات",
-q1:"ربات دقیقاً چه دسترسی‌هایی لازم دارد؟", a1:"فقط «حذف پیام» الزامی است. «Add New Admins» برای ادمین‌سازی و «Ban Users» برای وضعیت قرمز لازم می‌شود.",
-q2:"ادمین جدید چطور اضافه کنم؟", a2:"مالک شناسهٔ عددی را می‌فرستد، یا لیستی تا ۵۰ شناسه را یکجا. بعد کانال‌های مجاز همان نفر را تیک می‌زند.",
-q3:"چرا بعضی پیام‌های قدیمی حذف نمی‌شوند؟", a3:"محدودیت خود تلگرام است: هیچ رباتی نمی‌تواند پیام‌های قدیمی‌تر از ۴۸ ساعت را حذف کند. یوزرباتِ Cloudflare این فاصله را پر می‌کند.",
-q4:"قفل پست ناشناس چطور کار می‌کند؟", a4:"هر پستی که بدون امضای ادمین باشد فوراً حذف می‌شود. ادمین‌ها با «Sign messages» امضا می‌کنند.",
-q5:"دو نسخه چه فرقی با هم دارن؟", a5:"همان ربات و همان قابلیت‌های اصلی‌اند. tgcloud لایو است و عضویت اجباری و اعلان بدون تکرار دارد؛ Cloudflare بکاپ است و یوزربات و fallback به ربات قبلی را دارد. برای هر توکن فقط یکی را اجرا کن.",
-q6:"پلن رایگان Cloudflare کافی است؟", a6:"بله. ربات حدود ۰٫۳٪ از ۱۰۰ هزار ریکوئست روزانه را مصرف می‌کند و فلاش گروهی سهمیهٔ نوشتن KV را زیر سقف نگه می‌دارد.",
-q7:"امنیت و حریم خصوصی چطور است؟", a7:"توکن‌ها فقط به‌عنوان Secret نگهداری می‌شوند و هرگز در کد یا ریپو نیستند. فقط مالک می‌تواند تنظیمات را تغییر دهد. کد متن‌باز است (MIT).",
-depH:"ربات را در یک دقیقه دیپلوی کن.", depP:"دو راه هست: دکمهٔ Cloudflare یا دستور tgcloud. هر دو رایگان‌اند.",
-dep1h:"Cloudflare Worker", dep1p:"دکمه را بزن، BOT_TOKEN و OWNER_ID را به‌عنوان Secret ثبت کن، و آدرس ?setup= را باز کن.", dep1b:"Deploy to Cloudflare",
-dep2h:"tgcloud Serverless", dep2p:"ریپو را کلون کن، توکن را بگذار، و پوش کن. نسخهٔ لایو، rev 12.", dep2l:"دیدن پوشهٔ tgcloud",
-closeH:"کانالت منتظر است.", closeP:"یک دقیقه تا دیپلوی. رایگان، متن‌باز، بدون کارت.",
-footLede:"ساخته‌شده برای کانال‌هایی که دوست‌شان داری — متن‌باز تحت MIT.",
-ft1:"نسخه‌ها", ft1a:"Cloudflare Worker", ft1b:"tgcloud Serverless", ft2:"قابلیت‌ها", ft2a:"قفل‌ها", ft2b:"نردبان", ft2c:"گزارش‌ها",
-ft3:"مستندات", ft3a:"گیت‌هاب", ft3b:"پرسش‌ها", ft4:"استقرار", ft4a:"Deploy", ft4b:"بالا",
-    tgYel:"زرد: @user تنزل شد",
-    tgYelM:"K!NG MENTÆFIL · ادیت مدیا · ۱۲:۰۴",
-    tgK8:"ارسال ویدیو",
-    tgK9:"ارسال نظرسنجی",
-    on8:"روشن",
-    on9:"روشن",
-    
-    
-    
-    
-    
-    mgVh2:"K!NG MENTÆFIL اضافه شد",
-    mgVp2:"۲۰ قفل، حالت زرد · آماده است",
-    storyH:"یک ادیت، یک جواب.",
-    storyP:"یکی توی کانالت پست را ادیت می‌کند. این اتفاق‌ها می‌افتد، به ترتیب.",
-    st1h:"ادیت حذف می‌شود",
-    st1p:"هر ادیت غیرمجاز در میلی‌ثانیه ناپدید می‌شود، حتی اگر پیام چند روز پیش باشد.",
-    st2h:"متخلف تنزل می‌شود",
-    st2p:"زرد ادمینی که ادیت کرده را تنزل می‌دهد. قرمز تنزل می‌کند و برای ۱ ساعت، ۲۴ ساعت، ۷ روز یا دائم بن می‌کند.",
-    st3h:"گزارش می‌رسد",
-    st3p:"مالک و ادمین‌ها و ناظرهای کانال گزارش را می‌گیرند، با متخلف و دلیل و لینک.",
-    lkPanelH:"بیست قفل، هر کدام یک کلید",
-    lkPanelP:"هر نوع پست کلید خودش را دارد. یکی را روشن کن و آن نوع پست همان لحظه که می‌آید حذف می‌شود.",
-    lkA:"ادیت لینک",
-    lkB:"ارسال متن",
-    lkC:"ارسال گیف",
-    lkD:"ارسال استیکر",
-    lkE:"ارسال ویس",
-    lkF:"ارسال ویدیو مسیج",
-    lkG:"ارسال موزیک",
-    lkH:"ارسال فایل",
-    lkI:"ارسال مخاطب",
-    lkJ:"ارسال لوکیشن",
-    lkK:"ارسال تاس",
-    navL:"چطور کار می‌کند",
-    navR:"مدیریت",
-},
-en: {
-skip:"Skip to content", navV:"Versions", navL:"How it works", navR:"Manage", navQ:"Questions",
-nv1:"tgcloud Serverless", nv1s:"Live · rev 12", nv2:"Cloudflare Worker", nv2s:"Backup · v5.2", nv3:"Deploy", nv3s:"One minute · free",
-notice:"The tgcloud version is live · rev 12", h1:"It guards your channel — even while you sleep.",
-sub:"It deletes any unauthorized edit or post in milliseconds, even if the message is days old. 20 locks, 641 tests green — free and open source.",
-cta2:"See the code", tgBot:"bot", tgTitle:"K!NG MENTÆFIL", tgLocks:"Locks on: 5 of 20", tgMode:"Mode: yellow",
-tgK1:"Text edit", on:"on", tgK2:"Media edit", on2:"on", tgK3:"Anonymous post", on3:"on", tgK4:"Forward", off:"off",
-tgK5:"Instant lock", off2:"off", tgRep:"Edit deleted", tgRepM:"K!NG MENTÆFIL · media edit", flLive:"Live", flMeta:"media edit", flTitle:"Edit deleted",
-panelH:"Everything about the channel, in one panel.", panelP:"See and change every channel's locks, mode and stats from the bot's DM. You never open the channel.",
-tgCh:"7 channels", ch1:"5 locks · yellow", ch2:"14 locks · yellow", ch3:"4 locks · yellow", ch4:"7 locks · yellow", ch5:"5 locks · yellow", ch6:"10 locks · yellow", ch7:"disabled",
-tgMenu:"channel menu", tgTitle2:"K!NG MENTÆFIL", tgLocks2:"Locks on: 5 of 20", tgMode2:"Mode: yellow",
-tgK1b:"Text edit", on4:"on", tgK2b:"Media edit", on5:"on", tgK3b:"Anonymous post", on6:"on", tgK4b:"Forward", off3:"off",
-tgK6:"Send photo", on7:"on", tgK7:"Send link", off4:"off",
-tgS1:"12", tgS1l:"violations today", tgS2:"3", tgS2l:"muted", tgS3:"24h", tgS3l:"undo window", panelLink:"See the versions",
- 
- 
-lk1:"Text edit", lk2:"Media edit", lk3:"Anonymous post", lk4:"Forward", 
- 
-   
- 
-f3vH:"Post without a signature", f3vM:"Posted by Anonymous admin", 
- 
-f4v1:"Master lock",     
- 
- 
-     
-   
-   
-   
-   
-mgH:"The panel handles the rest.", mgHg:"Admins, access and tools.",
-mgN1:"Scoped admins", mgP1:"Each admin manages only the channels you tick.",
-mgN2:"Batch add", mgP2:"Up to 50 IDs at once.",
-mgN3:"Quick access", mgP3:"Grant by numeric ID.",
-mgN4:"Per-channel bot access", mgP4:"Who may use the bot, per channel.",
-mgN5:"Onboarding", mgP5:"A channel registers, the owner approves.",
-mgN6:"One-tap presets", mgP6:"The common setups in one tap.",
-mgN7:"Time-window lock", mgP7:"Tehran time, minute-precise.",
-mgN8:"In-channel announcements", mgP8:"The bot tells the channel a lock started or ended.",
-mgN9:"Broadcast", mgP9:"Post to a channel, with a destination picker.",
-mgN10:"Delete recent", mgP10:"Wipe the last 1–40 messages.",
-mgN11:"Rich messages", mgP11:"Bot API 10.4: tables, details and highlights.",
-mgN12:"Update dedup", mgP12:"A duplicate update is processed once.",
-mgVsub:"channel request", mgVh:"New channel: K!NG MENTÆFIL", mgVp:"Owner approval needed", mgV1:"Approve", mgV2:"Decline",
- 
-   
- rpH:"Media edit deleted", rpM:"K!NG MENTÆFIL · by @user · 12:04", rpOld:"old text", rpOldT:"The price is 10", rpNew:"new text", rpNewT:"The price is 100",
-verH:"Two versions, one bot.", verHg:"Same rules, two runtimes.", verP:"The same bot in two runtimes. The live version runs on tgcloud; the Cloudflare Worker is the backup. Run only one per token.",
-cH1:"Feature", cH2:"Cloudflare Worker", cH3:"tgcloud Serverless",
-cR1:"Status", cR1a:"Backup", cR1b:"Live · rev 12", cR2:"Version", cR2a:"v5.2", cR2b:"rev 12",
-cR3:"Data", cR3a:"Cloudflare KV", cR3b:"SQL + KV", cR4:"Deploy", cR4a:"One-click button", cR4b:"npx tgcloud push",
-cR5:"Tests", cR5a:"641/641", cR5b:"Verified live", cR6:"Force-join", cR6a:"—", cR6b:"Yes",
-cR7:"Exactly-once announcements", cR7a:"—", cR7b:"Yes", cR8:"Bot-owner guard in red mode", cR8a:"—", cR8b:"Yes",
-cR9:"Userbot (48h+ deletions)", cR9a:"Yes", cR9b:"—", cR10:"Previous-bot fallback", cR10a:"Yes", cR10b:"—",
-cR11:"KV write-budget redesign", cR11a:"Yes", cR11b:"—",
- 
-wh:"It sees every edit, even if the message is days old and was edited <strong>today</strong>.",
-faqH:"Questions", faqP:"The answers, plainly.", faqLink:"Deploy the bot",
-q1:"What permissions does the bot need?", a1:"Only Delete messages is required. Add New Admins is needed for in-bot promotion and Ban Users for red mode.",
-q2:"How do I add a new admin?", a2:"The owner sends the numeric ID, or a list of up to 50 IDs at once. Then ticks the channels that person may manage.",
-q3:"Why can't some old messages be deleted?", a3:"That is Telegram's own limit: no bot can delete messages older than 48 hours. The Cloudflare userbot closes the gap.",
-q4:"How does the anonymous-post lock work?", a4:"Any post without an admin signature is deleted at once. Admins sign with Sign messages.",
-q5:"How do the two versions differ?", a5:"They are the same bot with the same core features. tgcloud is live and adds force-join and exactly-once announcements; Cloudflare is the backup and has the userbot and previous-bot fallback. Run only one per token.",
-q6:"Is the Cloudflare free plan enough?", a6:"Yes. The bot uses about 0.3% of the 100k daily requests, and batched flushing keeps KV writes under the cap.",
-q7:"What about security and privacy?", a7:"Tokens live only as secrets, never in code or the repo. Only the owner can change settings. The code is open source (MIT).",
-depH:"Deploy the bot in a minute.", depP:"Two ways: the Cloudflare button or the tgcloud command. Both are free.",
-dep1h:"Cloudflare Worker", dep1p:"Press the button, set BOT_TOKEN and OWNER_ID as Secrets, then open ?setup=.", dep1b:"Deploy to Cloudflare",
-dep2h:"tgcloud Serverless", dep2p:"Clone the repo, set the token, and push. The live version, rev 12.", dep2l:"See the tgcloud folder",
-closeH:"Your channel is waiting.", closeP:"One minute to deploy. Free, open source, no card.",
-footLede:"Built for channels you care about — open source under MIT.",
-ft1:"Versions", ft1a:"Cloudflare Worker", ft1b:"tgcloud Serverless", ft2:"Features", ft2a:"Locks", ft2b:"Ladder", ft2c:"Reports",
-ft3:"Docs", ft3a:"GitHub", ft3b:"Questions", ft4:"Deploy", ft4a:"Deploy", ft4b:"Top",
-    tgYel:"Yellow: @user demoted",
-    tgYelM:"K!NG MENTÆFIL · media edit · 12:04",
-    tgK8:"Send video",
-    tgK9:"Send poll",
-    on8:"on",
-    on9:"on",
-    
-    
-    
-    
-    
-    mgVh2:"K!NG MENTÆFIL added",
-    mgVp2:"20 locks, yellow mode · ready",
-    storyH:"One edit, one answer.",
-    storyP:"Someone edits a post in your channel. Here is what happens, in order.",
-    st1h:"The edit is deleted",
-    st1p:"Any unauthorized edit disappears in milliseconds, even if the message is days old.",
-    st2h:"The offender is demoted",
-    st2p:"Yellow demotes the admin who edited. Red demotes and bans for 1h, 24h, 7 days, or permanent.",
-    st3h:"You get the report",
-    st3p:"The owner and the channel's admins and viewers get the report, with the offender, the reason, and a link.",
-    lkPanelH:"Twenty locks, one switch each",
-    lkPanelP:"Every post type has its own switch. Turn one on and that kind of post is gone the moment it appears.",
-    lkA:"Link edit",
-    lkB:"Send text",
-    lkC:"Send GIF",
-    lkD:"Send sticker",
-    lkE:"Send voice",
-    lkF:"Send video note",
-    lkG:"Send audio",
-    lkH:"Send file",
-    lkI:"Send contact",
-    lkJ:"Send location",
-    lkK:"Send dice",
-    navL:"How it works",
-    navR:"Manage",
+const I18N = { fa: {"a1": "فقط «حذف پیام» الزامی است. «Add New Admins» برای ادمین‌سازی و «Ban Users» برای وضعیت قرمز لازم می‌شود.", "a2": "مالک شناسهٔ عددی را می‌فرستد، یا لیستی تا ۵۰ شناسه را یکجا. بعد کانال‌های مجاز همان نفر را تیک می‌زند.", "a3": "محدودیت خود تلگرام است: هیچ رباتی نمی‌تواند پیام‌های قدیمی‌تر از ۴۸ ساعت را حذف کند. یوزرباتِ Cloudflare این فاصله را پر می‌کند.", "a4": "هر پستی که بدون امضای ادمین باشد فوراً حذف می‌شود. ادمین‌ها با «Sign messages» امضا می‌کنند.", "a5": "همان ربات و همان قابلیت‌های اصلی‌اند. tgcloud لایو است و عضویت اجباری و اعلان بدون تکرار دارد؛ Cloudflare بکاپ است و یوزربات و fallback به ربات قبلی را دارد. برای هر توکن فقط یکی را اجرا کن.", "a6": "بله. ربات حدود ۰٫۳٪ از ۱۰۰ هزار ریکوئست روزانه را مصرف می‌کند و فلاش گروهی سهمیهٔ نوشتن KV را زیر سقف نگه می‌دارد.", "a7": "توکن‌ها فقط به‌عنوان Secret نگهداری می‌شوند و هرگز در کد یا ریپو نیستند. فقط مالک می‌تواند تنظیمات را تغییر دهد. کد متن‌باز است (MIT).", "cR1a": "بکاپ", "cR1b": "لایو · rev 12", "cR2": "نسخه", "cR2a": "v5.2", "cR2b": "rev 12", "cR3": "داده", "cR3a": "Cloudflare KV", "cR3b": "SQL + KV", "cR4": "استقرار", "cR4a": "دکمهٔ یک‌کلیکه", "cR4b": "npx tgcloud push", "cR5": "تست‌ها", "cR5a": "641/641", "cR5b": "لایو تأیید شده", "cR6": "عضویت اجباری", "cR6b": "دارد", "cR9": "یوزربات (حذف ۴۸ ساعت به بالا)", "cR9a": "دارد", "ch1": "۵ قفل · زرد", "ch2": "۱۴ قفل · زرد", "ch3": "۴ قفل · زرد", "ch4": "۷ قفل · زرد", "ch5": "۵ قفل · زرد", "ch6": "۱۰ قفل · زرد", "ch7": "غیرفعال", "chatDay": "امروز", "closeH": "کانالت منتظر است.", "closeP": "یک دقیقه تا دیپلوی. رایگان، متن‌باز، بدون کارت.", "dep1b": "Deploy to Cloudflare", "depH": "ربات را در یک دقیقه دیپلوی کن.", "depP": "دو راه هست: دکمهٔ Cloudflare یا دستور tgcloud. هر دو رایگان‌اند.", "f4v1": "قفل کامل", "faqH": "پرسش‌ها", "faqP": "جواب‌ها، ساده.", "footLede": "ساخته‌شده برای کانال‌هایی که دوست‌شان داری — متن‌باز تحت MIT.", "ft3a": "گیت‌هاب", "ft3b": "پرسش‌ها", "ft4a": "Deploy", "h1": "کانالت را نگه می‌دارد — حتی وقتی خوابیده‌ای", "lk1": "ادیت متن", "lk2": "ادیت مدیا", "lk3": "پست ناشناس", "lk4": "فوروارد", "lkA": "ادیت لینک", "lkB": "ارسال متن", "lkC": "ارسال گیف", "lkD": "ارسال استیکر", "lkE": "ارسال ویس", "lkF": "ارسال ویدیو مسیج", "lkFoot": "روی کلید بزن تا امتحانش کنی — قفل‌ها توی پنل ربات زنده‌اند، این صفحه فقط پیش‌نمایش است.", "lkG": "ارسال موزیک", "lkH": "ارسال فایل", "lkI": "ارسال مخاطب", "lkJ": "ارسال لوکیشن", "lkK": "ارسال تاس", "lkPanelH": "بیست قفل، هر کدام یک کلید", "lkPanelP": "هر نوع پست کلید خودش را دارد. یکی را روشن کن و آن نوع پست همان لحظه که می‌آید حذف می‌شود.", "mgH": "بقیه‌اش با پنل است.", "mgHg": "ادمین‌ها، دسترسی و ابزار.", "mgN1": "ادمین‌های محدوده‌دار", "mgN10": "حذف پیام‌های اخیر", "mgN11": "پیام‌های Rich", "mgN12": "حذف به‌روزرسانی تکراری", "mgN2": "افزودن گروهی", "mgN3": "دسترسی سریع", "mgN4": "دسترسی به ربات در هر کانال", "mgN5": "ثبت‌نام", "mgN6": "پیش‌فرض‌های یک‌ضربه‌ای", "mgN7": "قفل زمان‌دار", "mgN8": "اعلان در کانال", "mgN9": "پخش همگانی", "mgP1": "هر ادمین فقط کانال‌هایی را می‌چرخاند که تیک زده‌ای.", "mgP10": "۱ تا ۴۰ پیام آخر را پاک کن.", "mgP11": "Bot API 10.4: جدول، جزئیات و هایلایت.", "mgP12": "به‌روزرسانی تکراری یک بار پردازش می‌شود.", "mgP2": "تا ۵۰ شناسه یکجا.", "mgP3": "با شناسهٔ عددی بده.", "mgP4": "چه کسی در هر کانال از ربات استفاده کند.", "mgP5": "کانال ثبت می‌شود، مالک تأیید می‌کند.", "mgP6": "تنظیمات رایج با یک ضربه.", "mgP7": "وقت تهران، دقیق تا دقیقه.", "mgP8": "ربات به کانال می‌گوید قفل شروع یا تمام شد.", "mgP9": "به کانال پست بفرست، با انتخاب مقصد.", "notice": "نسخهٔ tgcloud لایو است · rev 12", "nv1": "tgcloud Serverless", "nv2": "Cloudflare Worker", "nv3": "Deploy", "nv3s": "یک دقیقه · رایگان", "panelH": "همه‌چیزِ کانال، در یک پنل", "panelP": "قفل‌ها، حالت و آمار هر کانال را از پیوی ربات می‌بینی و عوض می‌کنی. لازم نیست وارد کانال شوی.", "q1": "ربات دقیقاً چه دسترسی‌هایی لازم دارد؟", "q2": "ادمین جدید چطور اضافه کنم؟", "q3": "چرا بعضی پیام‌های قدیمی حذف نمی‌شوند؟", "q4": "قفل پست ناشناس چطور کار می‌کند؟", "q5": "دو نسخه چه فرقی با هم دارن؟", "q6": "پلن رایگان Cloudflare کافی است؟", "q7": "امنیت و حریم خصوصی چطور است؟", "rpH": "ادیت مدیا حذف شد", "rpM": "K!NG MENTÆFIL · توسط @user · ۱۲:۰۴", "rpNew": "متن جدید", "rpNewT": "قیمت ۱۰۰ است", "rpOld": "متن قبلی", "rpOldT": "قیمت ۱۰ است", "storyP": "یکی توی کانالت پست را ادیت می‌کند. این اتفاق‌ها می‌افتد، به ترتیب.", "sub": "هر ادیت یا پست غیرمجاز را در میلی‌ثانیه حذف می‌کند، حتی اگر پیام چند روز پیش باشد. <b>۲۰ قفل، ۶۴۱ تست سبز — رایگان و متن‌باز.</b>", "tgK6": "ارسال عکس", "tgK7": "ارسال لینک", "tgK8": "ارسال ویدیو", "tgK9": "ارسال نظرسنجی", "tgLocks": "قفل‌های فعال: ۵ از ۲۰", "tgMode": "وضعیت: زرد", "tgRep": "ادیت حذف شد", "tgRepM": "K!NG MENTÆFIL · ادیت مدیا", "tgS1": "۱۲", "tgS1l": "تخلف امروز", "tgS2": "۳", "tgS2l": "سکوت‌شده", "tgS3": "۲۴ ساعت", "tgS3l": "پنجرهٔ بازگشت", "tgTitle": "K!NG MENTÆFIL", "tgYel": "زرد: @user تنزل شد", "tgYelM": "K!NG MENTÆFIL · ادیت مدیا · ۱۲:۰۴", "verCfP": "دیپلوی شده و آماده است، ترافیکی نمی‌گیرد. اگر tgcloud روزی متوقف شد، جایگزین است.", "verFoot": "برای هر توکن ربات فقط یک ران‌تایم را اجرا کن — اگر هر دو را هم‌زمان روی یک ربات روشن کنی، هر دو به همان آپدیت‌ها جواب می‌دهند.", "verH": "دو نسخه، یک ربات.", "verP": "همان ربات در دو ران‌تایم. نسخهٔ لایو روی tgcloud است؛ ورکر کلادفلر بکاپ است. برای هر توکن فقط یکی را اجرا کن.", "verTgP": "رباتِ لایو. همهٔ قابلیت‌ها، تأییدشده با پروب‌های سرور."}, en: {"a1": "Only Delete messages is required. Add New Admins is needed for in-bot promotion and Ban Users for red mode.", "a2": "The owner sends the numeric ID, or a list of up to 50 IDs at once. Then ticks the channels that person may manage.", "a3": "That is Telegram's own limit: no bot can delete messages older than 48 hours. The Cloudflare userbot closes the gap.", "a4": "Any post without an admin signature is deleted at once. Admins sign with Sign messages.", "a5": "They are the same bot with the same core features. tgcloud is live and adds force-join and exactly-once announcements; Cloudflare is the backup and has the userbot and previous-bot fallback. Run only one per token.", "a6": "Yes. The bot uses about 0.3% of the 100k daily requests, and batched flushing keeps KV writes under the cap.", "a7": "Tokens live only as secrets, never in code or the repo. Only the owner can change settings. The code is open source (MIT).", "cR1a": "Backup", "cR1b": "Live · rev 12", "cR2": "Version", "cR2a": "v5.2", "cR2b": "rev 12", "cR3": "Data", "cR3a": "Cloudflare KV", "cR3b": "SQL + KV", "cR4": "Deploy", "cR4a": "One-click button", "cR4b": "npx tgcloud push", "cR5": "Tests", "cR5a": "641/641", "cR5b": "Verified live", "cR6": "Force-join", "cR6b": "Yes", "cR9": "Userbot (48h+ deletions)", "cR9a": "Yes", "ch1": "5 locks · yellow", "ch2": "14 locks · yellow", "ch3": "4 locks · yellow", "ch4": "7 locks · yellow", "ch5": "5 locks · yellow", "ch6": "10 locks · yellow", "ch7": "disabled", "chatDay": "Today", "closeH": "Your channel is waiting.", "closeP": "One minute to deploy. Free, open source, no card.", "dep1b": "Deploy to Cloudflare", "depH": "Deploy the bot in a minute.", "depP": "Two ways: the Cloudflare button or the tgcloud command. Both are free.", "f4v1": "Master lock", "faqH": "Questions", "faqP": "The answers, plainly.", "footLede": "Built for channels you care about — open source under MIT.", "ft3a": "GitHub", "ft3b": "Questions", "ft4a": "Deploy", "h1": "It guards your channel — even while you sleep.", "lk1": "Text edit", "lk2": "Media edit", "lk3": "Anonymous post", "lk4": "Forward", "lkA": "Link edit", "lkB": "Send text", "lkC": "Send GIF", "lkD": "Send sticker", "lkE": "Send voice", "lkF": "Send video note", "lkFoot": "Tap a switch to try it — the locks are live in the bot's panel, this page only previews them.", "lkG": "Send audio", "lkH": "Send file", "lkI": "Send contact", "lkJ": "Send location", "lkK": "Send dice", "lkPanelH": "Twenty locks, one switch each", "lkPanelP": "Every post type has its own switch. Turn one on and that kind of post is gone the moment it appears.", "mgH": "The panel handles the rest.", "mgHg": "Admins, access and tools.", "mgN1": "Scoped admins", "mgN10": "Delete recent", "mgN11": "Rich messages", "mgN12": "Update dedup", "mgN2": "Batch add", "mgN3": "Quick access", "mgN4": "Per-channel bot access", "mgN5": "Onboarding", "mgN6": "One-tap presets", "mgN7": "Time-window lock", "mgN8": "In-channel announcements", "mgN9": "Broadcast", "mgP1": "Each admin manages only the channels you tick.", "mgP10": "Wipe the last 1–40 messages.", "mgP11": "Bot API 10.4: tables, details and highlights.", "mgP12": "A duplicate update is processed once.", "mgP2": "Up to 50 IDs at once.", "mgP3": "Grant by numeric ID.", "mgP4": "Who may use the bot, per channel.", "mgP5": "A channel registers, the owner approves.", "mgP6": "The common setups in one tap.", "mgP7": "Tehran time, minute-precise.", "mgP8": "The bot tells the channel a lock started or ended.", "mgP9": "Post to a channel, with a destination picker.", "notice": "The tgcloud version is live · rev 12", "nv1": "tgcloud Serverless", "nv2": "Cloudflare Worker", "nv3": "Deploy", "nv3s": "One minute · free", "panelH": "Everything about the channel, in one panel.", "panelP": "See and change every channel's locks, mode and stats from the bot's DM. You never open the channel.", "q1": "What permissions does the bot need?", "q2": "How do I add a new admin?", "q3": "Why can't some old messages be deleted?", "q4": "How does the anonymous-post lock work?", "q5": "How do the two versions differ?", "q6": "Is the Cloudflare free plan enough?", "q7": "What about security and privacy?", "rpH": "Media edit deleted", "rpM": "K!NG MENTÆFIL · by @user · 12:04", "rpNew": "new text", "rpNewT": "The price is 100", "rpOld": "old text", "rpOldT": "The price is 10", "storyP": "Someone edits a post in your channel. Here is what happens, in order.", "sub": "It deletes any unauthorized edit or post in milliseconds, even if the message is days old. <b>20 locks, 641 green tests — free and open source.</b>", "tgK6": "Send photo", "tgK7": "Send link", "tgK8": "Send video", "tgK9": "Send poll", "tgLocks": "Locks on: 5 of 20", "tgMode": "Mode: yellow", "tgRep": "Edit deleted", "tgRepM": "K!NG MENTÆFIL · media edit", "tgS1": "12", "tgS1l": "violations today", "tgS2": "3", "tgS2l": "muted", "tgS3": "24h", "tgS3l": "undo window", "tgTitle": "K!NG MENTÆFIL", "tgYel": "Yellow: @user demoted", "tgYelM": "K!NG MENTÆFIL · media edit · 12:04", "verCfP": "Deployed and ready, receives no traffic. The fallback if tgcloud ever stops.", "verFoot": "Run only one runtime per bot token — never both against the same bot, or both will answer the same updates.", "verH": "Two versions, one bot.", "verP": "The same bot in two runtimes. The live version runs on tgcloud; the Cloudflare Worker is the backup. Run only one per token.", "verTgP": "The live bot. Full feature set, verified live with server-side probes."} };
+const LOCKS = [
+  ['f4v1', false], ['lk1', true], ['lk2', true], ['lkA', true], ['lk3', true],
+  ['lkB', true], ['tgK6', true], ['tgK8', true], ['lkC', true], ['lkD', true],
+  ['lkE', true], ['lkF', true], ['lkG', true], ['lkH', true], ['tgK9', true],
+  ['lkI', true], ['lkJ', true], ['lkK', true], ['lk4', false], ['tgK7', false]
+];
+const CHANNELS = [
+  ['K!NG MENT\u00c6FIL', 'ch1', 'K'], ['\u0632\u064e\u0645\u06cc\u0646 \u0628\u0627\u0632\u06cc | Playground', 'ch2', '\u0632'],
+  ['\u0627\u0650\u062a\u0640\u062d\u0640\u0622\u062f \u0647\u0640\u0640\u0640\u06a9 / \u062f\u06cc\u067e\u0640\u0648\u0631\u062a\u0650\u0640\u0631', 'ch3', '\u0627'],
+  ['\u0622\u0641\u0640\u0640\u06cc\u0640\u0634\u0640\u06cc\u0640\u0622\u0644 \u0647\u0640\u0640\u0640\u06a9', 'ch4', '\u0622'],
+  ['\u0627\u062a\u062d\u0627\u062f \u062f\u06cc\u062c\u06cc\u062a\u0627\u0644', 'ch5', '\u0627'],
+  ['\u067e\u0640\u0622\u062f\u0634\u0640\u0627\u0647\u0640\u06cc \u0645\u0640\u062c\u0640\u0640\u0622\u0632\u06cc', 'ch6', '\u067e'],
+  ['\u0640', 'ch7', '\u2013']
+];
+const MG = ['mgN1','mgN2','mgN3','mgN4','mgN5','mgN6','mgN7','mgN8','mgN9','mgN10','mgN11','mgN12'];
+const MGP = ['mgP1','mgP2','mgP3','mgP4','mgP5','mgP6','mgP7','mgP8','mgP9','mgP10','mgP11','mgP12'];
+const FAQ = ['q1','q2','q3','q4','q5','q6','q7'];
+const FAQA = ['a1','a2','a3','a4','a5','a6','a7'];
+
+let lang = 'fa';
+function t(k){ return (I18N[lang] && I18N[lang][k]) || I18N.en[k] || ''; }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function buildLists(){
+  var lk = document.getElementById('locksList');
+  lk.innerHTML = LOCKS.map(function(pair){
+    var k = pair[0], on = pair[1];
+    return '<li><span class="list__body"><span class="list__t">' + esc(t(k)) + '</span></span>' +
+      '<label class="switch"><input type="checkbox"' + (on ? ' checked' : '') + ' aria-label="' + esc(t(k)) + '">' +
+      '<span class="switch__track"></span><span class="switch__knob"></span></label></li>';
+  }).join('');
+  var ch = document.getElementById('chanList');
+  ch.innerHTML = CHANNELS.map(function(c){
+    return '<li><span class="list__ic">' + esc(c[2]) + '</span>' +
+      '<span class="list__body"><span class="list__t">' + esc(c[0]) + '</span></span>' +
+      '<span class="list__v">' + esc(t(c[1])) + '</span></li>';
+  }).join('');
+  var mg = document.getElementById('mgList');
+  mg.innerHTML = MG.map(function(k, i){
+    return '<li><span class="list__body"><span class="list__t"><b>' + esc(t(k)) + '</b></span>' +
+      '<span class="list__s">' + esc(t(MGP[i])) + '</span></span></li>';
+  }).join('');
+  var fq = document.getElementById('faqList');
+  fq.innerHTML = FAQ.map(function(k, i){
+    return '<li><details><summary><span>' + esc(t(k)) + '</span><span class="chev">›</span></summary>' +
+      '<div class="ans">' + esc(t(FAQA[i])) + '</div></details></li>';
+  }).join('');
 }
-};
+
 function setLang(l){
-  document.documentElement.lang = l;
-  document.documentElement.dir = l === 'fa' ? 'rtl' : 'ltr';
+  lang = (l === 'en') ? 'en' : 'fa';
+  document.documentElement.lang = lang;
+  document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr';
   document.querySelectorAll('[data-i]').forEach(function(el){
-    var k = el.getAttribute('data-i');
-    var v = (I18N[l] && I18N[l][k] != null) ? I18N[l][k] : (I18N.en[k] != null ? I18N.en[k] : null);
-    if (v != null) el.innerHTML = v;
+    var v = t(el.getAttribute('data-i'));
+    if (v) el.innerHTML = v;
   });
-  document.title = l === 'fa' ? 'AntiCh34t: ربات نگهبان کانال تلگرام' : 'AntiCh34t: Telegram channel guard bot';
+  buildLists();
   var b = document.getElementById('langBtn');
-  if (b) b.textContent = l === 'fa' ? '🌐 English' : '🌐 فارسی';
-  try { localStorage.setItem('antich34t-lang', l); } catch(e) {}
+  if (b) b.textContent = lang === 'fa' ? '\uD83C\uDF10 English' : '\uD83C\uDF10 \u0641\u0627\u0631\u0633\u06cc';
+  try { localStorage.setItem('antich34t-lang', lang); } catch(e) {}
 }
+
+document.getElementById('langBtn').addEventListener('click', function(){
+  setLang(lang === 'fa' ? 'en' : 'fa');
+});
+
+document.getElementById('segTg').addEventListener('click', function(){
+  document.getElementById('segTg').setAttribute('aria-selected','true');
+  document.getElementById('segCf').setAttribute('aria-selected','false');
+  document.getElementById('verTg').classList.add('on');
+  document.getElementById('verCf').classList.remove('on');
+});
+document.getElementById('segCf').addEventListener('click', function(){
+  document.getElementById('segCf').setAttribute('aria-selected','true');
+  document.getElementById('segTg').setAttribute('aria-selected','false');
+  document.getElementById('verCf').classList.add('on');
+  document.getElementById('verTg').classList.remove('on');
+});
+
 (function(){
   var saved = null;
   try { saved = localStorage.getItem('antich34t-lang'); } catch(e) {}
