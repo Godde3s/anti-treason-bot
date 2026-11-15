@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#F2F2F7">
+<meta name="description" content="AntiCh34t — one live example of the bot guarding a channel.">
+<title>AntiCh34t — Live example</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+:root{
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  --bg2:#F2F2F7;
+  --label:#000000; --label2:#8E8E93; --label3:#AEAEB2;
+  --sep:rgba(60,60,67,.18);
+  --tint:#007AFF; --danger:#FF3B30;
+  --bubble:#E9E9EB;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg2:#1C1C1E;
+    --label:#ffffff; --label2:#98989D; --label3:#636366;
+    --sep:rgba(235,235,245,.16);
+    --tint:#0A84FF; --danger:#FF453A;
+    --bubble:#26262A;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; background:var(--bg2); color:var(--label);
+  font-family:var(--font); font-size:17px; line-height:22px;
+  -webkit-tap-highlight-color:transparent;
+}
+.app{
+  max-width:430px; margin:0 auto; min-height:100dvh; background:var(--bg2);
+  padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
+}
+@media (min-width:460px){
+  .app{ border-left:1px solid var(--sep); border-right:1px solid var(--sep); }
+}
+a{color:var(--tint); text-decoration:none}
+:focus-visible{outline:2px solid var(--tint); outline-offset:2px; border-radius:8px}
+@media (prefers-reduced-motion: reduce){
+  *{animation:none !important; transition:none !important}
+}
+.back{ font-size:17px; line-height:22px; font-weight:600; }
+h1{ margin:20px 0 4px; font-size:28px; line-height:34px; font-weight:700; letter-spacing:-.5px; }
+.sub{ margin:0 0 24px; color:var(--label2); font-size:15px; line-height:20px; max-width:340px; }
+
+/* the example — a Messages conversation */
+.chat{ display:flex; flex-direction:column; gap:2px; }
+.day{
+  text-align:center; color:var(--label2); font-size:13px; line-height:18px; font-weight:600;
+  margin:6px 0 10px;
+}
+.msg{ display:flex; gap:8px; align-items:flex-end; margin-bottom:2px; }
+.av{
+  width:28px; height:28px; border-radius:50%; flex:none;
+  background:var(--bubble); color:var(--label2);
+  display:grid; place-items:center; font-size:10px; font-weight:700;
+}
+.bubble{
+  background:var(--bubble); color:var(--label);
+  border-radius:18px; border-bottom-left-radius:5px;
+  padding:10px 14px; max-width:82%;
+  font-size:17px; line-height:22px; overflow-wrap:break-word;
+}
+.bubble p{ margin:0; }
+.bubble p + p{ margin-top:6px; }
+.bubble .muted{ color:var(--label2); font-size:15px; line-height:20px; }
+.bubble b{ font-weight:600; }
+.bubble .red{ color:var(--danger); font-weight:600; }
+.bubble .tag{
+  display:inline-block; font-size:12px; font-weight:700; color:var(--label2);
+  background:rgba(120,120,128,.16); border-radius:6px; padding:2px 7px; margin-right:6px;
+}
+.bubble .strike{ text-decoration:line-through; text-decoration-color:var(--danger); text-decoration-thickness:2px; }
+.step{
+  margin:18px 0 0; color:var(--label2); font-size:13px; line-height:18px;
+  display:flex; gap:8px; align-items:baseline;
+}
+.step b{ color:var(--danger); font-size:17px; line-height:22px; }
+.step span{ flex:1; }
+.foot{
+  margin:32px 0 0; text-align:center; color:var(--label3);
+  font-size:12px; line-height:16px;
+}
+.foot a{ color:var(--label2); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <a class="back" href="index.html">‹ AntiCh34t</a>
+  <h1>One live example</h1>
+  <p class="sub">Someone edits a post in a channel. Here is what happens, in order. Channel name is a placeholder — the bot works the same on any channel.</p>
+
+  <div class="chat" aria-label="Example conversation">
+    <div class="day">Today</div>
+
+    <div class="step"><b>1</b><span>The edit is deleted</span></div>
+    <div class="msg">
+      <span class="av">A</span>
+      <div class="bubble">
+        <p><b>Edit deleted</b></p>
+        <p class="muted">Your Channel · media edit</p>
+      </div>
+    </div>
+
+    <div class="step"><b>2</b><span>The offender is demoted</span></div>
+    <div class="msg">
+      <span class="av">A</span>
+      <div class="bubble">
+        <p><b class="red">Yellow: @user demoted</b></p>
+        <p class="muted">Your Channel · media edit · 12:04</p>
+      </div>
+    </div>
+
+    <div class="step"><b>3</b><span>You get the report</span></div>
+    <div class="msg">
+      <span class="av">A</span>
+      <div class="bubble">
+        <p><b>Media edit deleted</b></p>
+        <p class="muted">Your Channel · by @user · 12:04</p>
+        <p><span class="tag">old text</span><span class="strike">The price is 10</span></p>
+        <p><span class="tag">new text</span>The price is 100</p>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <p>Built for channels you care about — open source under MIT.<br>
+    <a href="https://github.com/Godde3s/anti-treason-bot">GitHub</a> · <a href="index.html">Back to AntiCh34t</a></p>
+  </footer>
+
+</div>
+</body>
+</html>

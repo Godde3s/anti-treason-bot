@@ -3,26 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#F2F2F7">
 <meta name="description" content="AntiCh34t — a Telegram bot that guards your channel. Live on tgcloud, rev 12. Free and open source.">
 <title>AntiCh34t — Telegram channel guard</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
 :root{
   --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
-  --bg:#ffffff; --bg2:#F2F2F7;
+  --bg:#ffffff; --bg2:#F2F2F7; --bg3:#E9E9EB;
   --label:#000000; --label2:#8E8E93; --label3:#AEAEB2;
   --sep:rgba(60,60,67,.18);
-  --tint:#007AFF; --danger:#FF3B30;
+  --tint:#007AFF; --danger:#FF3B30; --green:#34C759;
   --bubble:#E9E9EB;
   --card:#ffffff;
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#000000; --bg2:#1C1C1E;
+    --bg:#000000; --bg2:#1C1C1E; --bg3:#2C2C2E;
     --label:#ffffff; --label2:#98989D; --label3:#636366;
     --sep:rgba(235,235,245,.16);
-    --tint:#0A84FF; --danger:#FF453A;
+    --tint:#0A84FF; --danger:#FF453A; --green:#30D158;
     --bubble:#26262A;
     --card:#1C1C1E;
   }
@@ -37,7 +37,7 @@ body{
 /* one column, every screen — 430px, centred on desktop, full-bleed on a phone */
 .app{
   max-width:430px; margin:0 auto; min-height:100dvh; background:var(--bg2);
-  padding:calc(28px + env(safe-area-inset-top)) 20px calc(28px + env(safe-area-inset-bottom));
+  padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
 }
 @media (min-width:460px){
   .app{ border-left:1px solid var(--sep); border-right:1px solid var(--sep); }
@@ -56,82 +56,104 @@ a{color:var(--tint); text-decoration:none}
   font-size:32px; font-weight:700;
 }
 h1{
-  margin:20px 0 6px; font-size:34px; line-height:41px; font-weight:700; letter-spacing:-.5px;
+  margin:16px 0 4px; font-size:34px; line-height:41px; font-weight:700; letter-spacing:-.5px;
 }
 .tagline{ margin:0; color:var(--label2); font-size:17px; line-height:22px; max-width:320px; }
 .live{
   display:inline-flex; align-items:center; gap:6px;
-  margin:14px 0 0; font-size:13px; line-height:18px; font-weight:600; color:var(--label2);
+  margin:12px 0 0; font-size:13px; line-height:18px; font-weight:600; color:var(--label2);
 }
 .live i{ width:8px; height:8px; border-radius:50%; background:var(--danger); }
 
-/* one message, one proof */
-.demo{ margin:48px 0 0; }
-.demo .day{
-  text-align:center; color:var(--label2); font-size:13px; line-height:18px; font-weight:600;
-  margin-bottom:10px;
+/* the one example — opens in a new page, not here */
+.example{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  margin:28px 0 0; min-height:53px; padding:10px 16px;
+  background:var(--card); border-radius:26px;
+  font-size:17px; line-height:22px; font-weight:600; color:var(--label);
 }
-.msg{ display:flex; gap:8px; align-items:flex-end; }
-.av{
-  width:28px; height:28px; border-radius:50%; flex:none;
-  background:var(--bubble); color:var(--label2);
-  display:grid; place-items:center; font-size:10px; font-weight:700;
-}
-.bubble{
-  background:var(--bubble); color:var(--label);
-  border-radius:18px; border-bottom-left-radius:5px;
-  padding:10px 14px; max-width:82%;
-  font-size:17px; line-height:22px; overflow-wrap:break-word;
-}
-.bubble p{ margin:0; }
-.bubble p + p{ margin-top:6px; }
-.bubble .muted{ color:var(--label2); font-size:15px; line-height:20px; }
-.bubble b{ font-weight:600; }
-.bubble .red{ color:var(--danger); font-weight:600; }
-.demo .cap{
-  margin:12px 0 0; text-align:center; color:var(--label2);
-  font-size:13px; line-height:18px;
-}
+.example:active{ background:var(--bg3); }
+.example span{ color:var(--label2); font-size:15px; font-weight:400; display:block; }
+.example .chev{ color:var(--label3); font-size:17px; font-weight:600; }
 
-/* three facts, nothing more */
-.facts{
-  list-style:none; margin:48px 0 0; padding:0;
-  background:var(--card); border-radius:26px; overflow:hidden;
+/* collapsible cards — everything folds away */
+.card{
+  margin:12px 0 0; background:var(--card); border-radius:26px; overflow:hidden;
 }
-.facts li{
-  display:flex; align-items:center; gap:12px;
-  min-height:53px; padding:10px 16px;
-  border-bottom:1px solid var(--sep);
-  font-size:17px; line-height:22px;
+.card > summary{
+  list-style:none; cursor:pointer; min-height:53px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:12px 16px; font-size:17px; line-height:22px; font-weight:600;
 }
-.facts li:last-child{ border-bottom:0; }
-.facts li:active{ background:var(--bg2); }
-.facts .n{
-  width:30px; height:30px; border-radius:8px; flex:none;
-  background:var(--tint); color:#fff;
-  display:grid; place-items:center; font-size:15px; font-weight:700;
+.card > summary::-webkit-details-marker{ display:none; }
+.card > summary:active{ background:var(--bg2); }
+.card > summary .chev{ color:var(--label3); font-size:17px; transition:transform .2s ease; }
+.card[open ] > summary .chev{ transform:rotate(90deg); }
+.card .body{ padding:0 16px 16px; color:var(--label2); font-size:15px; line-height:20px; }
+.card .body p{ margin:0 0 8px; }
+.card .body p:last-child{ margin-bottom:0; }
+.card .body b{ color:var(--label); font-weight:600; }
+.card .body ol{ margin:0; padding-left:20px; }
+.card .body ol li{ margin-bottom:6px; }
+.card .body ol li:last-child{ margin-bottom:0; }
+.card .body code{
+  font-family:ui-monospace,Menlo,monospace; font-size:13px; direction:ltr;
+  background:rgba(120,120,128,.16); border-radius:6px; padding:1px 6px;
 }
-.facts .n.red{ background:var(--danger); }
-.facts b{ font-weight:600; }
-.facts span{ color:var(--label2); font-size:15px; line-height:20px; display:block; }
+.locks{
+  display:grid; grid-template-columns:1fr 1fr; gap:0 16px;
+  list-style:none; margin:0; padding:0;
+}
+.locks li{
+  padding:7px 0; border-bottom:1px solid var(--sep);
+  font-size:15px; line-height:20px; color:var(--label);
+}
+.locks li:nth-last-child(-n+2){ border-bottom:0; }
+.kv{ display:grid; grid-template-columns:auto 1fr; gap:6px 16px; margin:0; font-size:15px; line-height:20px; }
+.kv dt{ color:var(--label2); }
+.kv dd{ margin:0; text-align:right; font-weight:600; color:var(--label); }
+.kv dd .live{ color:var(--danger); }
 
-/* deploy */
-.deploy{ margin:48px 0 0; }
-.deploy a{
-  display:flex; align-items:center; justify-content:center;
-  min-height:50px; border-radius:25px;
-  background:var(--tint); color:#fff; font-size:17px; font-weight:600;
+/* deploy — both buttons, each with its own guide */
+.deploy{ margin:20px 0 0; }
+.deploy h2{
+  margin:0 0 10px; padding:0 4px;
+  font-size:13px; line-height:18px; font-weight:400; color:var(--label2);
+  text-transform:uppercase; letter-spacing:.4px;
 }
-.deploy a:active{ opacity:.7; }
-.alt{
-  margin:14px 0 0; text-align:center; color:var(--label2);
-  font-size:15px; line-height:20px;
+.btn{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  min-height:50px; border-radius:25px; width:100%;
+  font-size:17px; font-weight:600; border:0; cursor:pointer;
 }
-.alt code{ font-family:ui-monospace,Menlo,monospace; font-size:14px; color:var(--label); }
+.btn:active{ opacity:.7; }
+.btn-blue{ background:var(--tint); color:#fff; margin-bottom:10px; }
+.btn-gray{ background:var(--bg3); color:var(--tint); margin-bottom:10px; }
+.btn-gray code{ font-family:ui-monospace,Menlo,monospace; font-size:14px; direction:ltr; }
+.guide{
+  margin:0 0 10px; background:var(--card); border-radius:26px; overflow:hidden;
+}
+.guide > summary{
+  list-style:none; cursor:pointer; min-height:44px;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:10px 16px; font-size:15px; line-height:20px; font-weight:600; color:var(--tint);
+}
+.guide > summary::-webkit-details-marker{ display:none; }
+.guide > summary:active{ background:var(--bg2); }
+.guide > summary .chev{ color:var(--label3); font-size:15px; transition:transform .2s ease; }
+.guide[open ] > summary .chev{ transform:rotate(90deg); }
+.guide .body{ padding:0 16px 14px; color:var(--label2); font-size:15px; line-height:20px; }
+.guide .body ol{ margin:0; padding-left:20px; }
+.guide .body ol li{ margin-bottom:6px; }
+.guide .body ol li:last-child{ margin-bottom:0; }
+.guide .body code{
+  font-family:ui-monospace,Menlo,monospace; font-size:13px; direction:ltr;
+  background:rgba(120,120,128,.16); border-radius:6px; padding:1px 6px;
+}
 
 /* footer */
 .foot{
-  margin:56px 0 0; text-align:center; color:var(--label3);
+  margin:28px 0 0; text-align:center; color:var(--label3);
   font-size:12px; line-height:16px;
 }
 .foot a{ color:var(--label2); }
@@ -147,28 +169,73 @@ h1{
     <p class="live"><i></i>Live · tgcloud rev 12</p>
   </header>
 
-  <section class="demo" aria-label="How it works">
-    <div class="day">Today</div>
-    <div class="msg">
-      <span class="av">A</span>
-      <div class="bubble">
-        <p><b class="red">Yellow: @user demoted</b></p>
-        <p class="muted">K!NG MENTÆFIL · media edit · 12:04</p>
-      </div>
+  <a class="example" href="example.html" target="_blank" rel="noopener">
+    <span>See it in action<span>One live example, on its own page</span></span>
+    <span class="chev">›</span>
+  </a>
+
+  <details class="card">
+    <summary><span>What it does</span><span class="chev">›</span></summary>
+    <div class="body">
+      <p><b>Everything about the channel, in one panel.</b> See and change every channel's locks, mode and stats from the bot's DM. You never open the channel.</p>
+      <p><b>The panel handles the rest.</b> Scoped admins, batch add, quick access, per-channel bot access, onboarding, one-tap presets, time-window locks, in-channel announcements, broadcast, delete recent, rich messages and update dedup.</p>
+      <p><b>Two versions, one bot.</b> The same bot in two runtimes. The live version runs on tgcloud; the Cloudflare Worker is the backup. Run only one per token.</p>
     </div>
-    <p class="cap">Someone edits a post. The edit is deleted, the offender is demoted, you get the report.</p>
+  </details>
+
+  <details class="card">
+    <summary><span>Locks · 20</span><span class="chev">›</span></summary>
+    <div class="body">
+      <p>Every post type has its own switch. Turn one on and that kind of post is gone the moment it appears.</p>
+      <ul class="locks">
+        <li>Master lock</li><li>Text edit</li><li>Media edit</li><li>Link edit</li>
+        <li>Anonymous post</li><li>Send text</li><li>Send photo</li><li>Send video</li>
+        <li>Send GIF</li><li>Send sticker</li><li>Send voice</li><li>Send video note</li>
+        <li>Send audio</li><li>Send file</li><li>Send poll</li><li>Send contact</li>
+        <li>Send location</li><li>Send dice</li><li>Forward</li><li>Send link</li>
+      </ul>
+    </div>
+  </details>
+
+  <details class="card">
+    <summary><span>Versions</span><span class="chev">›</span></summary>
+    <div class="body">
+      <dl class="kv">
+        <dt>tgcloud</dt><dd><span class="live">Live · rev 12</span></dd>
+        <dt>Cloudflare</dt><dd>Backup · v5.2</dd>
+        <dt>Data</dt><dd>SQL + KV / Cloudflare KV</dd>
+        <dt>Tests</dt><dd>641/641 · Verified live</dd>
+      </dl>
+    </div>
+  </details>
+
+  <section class="deploy" aria-label="Deploy">
+    <h2>Deploy</h2>
+    <a class="btn btn-blue" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot">Deploy to Cloudflare</a>
+    <details class="guide">
+      <summary><span>How to deploy on Cloudflare</span><span class="chev">›</span></summary>
+      <div class="body">
+        <ol>
+          <li>Press <b>Deploy to Cloudflare</b> above.</li>
+          <li>Set <code>BOT_TOKEN</code> and <code>OWNER_ID</code> as Secrets.</li>
+          <li>Deploy, then open the setup link the worker shows to finish.</li>
+        </ol>
+      </div>
+    </details>
+    <a class="btn btn-gray" href="https://github.com/Godde3s/anti-treason-bot/tree/main/tgcloud"><code>npx tgcloud push</code></a>
+    <details class="guide">
+      <summary><span>How to deploy on tgcloud</span><span class="chev">›</span></summary>
+      <div class="body">
+        <ol>
+          <li>Clone the repo and open the <code>tgcloud</code> folder.</li>
+          <li>Create a Serverless app and copy its CLI token.</li>
+          <li>Run <code>npx tgcloud push</code> with the token set.</li>
+          <li>The webhook syncs itself — the bot is live. This is the live version, rev 12.</li>
+        </ol>
+      </div>
+    </details>
+    <p style="margin:0; text-align:center; color:var(--label2); font-size:13px; line-height:18px;">Both are free. One minute to deploy. Free, open source, no card.</p>
   </section>
-
-  <ul class="facts">
-    <li><span class="n">20</span><span><b>20 locks, one switch each</b><span>Every post type has its own switch.</span></span></li>
-    <li><span class="n">⚡</span><span><b>Deletes in milliseconds</b><span>Even if the message is days old.</span></span></li>
-    <li><span class="n red">!</span><span><b>Red mode demotes and bans</b><span>Yellow demotes. Red demotes and bans.</span></span></li>
-  </ul>
-
-  <div class="deploy">
-    <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot">Deploy to Cloudflare</a>
-    <p class="alt">or run <code>npx tgcloud push</code> — free, open source, no card.</p>
-  </div>
 
   <footer class="foot">
     <p>Built for channels you care about — open source under MIT.<br>
