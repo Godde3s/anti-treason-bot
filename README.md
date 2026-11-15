@@ -3,40 +3,76 @@
 <p align="center">
   <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare Workers" /></a>
   <a href="README-FA.md"><img src="https://img.shields.io/badge/مستندات-فارسی-0ea5e9?style=for-the-badge" alt="Persian docs" /></a>
-  <img src="https://img.shields.io/badge/tests-581%2F581_passing-22c55e?style=for-the-badge" alt="tests" />
-  <img src="https://img.shields.io/badge/runtime-Cloudflare_Workers-F38020?style=for-the-badge&logo=cloudflare&logoColor=white" alt="runtime" />
+  <img src="https://img.shields.io/badge/tests-641%2F641_passing-22c55e?style=for-the-badge" alt="tests" />
+  <img src="https://img.shields.io/badge/runtime-Cloudflare_Workers_%2B_tgcloud-F38020?style=for-the-badge" alt="runtimes" />
 </p>
 
-A self-hosted **anti-cheat guard for Telegram channels**, built as a single-file Cloudflare Worker with zero external dependencies. It catches edits and unauthorized posts within milliseconds — even if the message was sent days ago and edited *right now* (Telegram bots normally cannot touch anything older than 48 hours; this bot pairs with an optional userbot helper to close that gap).
+A self-hosted **anti-cheat guard for Telegram channels**. It catches edits and unauthorized posts within milliseconds — even if the message was sent days ago and edited *right now* (Telegram bots normally cannot touch anything older than 48 hours; the Cloudflare version pairs with an optional userbot helper to close that gap).
 
-Everything is managed from a clean Persian panel in the bot's private chat. No commands to memorize, no database to babysit — just a KV namespace.
+Everything is managed from a clean Persian panel in the bot's private chat. No commands to memorize, no database to babysit.
 
 > 🌐 Documentation is bilingual: **English (this file)** · [فارسی (README-FA.md)](README-FA.md)
 
-> **Two runtimes, one bot:** the live bot runs on **Telegram tgcloud Serverless** — see [`tgcloud/`](tgcloud/) (rev 12, live since 2026-11-15). The Cloudflare Worker in this repo root (`worker.js`, `wrangler.toml`) is kept as a backup and receives no traffic.
+## 🔀 Two versions, one bot
 
----
+The same bot ships in **two runtimes**. The live bot runs on **tgcloud**; the Cloudflare Worker is kept as a backup.
 
-## ✨ Highlights
+|  | ☁️ Cloudflare Worker | ⚡ tgcloud Serverless |
+|---|---|---|
+| **Code** | `worker.js` + `wrangler.toml` (repo root) | [`tgcloud/`](tgcloud/) |
+| **Status** | 🗄️ **Backup** — deployed, receives no traffic | ✅ **Live** — rev 12, since 2026-11-15 |
+| **Runtime** | Cloudflare Workers (single file, zero deps) | Telegram tgcloud (V8 isolate, `sdk` + SQL + KV) |
+| **Data** | Cloudflare KV namespace | tgcloud SQL database + KV |
+| **Deploy** | One-click button / `scripts/deploy.sh` / wrangler | `npx tgcloud push` (see [`tgcloud/AGENTS.md`](tgcloud/AGENTS.md)) |
+| **Version** | v5.2 | rev 12 |
+| **Tests** | 641/641 (`node scripts/test-bot.mjs`) | Verified live via server-side probes |
 
-| Feature | What it does |
-|---|---|
-| **Instant edit detection** | Any text/media caption edit is deleted in milliseconds — retro-editing spam does not survive |
-| **20 independent locks** | Block edits, any post type (text, photo, video, GIF, sticker, voice, audio, file, poll, contact, location, dice…), forwards, links, and anonymous channel posts |
-| **Yellow / Red escalation** | Yellow = delete + demote the offender. Red = delete + demote **+ ban** (with optional duration: 1h / 24h / 7d / permanent) |
-| **Multi-channel (v2.0)** | Guard any number of channels at once — each channel keeps its own locks, stats, schedule and logs |
-| **Scoped admin ACL (v2.0)** | The owner assigns each panel-admin/viewer the *exact* channels they may manage. Other channels and global settings are invisible to them. Reports go only to that channel's audience |
-| **Batch admin add (v2.1)** | Paste a **list of numeric IDs** (comma/newline separated, Persian digits welcome, up to 50) and promote them all at once with a single preset — per-user ✅/❌ report with Persian error reasons |
-| **One-tap presets** | "Basic admin" (post + delete), "Full admin", "Anonymous poster" — or fine-tune all 9 Telegram admin rights manually |
-| **Anonymous-post lock** | Deletes any unsigned channel post, so nobody posts without their real identity (admins must enable *Sign messages*) |
-| **Time-window lock** | e.g. block everything nightly 04:00–20:00 (Tehran timezone), midnight-crossing ranges supported |
-| **Instant lockdown** | One button freezes the entire channel until you press "open" again |
-| **24h undo** | Offenders' admin rights are snapshotted before demotion — one tap restores them if the signature match was wrong |
-| **Settings backup** | Export/import the full channel config as a single JSON text |
-| **Live stats** | Per-channel counters + "today" (Tehran calendar) + violation log + health check |
-| **48h gap helper** | An optional Telethon userbot (`userbot.py`) deletes violations older than 48h, which the Bot API forbids |
+> Pick **one** runtime per bot token — never run both against the same bot, or both will answer the same updates.
 
-## 🚀 Deploy (one click)
+## ✨ Features
+
+Most features are in **both** versions. A few are specific to one runtime.
+
+| Feature | Version | What it does |
+|---|---|---|
+| **Instant edit detection** | ✅ Both | Any text/media caption edit is deleted in milliseconds — retro-editing spam does not survive |
+| **20 independent locks** | ✅ Both | Block edits, any post type (text, photo, video, GIF, sticker, voice, audio, file, poll, contact, location, dice…), forwards, links, and anonymous channel posts |
+| **Master lock** | ✅ Both | One switch blocks everything |
+| **True-edit detection** | ✅ Both | A content fingerprint (text + media kind + poll question) skips enforcement when an edit didn't actually change the content — no false deletions from poll votes or checklist ticks |
+| **Anonymous-post lock** | ✅ Both | Deletes any unsigned channel post, so nobody posts without their real identity (admins must enable *Sign messages*) |
+| **Yellow / Red escalation** | ✅ Both | Yellow = delete + demote the offender. Red = delete + demote **+ ban** (duration: 1h / 24h / 7d / permanent) |
+| **24h undo** | ✅ Both | Offenders' admin rights are snapshotted before demotion — one tap restores all 15 Bot API permissions |
+| **Multi-channel** | ✅ Both | Guard any number of channels at once — each channel keeps its own locks, stats, schedule and logs |
+| **Scoped admin ACL** | ✅ Both | The owner assigns each panel-admin/viewer the *exact* channels they may manage. Other channels and global settings are invisible to them. Reports go only to that channel's audience |
+| **Batch admin add** | ✅ Both | Paste a **list of numeric IDs** (comma/newline separated, Persian digits welcome, up to 50) and promote them all at once with a single preset — per-user ✅/❌ report with Persian error reasons |
+| **One-tap presets** | ✅ Both | "Basic admin" (post + delete), "Full admin", "Anonymous poster" — or fine-tune all 9 Telegram admin rights manually |
+| **Per-channel bot access** | ✅ Both | Grant a user access to the bot's panel for one specific channel only |
+| **Quick access by ID** | ✅ Both | Grant/remove panel access by pasting a numeric ID |
+| **Onboarding + owner approval** | ✅ Both | A new channel is registered when the bot becomes admin, and only starts guarding after the owner taps "Activate" |
+| **Per-channel disable** | ✅ Both | Pause the bot on any channel with one button — settings, stats and mutes are preserved |
+| **Time-window lock** | ✅ Both | Block everything in a window (e.g. nightly 04:00–20:00 Tehran), minute-precise, midnight-crossing ranges supported |
+| **Instant lockdown** | ✅ Both | One button freezes the entire channel until you press "open" again |
+| **In-channel lock announcements** | ✅ Both | When the instant lock flips or a scheduled window starts/ends, the bot posts a notice inside the channel itself (per-channel toggle) |
+| **Manual mute** | ✅ Both | Silence a specific person for a chosen duration (or permanently) — every post/edit of theirs is deleted instantly, expiry is automatic |
+| **Settings backup** | ✅ Both | Export/import the full channel config as a single JSON text |
+| **Live stats** | ✅ Both | Per-channel counters + "today" (Tehran calendar) + violation log + health check |
+| **Dynamic reports** | ✅ Both | Signed posts resolve to the **signing admin** (mention + ID); edits show **old text vs new text**; anonymous posts get a short explanation with the fix |
+| **Post to channel / broadcast** | ✅ Both | Send any message (text/photo/video/album) to one channel or all active channels, with preview, confirmation and a per-channel ✅/❌ report; destination picker (channels / +groups / +DMs / all) |
+| **Delete recent messages** | ✅ Both | Delete the last 1–40 channel messages with a confirmation step and a success count |
+| **Bilingual fa/en** | ✅ Both | Every user picks fa/en with one tap; the owner sets the reports default with `/setlang` |
+| **Rich messages (Bot API 10.4)** | ✅ Both | Real premium tables, section headings, collapsible sections, highlights, checkbox rows, RTL layout, premium emoji, client-local timestamps |
+| **Update dedup** | ✅ Both | A retried update cannot double-execute a mute/grant/activate (Worker: in-memory; tgcloud: KV-backed, survives isolates) |
+| **Force-join** | ⚡ tgcloud | Members must join a required channel/group before they can use the bot (channel/group only, ships OFF) |
+| **Exactly-once sched announcements** | ⚡ tgcloud | Scheduled-lock start/end announcements are claimed atomically in KV, so a lazy re-detection after midnight can never announce twice |
+| **Per-muted-user announce toggle** | ⚡ tgcloud | Choose per muted person whether their mute is announced in the channel (default silent) |
+| **Red-mode owner guard** | ⚡ tgcloud | Red escalation can never demote/ban the bot owner (in addition to the channel creator) |
+| **Stale-schedule cleanup** | ⚡ tgcloud | The scheduled-lock state is deleted when the bot is kicked/left, so no phantom "lock ended" announcement fires on re-add |
+| **48h gap helper (userbot)** | ☁️ Cloudflare | `userbot.py` (Telethon) deletes violations older than 48h, which the Bot API forbids — the tgcloud runtime has no userbot endpoints |
+| **Previous-bot fallback** | ☁️ Cloudflare | `LEGACY_BOT_TOKEN`: demote/ban/unban automatically retry through the previous bot when Telegram refuses |
+| **KV write-budget redesign** | ☁️ Cloudflare | v5.2: edit fingerprints merged into ring records (one KV put per flush), 3-minute flush spacing, quota-aware error toasts — the free 1,000 writes/day budget survives busy channels |
+| **Quota-safe channel index** | ☁️ Cloudflare | The channel list lives in an `idx:chats` key (reads only), so the every-minute cron never burns the 1,000 list-ops/day budget |
+
+## 🚀 Deploy — Cloudflare Worker
 
 1. Press the **Deploy to Cloudflare** button above and sign in — the KV namespace and webhook secret are provisioned automatically.
 2. Add two Worker **Secrets** (Dashboard → your Worker → Settings → Variables):
@@ -47,36 +83,28 @@ Everything is managed from a clean Persian panel in the bot's private chat. No c
 
 Prefer the terminal? `CLOUDFLARE_API_TOKEN=xxx bash scripts/deploy.sh` does everything (upload, KV binding, secrets, webhook) — see the Persian README for details.
 
+## 🚀 Deploy — tgcloud Serverless
+
+```bash
+cd tgcloud
+npx tgcloud login        # link this project to your bot
+npx tgcloud push         # deploy the modules to the cloud
+npx tgcloud migrate      # apply tgcloud/schema.js changes to the database
+npx tgcloud webhook      # show the webhook and whether it matches your handlers
+```
+
+Full project rules (module system, SDK, database, deploy workflow) are in [`tgcloud/AGENTS.md`](tgcloud/AGENTS.md) and the SDK reference in [`tgcloud/docs/tgcloud-sdk.md`](tgcloud/docs/tgcloud-sdk.md). Secrets (`BOT_TOKEN`, `OWNER_ID`) live in the platform, never in the code.
+
 ## 🧪 Tests
 
-A full Telegram + KV simulator runs **414 assertions** (`node scripts/test-bot.mjs`): locks, escalation ladder, ACL scoping, batch promotion, anonymous-post lock, backups, schedules, stats rotation and more.
+A full Telegram + KV simulator runs **641 assertions** for the Cloudflare Worker (`node scripts/test-bot.mjs`): locks, escalation ladder, ACL scoping, batch promotion, anonymous-post lock, backups, schedules, stats rotation and more. The tgcloud version is verified live via server-side probes (fake channel, race tests, dedup timing).
 
 ## 🔐 Security notes
 
-- No tokens, credentials or personal IDs are committed. `BOT_TOKEN` / `OWNER_ID` live as Worker secrets; `WEBHOOK_SECRET` is generated at deploy time.
+- No tokens, credentials or personal IDs are committed. `BOT_TOKEN` / `OWNER_ID` live as Worker secrets / platform secrets; `WEBHOOK_SECRET` is generated at deploy time.
 - Every bot action is permission-checked server-side (owner / scoped admin / viewer), not just hidden in the UI.
 - `wrangler.toml` in the repo ships with placeholders — the deploy flow fills them in.
-- 🌐 **Fully bilingual (v2.3)** — every user picks fa/en with one tap; the owner sets the reports default with `/setlang`.
-- 🧩 **Up to date with the latest Telegram (v2.4)** — whole-album/slideshow deletion, coverage for rich messages, checklists, live photos and paid media, instant channel-ownership alerts, colored (danger/success/primary) buttons and a 🔥 welcome effect.
-- 📣 **In-channel lock announcements (v2.5)** — when the instant lock flips or a scheduled window starts/ends (1-minute cron), the bot posts a notice inside the channel itself; per-channel toggle, fires only on state transitions (no spam, minimal KV writes).
-- 📣 **Post to channel / broadcast (v2.7)** — the owner taps "Post to channel" (or "Broadcast" in the main menu), sends any message (text/photo/video/album), previews it, confirms — and it's copied as the bot with no forward header; broadcast goes to every active channel with a per-channel ✅/❌ report.
-- 🧹 **Delete recent messages (v2.7)** — every new channel post is tracked in a 100-item rolling buffer (timer-based KV flush); the owner sends a number 1–40 and that many **latest channel messages** are deleted, with a confirmation step and a success count.
-- ⏱ **Minute picker for scheduled locks (v3.0)** — after the hour grid a **minute grid** (00–55, 5-minute steps) completes each side, so windows are now minute-precise (e.g. 4:30–8:15); typing the full time still works.
-- 🎯 **Broadcast destination picker (v3.0)** — pick the destination before sending: **channels only / +groups / +DMs / everything**; every group or DM that talks to the bot is auto-registered (see the "Registered audience" panel) and live counts sit on the buttons (40-target cap per run).
-- 🧹 **Auto-cleanup + result cards (v3.0)** — after confirming a post/broadcast the guide, preview and confirm card are deleted and one clean **result card** remains (channels/groups/DMs counters + error list); batch delete got a result card with "delete more" buttons, and cancelling any flow removes its own clutter.
-- 🕵️ **Dynamic reports (v3.2)** — no more static "anonymous" line: signed posts resolve to the **signing admin** (signature matched against channel admins, with mention + ID), anonymous group admins and unsigned channel posts each get a short explanation with the fix (enable "Sign messages"); edits now show **old text vs new text** from the message ring.
-- 📉 **Quota-safe channel index (v3.2.1)** — the free KV plan allows only **1000 list ops/day** and the every-minute cron alone burned 1440, so every day around mid-evening the channels menu, broadcast picker and the nightly scheduled-lock cron all died with an error toast; the channel list now lives in the `idx:chats` key which costs **reads** only (100k/day budget), rebuilds from a list scan at most twice an hour and stays in sync on register/delete.
-- 🔇 **Manual mute (v3.3.1)** — silence a specific person for a chosen duration (or permanently): from the moment it is saved, every post/edit of theirs is deleted instantly — only messages sent after the mute, older messages stay untouched — and expiry is automatic with a notice to the owner; quick "Mute 24h / Permanent" buttons also sit on yellow/red alerts. Zero extra KV reads — mutes live inside the channel settings.
-- ⛔ **Per-channel disable (v3.4)** — pause the bot on any channel with one button (channel menu → "⛔ Disable channel", with a confirmation): nothing is processed or deleted, instant/scheduled locks pause, while settings, stats and mutes are preserved (mutes still expire on time). Disabled channels are labeled "Disabled (by owner)" in "My channels" and re-enable with one tap ("Activate this channel").
-- 🔬 **True-edit detection (v3.5)** — poll votes, checklist ticks, live-location updates and other services' markup arrive as edited_channel_post without changing the content; the bot keeps a deterministic content fingerprint (text + media kind + poll question, FNV-1a) per post (map of the last 500, one extra KV write per flush) and only enforces edit locks / the yellow-red ladder when the content actually changed — no more false "edit" deletions.
-- 🎨 **Message appearance (v3.6)** — a visual refresh per the latest Bot API changelog: edit reports show the old and new text in separate `<blockquote>` boxes; the settings backup (inside `<pre>`) and "Latest violations" collapse into expandable quotes; result messages (mute saved 🔥, backup ready 👍, broadcast sent 🎉, test report 👏) arrive in DM with official Telegram message effects; verified live against the real API before shipping.
-- ⌨️ **Auto-open typing (v3.7)** — everywhere the bot waits for your text (broadcast message, batch-delete count, backup restore, in-channel promotion ID) the typing keyboard opens automatically with an `input_field_placeholder` hint (force_reply on InlineKeyboardMarkup — Bot API 10.3, probed live before shipping).
-- 🕐 **Button-based hour picker (v2.9)** — the scheduled-lock flow is now fully interactive: pick start/end hours from a 0–23 button grid (no typing), one-tap presets (nightly 4–8, nightly 22–6, 24-hour) and a confirmation card before saving; typed input (e.g. 4:30) still works.
-- 🧹 **Quick-pick batch delete (v2.9)** — "Delete recent messages" now has 5/10/20/40 buttons plus a custom-number option; adding viewers and restoring backups also got step-by-step guides with cancel buttons.
-- ✍️ **Full Persian copy rewrite (v2.9)** — every Persian text now follows the new house style: no half-spaces, spaced punctuation, "chanel" wording instead of "kanal", no decorative emoji.
-- 🧭 **Guided interactive flows + command menu (v2.8)** — add-admin, promote-in-channel, post/broadcast and delete-recent flows now walk the owner through step-by-step with a cancel button; the person's name shows right after saving; the ☰ menu lists /start like BotFather.
-- 🤝 **Previous-bot fallback (v2.8)** — the legacy bot token can stay as the `LEGACY_BOT_TOKEN` secret: demote/ban/unban automatically retry through the previous bot when Telegram refuses (channel admins promoted by the old bot can only be removed by it).
-- ✍️ **Bold human-style announcements with channel handle (v2.6)** — announcement texts are bold and written the way you talk (e.g. "چنل از این لحظه … قفل میمونه ."), each one ends with the channel's handle (`🗣 t.me/username`, numeric ID for private channels), and a per-channel **lock announcements** switch in the Locks panel turns them off entirely.
+- The tgcloud `.tgcloud/` directory is CLI machine state and is gitignored — never commit it.
 
 ## 📄 License
 
