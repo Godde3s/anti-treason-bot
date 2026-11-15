@@ -272,6 +272,10 @@
               <p><b data-i="tgRep">Edit deleted</b></p>
               <p class="muted"><span data-i="tgRepM">K!NG MENTÆFIL · media edit</span></p>
             </div>
+            <div class="tg__msg">
+              <p><b data-i="tgYel">Yellow: @user demoted</b></p>
+              <p class="muted"><span data-i="tgYelM">K!NG MENTÆFIL · media edit · 12:04</span></p>
+            </div>
           </div>
         </div>
         <div class="ly-float">
@@ -321,6 +325,8 @@
                   <span class="tg__key"><span data-i="tgK4b">Forward</span><span class="st off" data-i="off3">off</span></span>
                   <span class="tg__key"><span data-i="tgK6">Send photo</span><span class="st on" data-i="on7">on</span></span>
                   <span class="tg__key"><span data-i="tgK7">Send link</span><span class="st off" data-i="off4">off</span></span>
+                  <span class="tg__key"><span data-i="tgK8">Send video</span><span class="st on" data-i="on8">on</span></span>
+                  <span class="tg__key"><span data-i="tgK9">Send poll</span><span class="st on" data-i="on9">on</span></span>
                 </div>
                 <div class="tg__stat"><span><b data-i="tgS1">12</b> <span data-i="tgS1l">violations today</span></span><span><b data-i="tgS2">3</b> <span data-i="tgS2l">muted</span></span><span><b data-i="tgS3">24h</b> <span data-i="tgS3l">undo window</span></span></div>
               </div>
@@ -332,7 +338,7 @@
     </div>
   </section>
 
-  <section id="locks" class="section" data-enter style="--h:2" aria-labelledby="locks-h">
+  <section id="locks" class="section" data-enter aria-labelledby="locks-h">
     <div class="wrap">
       <div class="section-head">
         <h2 id="locks-h"><span data-i="locksH">The bot's twenty locks, one switch each.</span> <span class="muted" data-i="locksHg">All in the panel.</span></h2>
@@ -346,6 +352,8 @@
             <div class="lk__row"><span data-i="lk2">Media edit</span><span class="st">on</span></div>
             <div class="lk__row"><span data-i="lk3">Anonymous post</span><span class="st">on</span></div>
             <div class="lk__row"><span data-i="lk4">Forward</span><span class="st off" data-i="off5">off</span></div>
+            <div class="lk__row"><span data-i="tgK8">Send video</span><span class="st">on</span></div>
+            <div class="lk__row"><span data-i="tgK9">Send poll</span><span class="st">on</span></div>
           </div></div></div></div>
         </article>
         <article class="card card--row card--open span-6">
@@ -372,13 +380,14 @@
             <div class="lk__row"><span data-i="f4v1">Master lock</span><span class="st off" data-i="off6">off</span></div>
             <div class="lk__row"><span data-i="f4v2">Instant lockdown</span><span class="st off" data-i="off7">off</span></div>
             <div class="lk__row"><span data-i="f4v3">Time-window lock</span><span class="st off" data-i="off8">off</span></div>
+            <div class="lk__row"><span data-i="tgK7">Send link</span><span class="st off" data-i="off9">off</span></div>
           </div></div></div></div>
         </article>
       </div>
     </div>
   </section>
 
-  <section id="ladder" class="section" data-enter style="--h:2" aria-labelledby="ladder-h">
+  <section id="ladder" class="section" data-enter aria-labelledby="ladder-h">
     <div class="wrap">
       <div class="section-head">
         <h2 id="ladder-h"><span data-i="ladderH">Yellow warns the channel. Red acts.</span> <span class="muted" data-i="ladderHg">One edit, one answer.</span></h2>
@@ -399,6 +408,7 @@
           <div class="panel"><div class="stage stage--fade-br"><div class="at-corner" style="--ax:24px;--ay:24px"><div class="rep">
             <div class="rep__head" data-i="b1vH">15 permissions</div>
             <div class="rep__meta" data-i="b1vM">Restored in one tap</div>
+            <div class="rep__box" data-i="b1vD">All 15 permissions, one tap</div>
           </div></div></div></div>
         </article>
         <article class="card card--row card--open span-4">
@@ -407,6 +417,7 @@
           <div class="panel"><div class="stage stage--fade-br"><div class="at-corner" style="--ax:24px;--ay:24px"><div class="rep">
             <div class="rep__head" data-i="b2vH">Muted</div>
             <div class="rep__meta" data-i="b2vM">Until you unmute them</div>
+            <div class="rep__box" data-i="b2vD">Every post and edit of theirs is deleted at once</div>
           </div></div></div></div>
         </article>
         <article class="card card--row card--open span-4">
@@ -415,6 +426,7 @@
           <div class="panel"><div class="stage stage--fade-br"><div class="at-corner" style="--ax:24px;--ay:24px"><div class="rep">
             <div class="rep__head" data-i="b3vH">settings.json</div>
             <div class="rep__meta" data-i="b3vM">One text, the whole config</div>
+            <div class="rep__box" data-i="b3vD">Send it back, the exact state returns</div>
           </div></div></div></div>
         </article>
         <article class="card card--row card--open span-4">
@@ -423,6 +435,7 @@
           <div class="panel"><div class="stage stage--fade-br"><div class="at-corner" style="--ax:24px;--ay:24px"><div class="rep">
             <div class="rep__head" data-i="b4vH">Disabled</div>
             <div class="rep__meta" data-i="b4vM">Settings and mutes stay</div>
+            <div class="rep__box" data-i="b4vD">Nothing is processed or deleted</div>
           </div></div></div></div>
         </article>
       </div>
@@ -463,6 +476,10 @@
                     <span class="tg__key"><span data-i="mgV2">Decline</span></span>
                   </div>
                 </div>
+                <div class="tg__msg">
+                  <p><b data-i="mgVh2">K!NG MENTÆFIL added</b></p>
+                  <p class="muted" data-i="mgVp2">20 locks, yellow mode · ready</p>
+                </div>
               </div>
             </div>
           </div></div>
@@ -491,6 +508,10 @@
                 <p class="muted"><span data-i="rpM">K!NG MENTÆFIL · by @user · 12:04</span></p>
                 <div class="rep__box"><span class="diff__tag" data-i="rpOld">old text</span><s data-i="rpOldT">The price is 10</s></div>
                 <div class="rep__box"><span class="diff__tag" data-i="rpNew">new text</span><span data-i="rpNewT">The price is 100</span></div>
+              </div>
+              <div class="tg__msg">
+                <p><b data-i="f3vH">Post without a signature</b></p>
+                <p class="muted"><span data-i="f3vM">Posted by Anonymous admin</span></p>
               </div>
             </div>
           </div>
@@ -623,29 +644,29 @@ sub:"هر ادیت یا پست غیرمجاز را در میلی‌ثانیه ح
 cta2:"دیدن کد", tgBot:"ربات", tgTitle:"K!NG MENTÆFIL", tgLocks:"قفل‌های فعال: ۵ از ۲۰", tgMode:"وضعیت: زرد",
 tgK1:"ادیت متن", on:"روشن", tgK2:"ادیت مدیا", on2:"روشن", tgK3:"پست ناشناس", on3:"روشن", tgK4:"فوروارد", off:"خاموش",
 tgK5:"قفل آنی", off2:"خاموش", tgRep:"ادیت حذف شد", tgRepM:"K!NG MENTÆFIL · ادیت مدیا", flLive:"زنده", flMeta:"ادیت مدیا", flTitle:"ادیت حذف شد",
-panelH:"پنلی که کانال را می‌چرخاند", panelP:"هر کانال، قفل‌ها، وضعیت و آمارش، در یک پنل در پیوی ربات.",
+panelH:"همه‌چیزِ کانال، در یک پنل", panelP:"قفل‌ها، حالت و آمار هر کانال را از پیوی ربات می‌بینی و عوض می‌کنی. لازم نیست وارد کانال شوی.",
 tgCh:"۷ کانال", ch1:"۵ قفل · زرد", ch2:"۱۴ قفل · زرد", ch3:"۴ قفل · زرد", ch4:"۷ قفل · زرد", ch5:"۵ قفل · زرد", ch6:"۱۰ قفل · زرد", ch7:"غیرفعال",
 tgMenu:"منوی کانال", tgTitle2:"K!NG MENTÆFIL", tgLocks2:"قفل‌های فعال: ۵ از ۲۰", tgMode2:"وضعیت: زرد",
 tgK1b:"ادیت متن", on4:"روشن", tgK2b:"ادیت مدیا", on5:"روشن", tgK3b:"پست ناشناس", on6:"روشن", tgK4b:"فوروارد", off3:"خاموش",
 tgK6:"ارسال عکس", on7:"روشن", tgK7:"ارسال لینک", off4:"خاموش",
 tgS1:"۱۲", tgS1l:"تخلف امروز", tgS2:"۳", tgS2l:"سکوت‌شده", tgS3:"۲۴ ساعت", tgS3l:"پنجرهٔ بازگشت", panelLink:"دیدن نسخه‌ها",
 locksH:"بیست قفل ربات، هر کدام یک کلید.", locksHg:"همه در پنل.",
-f1h:"بیست نوع پست کانال را قفل می‌کند", f1p:"متن، عکس، ویدیو، گیف، استیکر، ویس، موزیک، فایل، نظرسنجی، مخاطب، لوکیشن، بازی، فوروارد و لینک، هر کدام کلید خودش را دارد.",
+f1h:"بیست نوع پست را قفل می‌کند", f1p:"متن، عکس، ویدیو، گیف، استیکر، ویس، موزیک، فایل، نظرسنجی، مخاطب، لوکیشن، بازی، فوروارد و لینک، هر کدام کلید خودش را دارد.",
 lk1:"ادیت متن", lk2:"ادیت مدیا", lk3:"پست ناشناس", lk4:"فوروارد", off5:"خاموش",
-f2h:"ربات فقط ادیت واقعی را می‌گیرد", f2p:"اثر انگشت محتوا رأی نظرسنجی و تیک چک‌لیست را نادیده می‌گیرد، پس نردبان روی رأی اجرا نمی‌شود.",
+f2h:"ربات فقط ادیت واقعی را می‌گیرد", f2p:"رأی نظرسنجی و تیک چک‌لیست را ادیت حساب نمی‌کند، پس نردبان بی‌دلیل فعال نمی‌شود.",
 dOld:"متن قبلی", dOldT:"قیمت ۱۰ است", dNew:"متن جدید", dNewT:"قیمت ۱۰۰ است",
 f3h:"پست بی‌امضا را از کانال حذف می‌کند", f3p:"هر پستی که بدون امضای ادمین باشد فوراً حذف می‌شود. ادمین‌ها با Sign messages امضا می‌کنند.",
 f3vH:"پست بدون امضا", f3vM:"ارسال‌شده توسط ادمین ناشناس", f3vB:"فوراً حذف شد. ادمین‌ها با Sign messages امضا می‌کنند.",
 f4h:"کانال را با یک ضربه می‌بندد", f4p:"قفل کامل و قفل آنی هر ارسال و ادیتی را متوقف می‌کنند تا وقتی خودت بازش کنی.",
 f4v1:"قفل کامل", off6:"خاموش", f4v2:"قفل آنی", off7:"خاموش", f4v3:"قفل زمان‌دار", off8:"خاموش",
 ladderH:"زرد به کانال هشدار می‌دهد. قرمز عمل می‌کند.", ladderHg:"یک ادیت، یک جواب.",
-bWh:"نردبان زرد و قرمز ربات", bWp:"ادیت پست مدیادار نردبان را اجرا می‌کند: زرد متخلف را عزل می‌کند، قرمز عزل و بن می‌کند: ۱ ساعت، ۲۴ ساعت، ۷ روز یا همیشگی.",
+bWh:"زرد و قرمز: هشدار، بعد اقدام", bWp:"ادیت پست مدیادار نردبان را اجرا می‌کند: زرد متخلف را عزل می‌کند، قرمز عزل و بن می‌کند: ۱ ساعت، ۲۴ ساعت، ۷ روز یا همیشگی.",
 ld0:"خاموش", ld0p:"بدون مجازات. ادیت حذف می‌شود، همین.", ld1:"زرد", ld1p:"متخلف از ادمینی عزل می‌شود.", ld2:"قرمز", ld2p:"عزل و بن: ۱ ساعت، ۲۴ ساعت، ۷ روز یا همیشگی.",
 b1h:"عزل اشتباه را در کانال برمی‌گرداند", b1p:"دسترسی‌ها ۲۴ ساعت snapshot می‌شوند. یک ضربه هر ۱۵ دسترسی Bot API را برمی‌گرداند.", b1vH:"۱۵ دسترسی", b1vM:"با یک ضربه برمی‌گردد",
 b2h:"یک نفر را در کانال ساکت می‌کند", b2p:"یک نفر را برای مدت مشخص یا همیشه سکوت کن. هر پست و ادیتش فوراً حذف می‌شود.", b2vH:"سکوت‌شده", b2vM:"تا وقتی خودت بازش کنی",
 b3h:"تنظیمات کانال را بکاپ می‌گیرد", b3p:"کل تنظیمات کانال در یک متن JSON است. بفرستش و دقیقاً همان وضعیت برمی‌گردد.", b3vH:"settings.json", b3vM:"یک متن، کل تنظیمات",
 b4h:"یک کانال را متوقف می‌کند", b4p:"کانال را غیرفعال کن و هیچی پردازش یا حذف نمی‌شود. تنظیمات، آمار و سکوت‌ها می‌مانند.", b4vH:"غیرفعال", b4vM:"تنظیمات و سکوت‌ها می‌مانند",
-mgH:"پنل ربات بقیه‌اش را انجام می‌دهد.", mgHg:"ادمین‌ها، دسترسی و ابزار.",
+mgH:"بقیه‌اش با پنل است.", mgHg:"ادمین‌ها، دسترسی و ابزار.",
 mgN1:"ادمین‌های محدوده‌دار", mgP1:"هر ادمین فقط کانال‌هایی را می‌چرخاند که تیک زده‌ای.",
 mgN2:"افزودن گروهی", mgP2:"تا ۵۰ شناسه یکجا.",
 mgN3:"دسترسی سریع", mgP3:"با شناسهٔ عددی بده.",
@@ -659,7 +680,7 @@ mgN10:"حذف پیام‌های اخیر", mgP10:"۱ تا ۴۰ پیام آخر �
 mgN11:"پیام‌های Rich", mgP11:"Bot API 10.4: جدول، جزئیات و هایلایت.",
 mgN12:"حذف به‌روزرسانی تکراری", mgP12:"به‌روزرسانی تکراری یک بار پردازش می‌شود.",
 mgVsub:"درخواست کانال", mgVh:"کانال جدید: K!NG MENTÆFIL", mgVp:"نیاز به تأیید مالک", mgV1:"تأیید", mgV2:"رد",
-repH:"ربات هر حذف را گزارش می‌دهد.", repP:"گزارش به مالک و ادمین‌ها و ناظرهای همان کانال می‌رسد، با منشن متخلف، دلیل و لینک پیام. پست امضادار به ادمین امضاکننده می‌رسد؛ ادیت‌ها متن قبلی را در برابر متن جدید نشان می‌دهند.",
+repH:"هر حذف را گزارش می‌دهد.", repP:"گزارش، با منشن متخلف و دلیل و لینک پیام، می‌رسد به مالک و ادمین‌ها و ناظرهای همان کانال. پست امضادار به ادمین امضاکننده می‌رسد؛ ادیت، متن قبلی را کنار متن جدید نشان می‌دهد.",
 repF1:"پست امضادار به ادمین می‌رسد.", repF2:"ادیت‌ها متن قبلی و جدید را نشان می‌دهند.", repF3:"گزارش‌ها فارسی و انگلیسی‌اند.", repLink:"دیدن نسخه‌ها",
 tgRep2:"گزارش تخلف", rpH:"ادیت مدیا حذف شد", rpM:"K!NG MENTÆFIL · توسط @user · ۱۲:۰۴", rpOld:"متن قبلی", rpOldT:"قیمت ۱۰ است", rpNew:"متن جدید", rpNewT:"قیمت ۱۰۰ است",
 verH:"دو نسخه، یک ربات.", verHg:"قوانین یکی، ران‌تایم دوتا.", verP:"همان ربات در دو ران‌تایم. نسخهٔ لایو روی tgcloud است؛ ورکر کلادفلر بکاپ است. برای هر توکن فقط یکی را اجرا کن.",
@@ -686,7 +707,20 @@ dep2h:"tgcloud Serverless", dep2p:"ریپو را کلون کن، توکن را �
 closeH:"کانالت منتظر است.", closeP:"یک دقیقه تا دیپلوی. رایگان، متن‌باز، بدون کارت.",
 footLede:"ساخته‌شده برای کانال‌هایی که دوست‌شان داری — متن‌باز تحت MIT.",
 ft1:"نسخه‌ها", ft1a:"Cloudflare Worker", ft1b:"tgcloud Serverless", ft2:"قابلیت‌ها", ft2a:"قفل‌ها", ft2b:"نردبان", ft2c:"گزارش‌ها",
-ft3:"مستندات", ft3a:"گیت‌هاب", ft3b:"پرسش‌ها", ft4:"استقرار", ft4a:"Deploy", ft4b:"بالا"
+ft3:"مستندات", ft3a:"گیت‌هاب", ft3b:"پرسش‌ها", ft4:"استقرار", ft4a:"Deploy", ft4b:"بالا",
+    tgYel:"زرد: @user تنزل شد",
+    tgYelM:"K!NG MENTÆFIL · ادیت مدیا · ۱۲:۰۴",
+    tgK8:"ارسال ویدیو",
+    tgK9:"ارسال نظرسنجی",
+    on8:"روشن",
+    on9:"روشن",
+    off9:"خاموش",
+    b1vD:"هر ۱۵ دسترسی، با یک ضربه",
+    b2vD:"هر پست و ادیت‌شان همان لحظه حذف می‌شود",
+    b3vD:"بفرستش برگردد، همان حالت برمی‌گردد",
+    b4vD:"هیچ چیزی پردازش یا حذف نمی‌شود",
+    mgVh2:"K!NG MENTÆFIL اضافه شد",
+    mgVp2:"۲۰ قفل، حالت زرد · آماده است",
 },
 en: {
 skip:"Skip to content", navV:"Versions", navL:"Locks", navR:"Reports", navQ:"Questions",
@@ -696,29 +730,29 @@ sub:"It deletes any unauthorized edit or post in milliseconds, even if the messa
 cta2:"See the code", tgBot:"bot", tgTitle:"K!NG MENTÆFIL", tgLocks:"Locks on: 5 of 20", tgMode:"Mode: yellow",
 tgK1:"Text edit", on:"on", tgK2:"Media edit", on2:"on", tgK3:"Anonymous post", on3:"on", tgK4:"Forward", off:"off",
 tgK5:"Instant lock", off2:"off", tgRep:"Edit deleted", tgRepM:"K!NG MENTÆFIL · media edit", flLive:"Live", flMeta:"media edit", flTitle:"Edit deleted",
-panelH:"The panel that runs the channel", panelP:"Every channel, its locks, its mode and its stats, in one panel in the bot's DM.",
+panelH:"Everything about the channel, in one panel.", panelP:"See and change every channel's locks, mode and stats from the bot's DM. You never open the channel.",
 tgCh:"7 channels", ch1:"5 locks · yellow", ch2:"14 locks · yellow", ch3:"4 locks · yellow", ch4:"7 locks · yellow", ch5:"5 locks · yellow", ch6:"10 locks · yellow", ch7:"disabled",
 tgMenu:"channel menu", tgTitle2:"K!NG MENTÆFIL", tgLocks2:"Locks on: 5 of 20", tgMode2:"Mode: yellow",
 tgK1b:"Text edit", on4:"on", tgK2b:"Media edit", on5:"on", tgK3b:"Anonymous post", on6:"on", tgK4b:"Forward", off3:"off",
 tgK6:"Send photo", on7:"on", tgK7:"Send link", off4:"off",
 tgS1:"12", tgS1l:"violations today", tgS2:"3", tgS2l:"muted", tgS3:"24h", tgS3l:"undo window", panelLink:"See the versions",
 locksH:"The bot's twenty locks, one switch each.", locksHg:"All in the panel.",
-f1h:"Locks twenty post types in the channel", f1p:"Text, photo, video, GIF, sticker, voice, audio, file, poll, contact, location, dice, forwards and links, each on its own switch.",
+f1h:"Locks twenty post types", f1p:"Text, photo, video, GIF, sticker, voice, audio, file, poll, contact, location, dice, forwards and links, each on its own switch.",
 lk1:"Text edit", lk2:"Media edit", lk3:"Anonymous post", lk4:"Forward", off5:"off",
-f2h:"The bot catches real edits only", f2p:"A content fingerprint ignores poll votes and checklist ticks, so the ladder never fires on a vote.",
+f2h:"The bot catches real edits only", f2p:"Poll votes and checklist ticks don't count as edits, so the ladder never fires on a vote.",
 dOld:"old text", dOldT:"The price is 10", dNew:"new text", dNewT:"The price is 100",
 f3h:"Deletes unsigned posts from the channel", f3p:"Any post without an admin signature is deleted at once. Admins sign with Sign messages.",
 f3vH:"Post without a signature", f3vM:"Posted by Anonymous admin", f3vB:"Deleted at once. Admins sign with Sign messages.",
 f4h:"Closes the channel in one tap", f4p:"The master lock and the instant lockdown stop every post and edit until you open it again.",
 f4v1:"Master lock", off6:"off", f4v2:"Instant lockdown", off7:"off", f4v3:"Time-window lock", off8:"off",
 ladderH:"Yellow warns the channel. Red acts.", ladderHg:"One edit, one answer.",
-bWh:"The bot's yellow and red ladder", bWp:"Editing a media post runs the ladder: yellow demotes the offender, red demotes and bans for 1 hour, 24 hours, 7 days, or permanent.",
+bWh:"Yellow and red: warn, then act.", bWp:"Editing a media post runs the ladder: yellow demotes the offender, red demotes and bans for 1 hour, 24 hours, 7 days, or permanent.",
 ld0:"Off", ld0p:"No punishment. The edit is deleted, nothing more.", ld1:"Yellow", ld1p:"The offender is demoted from admin.", ld2:"Red", ld2p:"Demoted and banned for 1h, 24h, 7d, or permanent.",
 b1h:"Undoes a wrong demotion in the channel", b1p:"Rights are snapshotted for 24 hours. One tap restores all 15 Bot API permissions.", b1vH:"15 permissions", b1vM:"Restored in one tap",
 b2h:"Silences one person in the channel", b2p:"Mute a person for a set time or forever. Every post and edit of theirs is deleted at once.", b2vH:"Muted", b2vM:"Until you unmute them",
 b3h:"Backs up the channel's settings", b3p:"A channel's whole config in one JSON text. Send it back and the exact state returns.", b3vH:"settings.json", b3vM:"One text, the whole config",
 b4h:"Pauses one channel", b4p:"Disable a channel and nothing is processed or deleted. Settings, stats and mutes stay.", b4vH:"Disabled", b4vM:"Settings and mutes stay",
-mgH:"The bot's panel does the rest.", mgHg:"Admins, access and tools.",
+mgH:"The panel handles the rest.", mgHg:"Admins, access and tools.",
 mgN1:"Scoped admins", mgP1:"Each admin manages only the channels you tick.",
 mgN2:"Batch add", mgP2:"Up to 50 IDs at once.",
 mgN3:"Quick access", mgP3:"Grant by numeric ID.",
@@ -732,7 +766,7 @@ mgN10:"Delete recent", mgP10:"Wipe the last 1–40 messages.",
 mgN11:"Rich messages", mgP11:"Bot API 10.4: tables, details and highlights.",
 mgN12:"Update dedup", mgP12:"A duplicate update is processed once.",
 mgVsub:"channel request", mgVh:"New channel: K!NG MENTÆFIL", mgVp:"Owner approval needed", mgV1:"Approve", mgV2:"Decline",
-repH:"The bot reports every deletion.", repP:"Reports reach the owner and the channel's admins and viewers, with the offender's mention, the reason, and a link to the message. Signed posts resolve to the signing admin; edits show the old text against the new.",
+repH:"Every deletion gets reported.", repP:"Reports reach the owner and the channel's admins and viewers, with the offender's mention, the reason, and a link to the message. Signed posts resolve to the signing admin; edits show the old text against the new.",
 repF1:"Signed posts resolve to the admin.", repF2:"Edits show old against new text.", repF3:"Reports in Persian and English.", repLink:"See the versions",
 tgRep2:"violation report", rpH:"Media edit deleted", rpM:"K!NG MENTÆFIL · by @user · 12:04", rpOld:"old text", rpOldT:"The price is 10", rpNew:"new text", rpNewT:"The price is 100",
 verH:"Two versions, one bot.", verHg:"Same rules, two runtimes.", verP:"The same bot in two runtimes. The live version runs on tgcloud; the Cloudflare Worker is the backup. Run only one per token.",
@@ -759,7 +793,20 @@ dep2h:"tgcloud Serverless", dep2p:"Clone the repo, set the token, and push. The 
 closeH:"Your channel is waiting.", closeP:"One minute to deploy. Free, open source, no card.",
 footLede:"Built for channels you care about — open source under MIT.",
 ft1:"Versions", ft1a:"Cloudflare Worker", ft1b:"tgcloud Serverless", ft2:"Features", ft2a:"Locks", ft2b:"Ladder", ft2c:"Reports",
-ft3:"Docs", ft3a:"GitHub", ft3b:"Questions", ft4:"Deploy", ft4a:"Deploy", ft4b:"Top"
+ft3:"Docs", ft3a:"GitHub", ft3b:"Questions", ft4:"Deploy", ft4a:"Deploy", ft4b:"Top",
+    tgYel:"Yellow: @user demoted",
+    tgYelM:"K!NG MENTÆFIL · media edit · 12:04",
+    tgK8:"Send video",
+    tgK9:"Send poll",
+    on8:"on",
+    on9:"on",
+    off9:"off",
+    b1vD:"All 15 permissions, one tap",
+    b2vD:"Every post and edit of theirs is deleted at once",
+    b3vD:"Send it back, the exact state returns",
+    b4vD:"Nothing is processed or deleted",
+    mgVh2:"K!NG MENTÆFIL added",
+    mgVp2:"20 locks, yellow mode · ready",
 }
 };
 function setLang(l){
