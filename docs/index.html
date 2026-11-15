@@ -1,491 +1,180 @@
 <!doctype html>
-<html lang="fa" dir="rtl">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="theme-color" content="#F2F2F7">
-<meta name="description" content="AntiCh34t — Telegram channel guard bot. Live on tgcloud, rev 12.">
-<title>AntiCh34t — Telegram channel guard bot</title>
+<meta name="theme-color" content="#ffffff">
+<meta name="description" content="AntiCh34t — a Telegram bot that guards your channel. Live on tgcloud, rev 12. Free and open source.">
+<title>AntiCh34t — Telegram channel guard</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <style>
-/* ============ iOS tokens (HIG: semantic colours, light + dark re-derived) ============ */
 :root{
-  --font-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,"Vazirmatn",sans-serif;
-  --t-large:34px; --lh-large:41px;
-  --t-t2:22px; --lh-t2:28px;
-  --t-t3:20px; --lh-t3:25px;
-  --t-head:17px; --lh-head:22px;
-  --t-body:17px; --lh-body:22px;
-  --t-sub:15px; --lh-sub:20px;
-  --t-foot:13px; --lh-foot:18px;
-  --t-cap:12px; --lh-cap:16px;
-  --margin:16px;
-  --hit:44px;
-  --row:53px;
-  --list-r:26px;
-  --tab-h:62px;
-  --btn-h:50px;
-  --bg:#ffffff; --bg2:#F2F2F7; --bg3:#E9E9EB;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+  --bg:#ffffff; --bg2:#F2F2F7;
   --label:#000000; --label2:#8E8E93; --label3:#AEAEB2;
   --sep:rgba(60,60,67,.18);
-  --tint:#007AFF; --danger:#FF3B30; --green:#34C759;
-  --bubble:#E9E9EB; --bubble-out:#007AFF;
-  --glass:rgba(255,255,255,.72);
+  --tint:#007AFF; --danger:#FF3B30;
+  --bubble:#E9E9EB;
   --card:#ffffff;
-  --desk:#E9E9EB;
 }
 @media (prefers-color-scheme: dark){
   :root{
-    --bg:#000000; --bg2:#1C1C1E; --bg3:#2C2C2E;
+    --bg:#000000; --bg2:#1C1C1E;
     --label:#ffffff; --label2:#98989D; --label3:#636366;
     --sep:rgba(235,235,245,.16);
-    --tint:#0A84FF; --danger:#FF453A; --green:#30D158;
-    --bubble:#26262A; --bubble-out:#0A84FF;
-    --glass:rgba(28,28,30,.72);
+    --tint:#0A84FF; --danger:#FF453A;
+    --bubble:#26262A;
     --card:#1C1C1E;
-    --desk:#000000;
   }
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{
-  margin:0; background:var(--desk); color:var(--label);
-  font-family:var(--font-ui); font-size:var(--t-body); line-height:var(--lh-body);
+  margin:0; background:var(--bg2); color:var(--label);
+  font-family:var(--font); font-size:17px; line-height:22px;
   -webkit-tap-highlight-color:transparent;
 }
-/* ============ the app column — ONE layout, every width.
-   Max 430px, centred on desktop; full-bleed on a phone. No breakpoints
-   reflow the content: mobile and desktop are the same column. ============ */
+/* one column, every screen — 430px, centred on desktop, full-bleed on a phone */
 .app{
-  max-width:430px; margin:0 auto; min-height:100dvh;
-  background:var(--bg2);
-  padding-bottom:calc(var(--tab-h) + 28px + env(safe-area-inset-bottom));
+  max-width:430px; margin:0 auto; min-height:100dvh; background:var(--bg2);
+  padding:calc(28px + env(safe-area-inset-top)) 20px calc(28px + env(safe-area-inset-bottom));
 }
 @media (min-width:460px){
-  .app{ border-inline-start:1px solid var(--sep); border-inline-end:1px solid var(--sep); }
+  .app{ border-left:1px solid var(--sep); border-right:1px solid var(--sep); }
 }
 a{color:var(--tint); text-decoration:none}
 :focus-visible{outline:2px solid var(--tint); outline-offset:2px; border-radius:8px}
-button{font-family:inherit; -webkit-tap-highlight-color:transparent}
 @media (prefers-reduced-motion: reduce){
   *{animation:none !important; transition:none !important}
 }
 
-/* ============ header: iOS large title ============ */
-.app-head{ padding:calc(12px + env(safe-area-inset-top)) var(--margin) 0; }
-.app-head__row{ display:flex; align-items:center; justify-content:space-between; min-height:var(--hit); }
-.app-head__live{
+/* header */
+.icon{
+  width:64px; height:64px; border-radius:16px;
+  background:var(--tint); color:#fff;
+  display:grid; place-items:center;
+  font-size:32px; font-weight:700;
+}
+h1{
+  margin:20px 0 6px; font-size:34px; line-height:41px; font-weight:700; letter-spacing:-.5px;
+}
+.tagline{ margin:0; color:var(--label2); font-size:17px; line-height:22px; max-width:320px; }
+.live{
   display:inline-flex; align-items:center; gap:6px;
-  font-size:var(--t-foot); line-height:var(--lh-foot); font-weight:600; color:var(--label2);
+  margin:14px 0 0; font-size:13px; line-height:18px; font-weight:600; color:var(--label2);
 }
-.app-head__live i{ width:8px; height:8px; border-radius:50%; background:var(--danger); display:inline-block; }
-.lang-btn{
-  min-height:var(--hit); min-width:var(--hit); padding:0 12px;
-  border:0; background:transparent; color:var(--tint);
-  font-size:var(--t-body); font-weight:600; cursor:pointer; border-radius:12px;
-}
-.lang-btn:active{ opacity:.5; }
-.large-title{
-  margin:8px 0 6px; font-size:var(--t-large); line-height:var(--lh-large);
-  font-weight:700; letter-spacing:-.5px;
-}
-.lede{ margin:0 0 4px; color:var(--label2); font-size:var(--t-body); line-height:var(--lh-body); max-width:340px; }
-.lede b{ color:var(--label); font-weight:600; }
+.live i{ width:8px; height:8px; border-radius:50%; background:var(--danger); }
 
-/* ============ iOS Messages chat ============ */
-.chat{ padding:18px 12px 4px; display:flex; flex-direction:column; gap:2px; }
-.chat__day{
-  text-align:center; color:var(--label2); font-size:var(--t-foot); line-height:var(--lh-foot);
-  font-weight:600; margin:6px 0 10px;
+/* one message, one proof */
+.demo{ margin:48px 0 0; }
+.demo .day{
+  text-align:center; color:var(--label2); font-size:13px; line-height:18px; font-weight:600;
+  margin-bottom:10px;
 }
-.msg{ display:flex; gap:8px; align-items:flex-end; margin-bottom:2px; }
-.msg__av{
-  width:28px; height:28px; border-radius:50%; flex:0 0 auto;
+.msg{ display:flex; gap:8px; align-items:flex-end; }
+.av{
+  width:28px; height:28px; border-radius:50%; flex:none;
   background:var(--bubble); color:var(--label2);
   display:grid; place-items:center; font-size:10px; font-weight:700;
 }
 .bubble{
   background:var(--bubble); color:var(--label);
-  border-radius:18px; border-end-start-radius:5px;
+  border-radius:18px; border-bottom-left-radius:5px;
   padding:10px 14px; max-width:82%;
-  font-size:var(--t-body); line-height:1.5; overflow-wrap:break-word;
+  font-size:17px; line-height:22px; overflow-wrap:break-word;
 }
 .bubble p{ margin:0; }
 .bubble p + p{ margin-top:6px; }
-.bubble .muted{ color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
+.bubble .muted{ color:var(--label2); font-size:15px; line-height:20px; }
 .bubble b{ font-weight:600; }
 .bubble .red{ color:var(--danger); font-weight:600; }
-.bubble .mono{
-  background:rgba(120,120,128,.16); border-radius:6px; padding:1px 6px;
-  font-size:14px; direction:ltr; display:inline-block;
+.demo .cap{
+  margin:12px 0 0; text-align:center; color:var(--label2);
+  font-size:13px; line-height:18px;
 }
-.bubble .strike{ text-decoration:line-through; text-decoration-color:var(--danger); text-decoration-thickness:2px; }
-.bubble .tag{
-  display:inline-block; font-size:var(--t-cap); font-weight:700; color:var(--label2);
-  background:rgba(120,120,128,.16); border-radius:6px; padding:2px 7px; margin-inline-end:6px;
-}
-.chat__cap{ text-align:center; color:var(--label2); font-size:var(--t-foot); line-height:var(--lh-foot); margin:10px 16px 0; }
 
-/* ============ inset grouped list (iOS Settings) ============ */
-.group{ margin-top:28px; }
-.group__head{
-  font-size:var(--t-foot); line-height:var(--lh-foot); font-weight:400; color:var(--label2);
-  text-transform:uppercase; letter-spacing:.4px;
-  padding:0 calc(var(--margin) + 4px) 6px; margin:0;
+/* three facts, nothing more */
+.facts{
+  list-style:none; margin:48px 0 0; padding:0;
+  background:var(--card); border-radius:26px; overflow:hidden;
 }
-.group__head b{ color:var(--label); font-weight:700; text-transform:none; letter-spacing:0; font-size:var(--t-t2); line-height:var(--lh-t2); display:block; }
-.group__sub{ margin:0; padding:0 calc(var(--margin) + 4px) 8px; color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
-.list{
-  list-style:none; margin:0 var(--margin); padding:0;
-  background:var(--card); border-radius:var(--list-r); overflow:hidden;
-}
-.list li{
+.facts li{
   display:flex; align-items:center; gap:12px;
-  min-height:var(--row); padding:10px 16px;
+  min-height:53px; padding:10px 16px;
   border-bottom:1px solid var(--sep);
+  font-size:17px; line-height:22px;
 }
-.list li:last-child{ border-bottom:0; }
-.list li:active{ background:var(--bg2); }
-.list__ic{
-  width:30px; height:30px; border-radius:8px; flex:0 0 auto;
-  display:grid; place-items:center; font-size:15px; font-weight:700; color:#fff;
-  background:var(--tint);
+.facts li:last-child{ border-bottom:0; }
+.facts li:active{ background:var(--bg2); }
+.facts .n{
+  width:30px; height:30px; border-radius:8px; flex:none;
+  background:var(--tint); color:#fff;
+  display:grid; place-items:center; font-size:15px; font-weight:700;
 }
-.list__ic.red{ background:var(--danger); }
-.list__ic.gray{ background:#8E8E93; }
-.list__ic.green{ background:var(--green); }
-.list__body{ flex:1; min-width:0; }
-.list__t{ font-size:var(--t-body); line-height:var(--lh-body); font-weight:400; overflow-wrap:break-word; }
-.list__t b{ font-weight:600; }
-.list__s{ font-size:var(--t-sub); line-height:var(--lh-sub); color:var(--label2); overflow-wrap:break-word; }
-.list__v{ font-size:var(--t-body); color:var(--label2); white-space:nowrap; }
-.list__chev{ color:var(--label3); font-size:17px; font-weight:600; }
-.group__foot{ margin:0; padding:8px calc(var(--margin) + 4px) 0; color:var(--label2); font-size:var(--t-foot); line-height:var(--lh-foot); }
+.facts .n.red{ background:var(--danger); }
+.facts b{ font-weight:600; }
+.facts span{ color:var(--label2); font-size:15px; line-height:20px; display:block; }
 
-/* ============ iOS toggle switch (UISwitch) ============ */
-.switch{
-  position:relative; flex:0 0 auto; width:51px; height:31px; cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
+/* deploy */
+.deploy{ margin:48px 0 0; }
+.deploy a{
+  display:flex; align-items:center; justify-content:center;
+  min-height:50px; border-radius:25px;
+  background:var(--tint); color:#fff; font-size:17px; font-weight:600;
 }
-.switch input{ position:absolute; opacity:0; width:100%; height:100%; margin:0; cursor:pointer; }
-.switch__track{
-  position:absolute; inset:0; border-radius:999px; background:#E9E9EB;
-  transition:background .2s ease; pointer-events:none;
+.deploy a:active{ opacity:.7; }
+.alt{
+  margin:14px 0 0; text-align:center; color:var(--label2);
+  font-size:15px; line-height:20px;
 }
-@media (prefers-color-scheme: dark){ .switch__track{ background:#39393D; } }
-.switch__knob{
-  position:absolute; top:2px; inset-inline-start:2px; width:27px; height:27px; border-radius:50%;
-  background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.25);
-  transition:transform .2s ease; pointer-events:none;
-}
-.switch input:checked ~ .switch__track{ background:var(--green); }
-.switch input:checked ~ .switch__knob{ transform:translateX(-20px); }
-[dir="ltr"] .switch input:checked ~ .switch__knob{ transform:translateX(20px); }
+.alt code{ font-family:ui-monospace,Menlo,monospace; font-size:14px; color:var(--label); }
 
-/* ============ segmented control (versions) ============ */
-.seg{
-  display:flex; margin:0 var(--margin); padding:2px;
-  background:rgba(120,120,128,.16); border-radius:9px;
+/* footer */
+.foot{
+  margin:56px 0 0; text-align:center; color:var(--label3);
+  font-size:12px; line-height:16px;
 }
-.seg button{
-  flex:1; min-height:30px; border:0; background:transparent; cursor:pointer;
-  font-size:var(--t-foot); font-weight:600; color:var(--label);
-  border-radius:7px; padding:4px 8px;
-}
-.seg button[aria-selected="true"]{
-  background:var(--card); box-shadow:0 1px 4px rgba(0,0,0,.18); color:var(--label);
-}
-.seg button:active{ opacity:.6; }
-.ver-card{
-  margin:12px var(--margin) 0; background:var(--card); border-radius:var(--list-r);
-  padding:16px; display:none;
-}
-.ver-card.on{ display:block; }
-.ver-card h3{ margin:0 0 4px; font-size:var(--t-t3); line-height:var(--lh-t3); font-weight:700; }
-.ver-card h3 .live{ color:var(--danger); font-size:var(--t-foot); font-weight:700; }
-.ver-card p{ margin:0 0 12px; color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
-.ver-card dl{ margin:0; display:grid; grid-template-columns:auto 1fr; gap:8px 16px; font-size:var(--t-sub); line-height:var(--lh-sub); }
-.ver-card dt{ color:var(--label2); }
-.ver-card dd{ margin:0; text-align:end; font-weight:600; }
-
-/* ============ FAQ disclosure ============ */
-.faq{ list-style:none; margin:0 var(--margin); padding:0; background:var(--card); border-radius:var(--list-r); overflow:hidden; }
-.faq li{ border-bottom:1px solid var(--sep); }
-.faq li:last-child{ border-bottom:0; }
-.faq summary{
-  list-style:none; cursor:pointer; min-height:var(--row);
-  display:flex; align-items:center; justify-content:space-between; gap:12px;
-  padding:12px 16px; font-size:var(--t-body); line-height:var(--lh-body); font-weight:600;
-}
-.faq summary::-webkit-details-marker{ display:none; }
-.faq summary:active{ background:var(--bg2); }
-.faq summary .chev{ color:var(--label3); font-size:17px; transition:transform .2s ease; }
-.faq li[open ] summary .chev{ transform:rotate(90deg); }
-.faq .ans{ padding:0 16px 14px; color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
-
-/* ============ deploy ============ */
-.deploy{ margin-top:32px; padding:0 var(--margin); }
-.deploy h2{ margin:0 0 6px; font-size:var(--t-t2); line-height:var(--lh-t2); font-weight:700; }
-.deploy p{ margin:0 0 16px; color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
-.btn-primary{
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  min-height:var(--btn-h); border-radius:calc(var(--btn-h) / 2);
-  background:var(--tint); color:#fff; font-size:var(--t-body); font-weight:600;
-  border:0; cursor:pointer; width:100%; margin-bottom:10px; text-decoration:none;
-}
-.btn-primary:active{ opacity:.7; }
-.btn-ghost{
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  min-height:var(--btn-h); border-radius:calc(var(--btn-h) / 2);
-  background:var(--bg3); color:var(--tint); font-size:var(--t-body); font-weight:600;
-  border:0; cursor:pointer; width:100%; text-decoration:none;
-}
-.btn-ghost:active{ opacity:.7; }
-.btn-ghost code{ font-family:ui-monospace,Menlo,monospace; font-size:14px; direction:ltr; }
-
-/* ============ closing + footer ============ */
-.closing{ margin-top:36px; padding:0 var(--margin); text-align:center; }
-.closing h2{ margin:0 0 6px; font-size:var(--t-t2); line-height:var(--lh-t2); font-weight:700; }
-.closing p{ margin:0; color:var(--label2); font-size:var(--t-sub); line-height:var(--lh-sub); }
-.foot{ margin-top:28px; padding:0 var(--margin) 8px; text-align:center; color:var(--label3); font-size:var(--t-cap); line-height:var(--lh-cap); }
 .foot a{ color:var(--label2); }
-
-/* ============ floating glass tab bar (bottom) ============ */
-.tabbar{
-  position:fixed; bottom:calc(12px + env(safe-area-inset-bottom)); inset-inline:21px;
-  max-width:388px; margin:0 auto; height:var(--tab-h); z-index:10;
-  display:flex; align-items:center; gap:10px; padding:0 8px;
-  background:var(--glass); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
-  border-radius:calc(var(--tab-h) / 2);
-  border:1px solid rgba(255,255,255,.35);
-  box-shadow:0 8px 28px rgba(0,0,0,.18);
-}
-.tabbar__label{ flex:1; min-width:0; padding-inline-start:12px; }
-.tabbar__label b{ display:block; font-size:var(--t-sub); line-height:var(--lh-sub); font-weight:700; }
-.tabbar__label span{ display:block; font-size:var(--t-cap); line-height:var(--lh-cap); color:var(--label2); }
-.tabbar__go{
-  flex:0 0 auto; min-height:48px; padding:0 22px; border:0; cursor:pointer;
-  border-radius:24px; background:var(--tint); color:#fff;
-  font-size:var(--t-body); font-weight:700; text-decoration:none;
-  display:flex; align-items:center;
-}
-.tabbar__go:active{ opacity:.7; }
 </style>
 </head>
 <body>
-<div class="app" id="app">
+<div class="app">
 
-  <header class="app-head">
-    <div class="app-head__row">
-      <span class="app-head__live"><i></i><span data-i="notice">tgcloud is live · rev 12</span></span>
-      <button class="lang-btn" id="langBtn" type="button">🌐 English</button>
-    </div>
-    <h1 class="large-title" data-i="h1">کانالت را نگه می‌دارد — حتی وقتی خوابیده‌ای</h1>
-    <p class="lede" data-i="sub"></p>
+  <header>
+    <div class="icon">A</div>
+    <h1>AntiCh34t</h1>
+    <p class="tagline">It guards your channel — even while you sleep.</p>
+    <p class="live"><i></i>Live · tgcloud rev 12</p>
   </header>
 
-  <section class="chat" aria-label="AntiCh34t">
-    <div class="chat__day" data-i="chatDay">Today</div>
+  <section class="demo" aria-label="How it works">
+    <div class="day">Today</div>
     <div class="msg">
-      <span class="msg__av">A</span>
+      <span class="av">A</span>
       <div class="bubble">
-        <p><b data-i="tgTitle">K!NG MENTÆFIL</b></p>
-        <p class="muted"><span data-i="tgLocks">Active locks: 5 of 20</span> · <span data-i="tgMode">Mode: yellow</span></p>
-        <p class="muted"><span data-i="tgS1">12</span> <span data-i="tgS1l">violations today</span> · <span data-i="tgS2">3</span> <span data-i="tgS2l">muted</span> · <span data-i="tgS3">24 hours</span> <span data-i="tgS3l">undo window</span></p>
+        <p><b class="red">Yellow: @user demoted</b></p>
+        <p class="muted">K!NG MENTÆFIL · media edit · 12:04</p>
       </div>
     </div>
-    <div class="msg">
-      <span class="msg__av">A</span>
-      <div class="bubble">
-        <p><b data-i="tgRep">Edit deleted</b></p>
-        <p class="muted"><span data-i="tgRepM">K!NG MENTÆFIL · media edit</span></p>
-      </div>
-    </div>
-    <div class="msg">
-      <span class="msg__av">A</span>
-      <div class="bubble">
-        <p><b class="red" data-i="tgYel">Yellow: @user demoted</b></p>
-        <p class="muted"><span data-i="tgYelM">K!NG MENTÆFIL · media edit · 12:04</span></p>
-      </div>
-    </div>
-    <div class="msg">
-      <span class="msg__av">A</span>
-      <div class="bubble">
-        <p><b data-i="rpH">Media edit deleted</b></p>
-        <p class="muted"><span data-i="rpM">K!NG MENTÆFIL · by @user · 12:04</span></p>
-        <p><span class="tag" data-i="rpOld">old text</span><span class="strike" data-i="rpOldT">The price is 10</span></p>
-        <p><span class="tag" data-i="rpNew">new text</span><span data-i="rpNewT">The price is 100</span></p>
-      </div>
-    </div>
-    <p class="chat__cap" data-i="storyP">Someone edits a post in your channel. Here is what happens, in order.</p>
+    <p class="cap">Someone edits a post. The edit is deleted, the offender is demoted, you get the report.</p>
   </section>
 
-  <section class="group" aria-labelledby="locks-h">
-    <h2 class="group__head" id="locks-h"><b data-i="lkPanelH">Twenty locks, one switch each</b><span data-i="lkPanelP">Every post type has its own switch. Turn one on and that kind of post is gone the moment it appears.</span></h2>
-    <ul class="list" id="locksList"></ul>
-    <p class="group__foot" data-i="lkFoot">Tap a switch to try it — the locks are live in the bot's panel, this page only previews them.</p>
-  </section>
+  <ul class="facts">
+    <li><span class="n">20</span><span><b>20 locks, one switch each</b><span>Every post type has its own switch.</span></span></li>
+    <li><span class="n">⚡</span><span><b>Deletes in milliseconds</b><span>Even if the message is days old.</span></span></li>
+    <li><span class="n red">!</span><span><b>Red mode demotes and bans</b><span>Yellow demotes. Red demotes and bans.</span></span></li>
+  </ul>
 
-  <section class="group" aria-labelledby="panel-h">
-    <h2 class="group__head" id="panel-h"><b data-i="panelH">Everything about the channel, in one panel.</b><span data-i="panelP">See and change every channel's locks, mode and stats from the bot's DM. You never open the channel.</span></h2>
-    <ul class="list" id="chanList"></ul>
-  </section>
-
-  <section class="group" aria-labelledby="mg-h">
-    <h2 class="group__head" id="mg-h"><b data-i="mgH">The panel handles the rest.</b><span data-i="mgHg">Admins, access and tools.</span></h2>
-    <ul class="list" id="mgList"></ul>
-  </section>
-
-  <section class="group" aria-labelledby="ver-h">
-    <h2 class="group__head" id="ver-h"><b data-i="verH">Two versions, one bot.</b><span data-i="verP">The same bot in two runtimes. The live version runs on tgcloud; the Cloudflare Worker is the backup.</span></h2>
-    <div class="seg" role="tablist" aria-label="Versions">
-      <button type="button" role="tab" id="segTg" aria-selected="true" data-i="nv1">tgcloud Serverless</button>
-      <button type="button" role="tab" id="segCf" aria-selected="false" data-i="nv2">Cloudflare Worker</button>
-    </div>
-    <div class="ver-card on" id="verTg" role="tabpanel">
-      <h3><span data-i="nv1">tgcloud Serverless</span> · <span class="live" data-i="cR1b">Live · rev 12</span></h3>
-      <p data-i="verTgP">The live bot. Full feature set, verified live with server-side probes.</p>
-      <dl>
-        <dt data-i="cR2">Version</dt><dd data-i="cR2b">rev 12</dd>
-        <dt data-i="cR3">Data</dt><dd data-i="cR3b">SQL + KV</dd>
-        <dt data-i="cR4">Deploy</dt><dd data-i="cR4b">npx tgcloud push</dd>
-        <dt data-i="cR5">Tests</dt><dd data-i="cR5b">Verified live</dd>
-        <dt data-i="cR6">Force-join</dt><dd data-i="cR6b">Yes</dd>
-      </dl>
-    </div>
-    <div class="ver-card" id="verCf" role="tabpanel">
-      <h3><span data-i="nv2">Cloudflare Worker</span> · <span class="live" data-i="cR1a">Backup</span></h3>
-      <p data-i="verCfP">Deployed and ready, receives no traffic. The fallback if tgcloud ever stops.</p>
-      <dl>
-        <dt data-i="cR2">Version</dt><dd data-i="cR2a">v5.2</dd>
-        <dt data-i="cR3">Data</dt><dd data-i="cR3a">Cloudflare KV</dd>
-        <dt data-i="cR4">Deploy</dt><dd data-i="cR4a">One-click button</dd>
-        <dt data-i="cR5">Tests</dt><dd data-i="cR5a">641/641</dd>
-        <dt data-i="cR9">Userbot (48h+ deletes)</dt><dd data-i="cR9a">Yes</dd>
-      </dl>
-    </div>
-    <p class="group__foot" data-i="verFoot">Run only one runtime per bot token — never both against the same bot, or both will answer the same updates.</p>
-  </section>
-
-  <section class="group" aria-labelledby="faq-h">
-    <h2 class="group__head" id="faq-h"><b data-i="faqH">Questions</b><span data-i="faqP">The answers, plainly.</span></h2>
-    <ul class="faq" id="faqList"></ul>
-  </section>
-
-  <section class="deploy" aria-labelledby="dep-h">
-    <h2 id="dep-h" data-i="depH">Deploy the bot in a minute.</h2>
-    <p data-i="depP">Two ways: the Cloudflare button or the tgcloud command. Both are free.</p>
-    <a class="btn-primary" href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot" data-i="dep1b">Deploy to Cloudflare</a>
-    <a class="btn-ghost" href="https://github.com/Godde3s/anti-treason-bot/tree/main/tgcloud"><code>npx tgcloud push</code></a>
-  </section>
-
-  <section class="closing">
-    <h2 data-i="closeH">Your channel is waiting.</h2>
-    <p data-i="closeP">One minute to deploy. Free, open source, no card.</p>
-  </section>
+  <div class="deploy">
+    <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/Godde3s/anti-treason-bot">Deploy to Cloudflare</a>
+    <p class="alt">or run <code>npx tgcloud push</code> — free, open source, no card.</p>
+  </div>
 
   <footer class="foot">
-    <p><span data-i="footLede">Built for channels you care about — open source under MIT.</span><br>
-    <a href="https://github.com/Godde3s/anti-treason-bot" data-i="ft3a">GitHub</a> · <a href="#faq-h" data-i="ft3b">Questions</a> · <a href="#dep-h" data-i="ft4a">Deploy</a></p>
+    <p>Built for channels you care about — open source under MIT.<br>
+    <a href="https://github.com/Godde3s/anti-treason-bot">GitHub</a></p>
   </footer>
 
-  <nav class="tabbar" aria-label="Deploy">
-    <div class="tabbar__label">
-      <b>AntiCh34t</b>
-      <span data-i="nv3s">One minute · free</span>
-    </div>
-    <a class="tabbar__go" href="#dep-h" data-i="nv3">Deploy</a>
-  </nav>
-
 </div>
-
-<script>
-const I18N = { fa: {"a1": "فقط «حذف پیام» الزامی است. «Add New Admins» برای ادمین‌سازی و «Ban Users» برای وضعیت قرمز لازم می‌شود.", "a2": "مالک شناسهٔ عددی را می‌فرستد، یا لیستی تا ۵۰ شناسه را یکجا. بعد کانال‌های مجاز همان نفر را تیک می‌زند.", "a3": "محدودیت خود تلگرام است: هیچ رباتی نمی‌تواند پیام‌های قدیمی‌تر از ۴۸ ساعت را حذف کند. یوزرباتِ Cloudflare این فاصله را پر می‌کند.", "a4": "هر پستی که بدون امضای ادمین باشد فوراً حذف می‌شود. ادمین‌ها با «Sign messages» امضا می‌کنند.", "a5": "همان ربات و همان قابلیت‌های اصلی‌اند. tgcloud لایو است و عضویت اجباری و اعلان بدون تکرار دارد؛ Cloudflare بکاپ است و یوزربات و fallback به ربات قبلی را دارد. برای هر توکن فقط یکی را اجرا کن.", "a6": "بله. ربات حدود ۰٫۳٪ از ۱۰۰ هزار ریکوئست روزانه را مصرف می‌کند و فلاش گروهی سهمیهٔ نوشتن KV را زیر سقف نگه می‌دارد.", "a7": "توکن‌ها فقط به‌عنوان Secret نگهداری می‌شوند و هرگز در کد یا ریپو نیستند. فقط مالک می‌تواند تنظیمات را تغییر دهد. کد متن‌باز است (MIT).", "cR1a": "بکاپ", "cR1b": "لایو · rev 12", "cR2": "نسخه", "cR2a": "v5.2", "cR2b": "rev 12", "cR3": "داده", "cR3a": "Cloudflare KV", "cR3b": "SQL + KV", "cR4": "استقرار", "cR4a": "دکمهٔ یک‌کلیکه", "cR4b": "npx tgcloud push", "cR5": "تست‌ها", "cR5a": "641/641", "cR5b": "لایو تأیید شده", "cR6": "عضویت اجباری", "cR6b": "دارد", "cR9": "یوزربات (حذف ۴۸ ساعت به بالا)", "cR9a": "دارد", "ch1": "۵ قفل · زرد", "ch2": "۱۴ قفل · زرد", "ch3": "۴ قفل · زرد", "ch4": "۷ قفل · زرد", "ch5": "۵ قفل · زرد", "ch6": "۱۰ قفل · زرد", "ch7": "غیرفعال", "chatDay": "امروز", "closeH": "کانالت منتظر است.", "closeP": "یک دقیقه تا دیپلوی. رایگان، متن‌باز، بدون کارت.", "dep1b": "Deploy to Cloudflare", "depH": "ربات را در یک دقیقه دیپلوی کن.", "depP": "دو راه هست: دکمهٔ Cloudflare یا دستور tgcloud. هر دو رایگان‌اند.", "f4v1": "قفل کامل", "faqH": "پرسش‌ها", "faqP": "جواب‌ها، ساده.", "footLede": "ساخته‌شده برای کانال‌هایی که دوست‌شان داری — متن‌باز تحت MIT.", "ft3a": "گیت‌هاب", "ft3b": "پرسش‌ها", "ft4a": "Deploy", "h1": "کانالت را نگه می‌دارد — حتی وقتی خوابیده‌ای", "lk1": "ادیت متن", "lk2": "ادیت مدیا", "lk3": "پست ناشناس", "lk4": "فوروارد", "lkA": "ادیت لینک", "lkB": "ارسال متن", "lkC": "ارسال گیف", "lkD": "ارسال استیکر", "lkE": "ارسال ویس", "lkF": "ارسال ویدیو مسیج", "lkFoot": "روی کلید بزن تا امتحانش کنی — قفل‌ها توی پنل ربات زنده‌اند، این صفحه فقط پیش‌نمایش است.", "lkG": "ارسال موزیک", "lkH": "ارسال فایل", "lkI": "ارسال مخاطب", "lkJ": "ارسال لوکیشن", "lkK": "ارسال تاس", "lkPanelH": "بیست قفل، هر کدام یک کلید", "lkPanelP": "هر نوع پست کلید خودش را دارد. یکی را روشن کن و آن نوع پست همان لحظه که می‌آید حذف می‌شود.", "mgH": "بقیه‌اش با پنل است.", "mgHg": "ادمین‌ها، دسترسی و ابزار.", "mgN1": "ادمین‌های محدوده‌دار", "mgN10": "حذف پیام‌های اخیر", "mgN11": "پیام‌های Rich", "mgN12": "حذف به‌روزرسانی تکراری", "mgN2": "افزودن گروهی", "mgN3": "دسترسی سریع", "mgN4": "دسترسی به ربات در هر کانال", "mgN5": "ثبت‌نام", "mgN6": "پیش‌فرض‌های یک‌ضربه‌ای", "mgN7": "قفل زمان‌دار", "mgN8": "اعلان در کانال", "mgN9": "پخش همگانی", "mgP1": "هر ادمین فقط کانال‌هایی را می‌چرخاند که تیک زده‌ای.", "mgP10": "۱ تا ۴۰ پیام آخر را پاک کن.", "mgP11": "Bot API 10.4: جدول، جزئیات و هایلایت.", "mgP12": "به‌روزرسانی تکراری یک بار پردازش می‌شود.", "mgP2": "تا ۵۰ شناسه یکجا.", "mgP3": "با شناسهٔ عددی بده.", "mgP4": "چه کسی در هر کانال از ربات استفاده کند.", "mgP5": "کانال ثبت می‌شود، مالک تأیید می‌کند.", "mgP6": "تنظیمات رایج با یک ضربه.", "mgP7": "وقت تهران، دقیق تا دقیقه.", "mgP8": "ربات به کانال می‌گوید قفل شروع یا تمام شد.", "mgP9": "به کانال پست بفرست، با انتخاب مقصد.", "notice": "نسخهٔ tgcloud لایو است · rev 12", "nv1": "tgcloud Serverless", "nv2": "Cloudflare Worker", "nv3": "Deploy", "nv3s": "یک دقیقه · رایگان", "panelH": "همه‌چیزِ کانال، در یک پنل", "panelP": "قفل‌ها، حالت و آمار هر کانال را از پیوی ربات می‌بینی و عوض می‌کنی. لازم نیست وارد کانال شوی.", "q1": "ربات دقیقاً چه دسترسی‌هایی لازم دارد؟", "q2": "ادمین جدید چطور اضافه کنم؟", "q3": "چرا بعضی پیام‌های قدیمی حذف نمی‌شوند؟", "q4": "قفل پست ناشناس چطور کار می‌کند؟", "q5": "دو نسخه چه فرقی با هم دارن؟", "q6": "پلن رایگان Cloudflare کافی است؟", "q7": "امنیت و حریم خصوصی چطور است؟", "rpH": "ادیت مدیا حذف شد", "rpM": "K!NG MENTÆFIL · توسط @user · ۱۲:۰۴", "rpNew": "متن جدید", "rpNewT": "قیمت ۱۰۰ است", "rpOld": "متن قبلی", "rpOldT": "قیمت ۱۰ است", "storyP": "یکی توی کانالت پست را ادیت می‌کند. این اتفاق‌ها می‌افتد، به ترتیب.", "sub": "هر ادیت یا پست غیرمجاز را در میلی‌ثانیه حذف می‌کند، حتی اگر پیام چند روز پیش باشد. <b>۲۰ قفل، ۶۴۱ تست سبز — رایگان و متن‌باز.</b>", "tgK6": "ارسال عکس", "tgK7": "ارسال لینک", "tgK8": "ارسال ویدیو", "tgK9": "ارسال نظرسنجی", "tgLocks": "قفل‌های فعال: ۵ از ۲۰", "tgMode": "وضعیت: زرد", "tgRep": "ادیت حذف شد", "tgRepM": "K!NG MENTÆFIL · ادیت مدیا", "tgS1": "۱۲", "tgS1l": "تخلف امروز", "tgS2": "۳", "tgS2l": "سکوت‌شده", "tgS3": "۲۴ ساعت", "tgS3l": "پنجرهٔ بازگشت", "tgTitle": "K!NG MENTÆFIL", "tgYel": "زرد: @user تنزل شد", "tgYelM": "K!NG MENTÆFIL · ادیت مدیا · ۱۲:۰۴", "verCfP": "دیپلوی شده و آماده است، ترافیکی نمی‌گیرد. اگر tgcloud روزی متوقف شد، جایگزین است.", "verFoot": "برای هر توکن ربات فقط یک ران‌تایم را اجرا کن — اگر هر دو را هم‌زمان روی یک ربات روشن کنی، هر دو به همان آپدیت‌ها جواب می‌دهند.", "verH": "دو نسخه، یک ربات.", "verP": "همان ربات در دو ران‌تایم. نسخهٔ لایو روی tgcloud است؛ ورکر کلادفلر بکاپ است. برای هر توکن فقط یکی را اجرا کن.", "verTgP": "رباتِ لایو. همهٔ قابلیت‌ها، تأییدشده با پروب‌های سرور."}, en: {"a1": "Only Delete messages is required. Add New Admins is needed for in-bot promotion and Ban Users for red mode.", "a2": "The owner sends the numeric ID, or a list of up to 50 IDs at once. Then ticks the channels that person may manage.", "a3": "That is Telegram's own limit: no bot can delete messages older than 48 hours. The Cloudflare userbot closes the gap.", "a4": "Any post without an admin signature is deleted at once. Admins sign with Sign messages.", "a5": "They are the same bot with the same core features. tgcloud is live and adds force-join and exactly-once announcements; Cloudflare is the backup and has the userbot and previous-bot fallback. Run only one per token.", "a6": "Yes. The bot uses about 0.3% of the 100k daily requests, and batched flushing keeps KV writes under the cap.", "a7": "Tokens live only as secrets, never in code or the repo. Only the owner can change settings. The code is open source (MIT).", "cR1a": "Backup", "cR1b": "Live · rev 12", "cR2": "Version", "cR2a": "v5.2", "cR2b": "rev 12", "cR3": "Data", "cR3a": "Cloudflare KV", "cR3b": "SQL + KV", "cR4": "Deploy", "cR4a": "One-click button", "cR4b": "npx tgcloud push", "cR5": "Tests", "cR5a": "641/641", "cR5b": "Verified live", "cR6": "Force-join", "cR6b": "Yes", "cR9": "Userbot (48h+ deletions)", "cR9a": "Yes", "ch1": "5 locks · yellow", "ch2": "14 locks · yellow", "ch3": "4 locks · yellow", "ch4": "7 locks · yellow", "ch5": "5 locks · yellow", "ch6": "10 locks · yellow", "ch7": "disabled", "chatDay": "Today", "closeH": "Your channel is waiting.", "closeP": "One minute to deploy. Free, open source, no card.", "dep1b": "Deploy to Cloudflare", "depH": "Deploy the bot in a minute.", "depP": "Two ways: the Cloudflare button or the tgcloud command. Both are free.", "f4v1": "Master lock", "faqH": "Questions", "faqP": "The answers, plainly.", "footLede": "Built for channels you care about — open source under MIT.", "ft3a": "GitHub", "ft3b": "Questions", "ft4a": "Deploy", "h1": "It guards your channel — even while you sleep.", "lk1": "Text edit", "lk2": "Media edit", "lk3": "Anonymous post", "lk4": "Forward", "lkA": "Link edit", "lkB": "Send text", "lkC": "Send GIF", "lkD": "Send sticker", "lkE": "Send voice", "lkF": "Send video note", "lkFoot": "Tap a switch to try it — the locks are live in the bot's panel, this page only previews them.", "lkG": "Send audio", "lkH": "Send file", "lkI": "Send contact", "lkJ": "Send location", "lkK": "Send dice", "lkPanelH": "Twenty locks, one switch each", "lkPanelP": "Every post type has its own switch. Turn one on and that kind of post is gone the moment it appears.", "mgH": "The panel handles the rest.", "mgHg": "Admins, access and tools.", "mgN1": "Scoped admins", "mgN10": "Delete recent", "mgN11": "Rich messages", "mgN12": "Update dedup", "mgN2": "Batch add", "mgN3": "Quick access", "mgN4": "Per-channel bot access", "mgN5": "Onboarding", "mgN6": "One-tap presets", "mgN7": "Time-window lock", "mgN8": "In-channel announcements", "mgN9": "Broadcast", "mgP1": "Each admin manages only the channels you tick.", "mgP10": "Wipe the last 1–40 messages.", "mgP11": "Bot API 10.4: tables, details and highlights.", "mgP12": "A duplicate update is processed once.", "mgP2": "Up to 50 IDs at once.", "mgP3": "Grant by numeric ID.", "mgP4": "Who may use the bot, per channel.", "mgP5": "A channel registers, the owner approves.", "mgP6": "The common setups in one tap.", "mgP7": "Tehran time, minute-precise.", "mgP8": "The bot tells the channel a lock started or ended.", "mgP9": "Post to a channel, with a destination picker.", "notice": "The tgcloud version is live · rev 12", "nv1": "tgcloud Serverless", "nv2": "Cloudflare Worker", "nv3": "Deploy", "nv3s": "One minute · free", "panelH": "Everything about the channel, in one panel.", "panelP": "See and change every channel's locks, mode and stats from the bot's DM. You never open the channel.", "q1": "What permissions does the bot need?", "q2": "How do I add a new admin?", "q3": "Why can't some old messages be deleted?", "q4": "How does the anonymous-post lock work?", "q5": "How do the two versions differ?", "q6": "Is the Cloudflare free plan enough?", "q7": "What about security and privacy?", "rpH": "Media edit deleted", "rpM": "K!NG MENTÆFIL · by @user · 12:04", "rpNew": "new text", "rpNewT": "The price is 100", "rpOld": "old text", "rpOldT": "The price is 10", "storyP": "Someone edits a post in your channel. Here is what happens, in order.", "sub": "It deletes any unauthorized edit or post in milliseconds, even if the message is days old. <b>20 locks, 641 green tests — free and open source.</b>", "tgK6": "Send photo", "tgK7": "Send link", "tgK8": "Send video", "tgK9": "Send poll", "tgLocks": "Locks on: 5 of 20", "tgMode": "Mode: yellow", "tgRep": "Edit deleted", "tgRepM": "K!NG MENTÆFIL · media edit", "tgS1": "12", "tgS1l": "violations today", "tgS2": "3", "tgS2l": "muted", "tgS3": "24h", "tgS3l": "undo window", "tgTitle": "K!NG MENTÆFIL", "tgYel": "Yellow: @user demoted", "tgYelM": "K!NG MENTÆFIL · media edit · 12:04", "verCfP": "Deployed and ready, receives no traffic. The fallback if tgcloud ever stops.", "verFoot": "Run only one runtime per bot token — never both against the same bot, or both will answer the same updates.", "verH": "Two versions, one bot.", "verP": "The same bot in two runtimes. The live version runs on tgcloud; the Cloudflare Worker is the backup. Run only one per token.", "verTgP": "The live bot. Full feature set, verified live with server-side probes."} };
-const LOCKS = [
-  ['f4v1', false], ['lk1', true], ['lk2', true], ['lkA', true], ['lk3', true],
-  ['lkB', true], ['tgK6', true], ['tgK8', true], ['lkC', true], ['lkD', true],
-  ['lkE', true], ['lkF', true], ['lkG', true], ['lkH', true], ['tgK9', true],
-  ['lkI', true], ['lkJ', true], ['lkK', true], ['lk4', false], ['tgK7', false]
-];
-const CHANNELS = [
-  ['K!NG MENT\u00c6FIL', 'ch1', 'K'], ['\u0632\u064e\u0645\u06cc\u0646 \u0628\u0627\u0632\u06cc | Playground', 'ch2', '\u0632'],
-  ['\u0627\u0650\u062a\u0640\u062d\u0640\u0622\u062f \u0647\u0640\u0640\u0640\u06a9 / \u062f\u06cc\u067e\u0640\u0648\u0631\u062a\u0650\u0640\u0631', 'ch3', '\u0627'],
-  ['\u0622\u0641\u0640\u0640\u06cc\u0640\u0634\u0640\u06cc\u0640\u0622\u0644 \u0647\u0640\u0640\u0640\u06a9', 'ch4', '\u0622'],
-  ['\u0627\u062a\u062d\u0627\u062f \u062f\u06cc\u062c\u06cc\u062a\u0627\u0644', 'ch5', '\u0627'],
-  ['\u067e\u0640\u0622\u062f\u0634\u0640\u0627\u0647\u0640\u06cc \u0645\u0640\u062c\u0640\u0640\u0622\u0632\u06cc', 'ch6', '\u067e'],
-  ['\u0640', 'ch7', '\u2013']
-];
-const MG = ['mgN1','mgN2','mgN3','mgN4','mgN5','mgN6','mgN7','mgN8','mgN9','mgN10','mgN11','mgN12'];
-const MGP = ['mgP1','mgP2','mgP3','mgP4','mgP5','mgP6','mgP7','mgP8','mgP9','mgP10','mgP11','mgP12'];
-const FAQ = ['q1','q2','q3','q4','q5','q6','q7'];
-const FAQA = ['a1','a2','a3','a4','a5','a6','a7'];
-
-let lang = 'fa';
-function t(k){ return (I18N[lang] && I18N[lang][k]) || I18N.en[k] || ''; }
-function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-function buildLists(){
-  var lk = document.getElementById('locksList');
-  lk.innerHTML = LOCKS.map(function(pair){
-    var k = pair[0], on = pair[1];
-    return '<li><span class="list__body"><span class="list__t">' + esc(t(k)) + '</span></span>' +
-      '<label class="switch"><input type="checkbox"' + (on ? ' checked' : '') + ' aria-label="' + esc(t(k)) + '">' +
-      '<span class="switch__track"></span><span class="switch__knob"></span></label></li>';
-  }).join('');
-  var ch = document.getElementById('chanList');
-  ch.innerHTML = CHANNELS.map(function(c){
-    return '<li><span class="list__ic">' + esc(c[2]) + '</span>' +
-      '<span class="list__body"><span class="list__t">' + esc(c[0]) + '</span></span>' +
-      '<span class="list__v">' + esc(t(c[1])) + '</span></li>';
-  }).join('');
-  var mg = document.getElementById('mgList');
-  mg.innerHTML = MG.map(function(k, i){
-    return '<li><span class="list__body"><span class="list__t"><b>' + esc(t(k)) + '</b></span>' +
-      '<span class="list__s">' + esc(t(MGP[i])) + '</span></span></li>';
-  }).join('');
-  var fq = document.getElementById('faqList');
-  fq.innerHTML = FAQ.map(function(k, i){
-    return '<li><details><summary><span>' + esc(t(k)) + '</span><span class="chev">›</span></summary>' +
-      '<div class="ans">' + esc(t(FAQA[i])) + '</div></details></li>';
-  }).join('');
-}
-
-function setLang(l){
-  lang = (l === 'en') ? 'en' : 'fa';
-  document.documentElement.lang = lang;
-  document.documentElement.dir = lang === 'fa' ? 'rtl' : 'ltr';
-  document.querySelectorAll('[data-i]').forEach(function(el){
-    var v = t(el.getAttribute('data-i'));
-    if (v) el.innerHTML = v;
-  });
-  buildLists();
-  var b = document.getElementById('langBtn');
-  if (b) b.textContent = lang === 'fa' ? '\uD83C\uDF10 English' : '\uD83C\uDF10 \u0641\u0627\u0631\u0633\u06cc';
-  try { localStorage.setItem('antich34t-lang', lang); } catch(e) {}
-}
-
-document.getElementById('langBtn').addEventListener('click', function(){
-  setLang(lang === 'fa' ? 'en' : 'fa');
-});
-
-document.getElementById('segTg').addEventListener('click', function(){
-  document.getElementById('segTg').setAttribute('aria-selected','true');
-  document.getElementById('segCf').setAttribute('aria-selected','false');
-  document.getElementById('verTg').classList.add('on');
-  document.getElementById('verCf').classList.remove('on');
-});
-document.getElementById('segCf').addEventListener('click', function(){
-  document.getElementById('segCf').setAttribute('aria-selected','true');
-  document.getElementById('segTg').setAttribute('aria-selected','false');
-  document.getElementById('verCf').classList.add('on');
-  document.getElementById('verTg').classList.remove('on');
-});
-
-(function(){
-  var saved = null;
-  try { saved = localStorage.getItem('antich34t-lang'); } catch(e) {}
-  setLang(saved === 'en' ? 'en' : 'fa');
-})();
-</script>
 </body>
 </html>
