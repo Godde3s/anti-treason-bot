@@ -13,6 +13,8 @@ Everything is managed from a clean Persian panel in the bot's private chat. No c
 
 > 🌐 Documentation is bilingual: **English (this file)** · [فارسی (README-FA.md)](README-FA.md)
 
+> **Two runtimes, one bot:** the live bot runs on **Telegram tgcloud Serverless** — see [`tgcloud/`](tgcloud/) (rev 12, live since 2026-11-15). The Cloudflare Worker in this repo root (`worker.js`, `wrangler.toml`) is kept as a backup and receives no traffic.
+
 ---
 
 ## ✨ Highlights

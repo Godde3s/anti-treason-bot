@@ -7,3 +7,6 @@ userbot.env
 *.zip
 node_modules/
 .wrangler/
+
+# tgcloud CLI machine state (never commit)
+.tgcloud/
