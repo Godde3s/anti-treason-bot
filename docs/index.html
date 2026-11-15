@@ -18,7 +18,7 @@
 <meta property="og:image" content="share.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta name="theme-color" content="#eeeeeb">
+<meta name="theme-color" content="#F7F2E9">
 <meta name="site-kind" content="software">
 <meta name="page-type" content="software">
 <!-- <link rel="canonical" href="https://godde3s.github.io/anti-treason-bot/"> -->
@@ -33,10 +33,17 @@
 <link rel="stylesheet" href="assets/ui/base.css">
 <style>
 :root {
-  --p-bg: #eeeeeb; --p-surface: #e1e1dd; --p-ink: #1c1d1f; --p-muted: #5c5e62;
-  --p-accent: #c2501b; --p-accent-ink: #ffffff; --p-action: #c2501b; --p-action-ink: #ffffff;
-  --p-inv-bg: #1c1d1f; --p-inv-surface: #28292b; --p-inv-ink: #eeeeeb; --p-inv-muted: #969796;
-  --p-inv-accent: #c2501b; --p-inv-accent-ink: #ffffff; --p-inv-action: #c2501b; --p-inv-action-ink: #ffffff;
+  /* Three colours, 80/20: warm paper covers ~80% of every screen, warm ink carries the
+     type and the dark band, one signal red does all the pointing (buttons, live dot, red
+     mode). Paper tints (surface, ground) are the same colour in a different value. */
+  --p-bg: #F7F2E9; --p-surface: #EFE7D6; --p-ink: #1B1A18; --p-muted: #6E675C;
+  --p-accent: #D9381E; --p-accent-ink: #ffffff; --p-action: #D9381E; --p-action-ink: #ffffff;
+  --p-inv-bg: #1B1A18; --p-inv-surface: #262422; --p-inv-ink: #F7F2E9; --p-inv-muted: #A8A094;
+  --p-inv-accent: #D9381E; --p-inv-accent-ink: #ffffff; --p-inv-action: #D9381E; --p-inv-action-ink: #ffffff;
+  /* the kit's lit ground (panels, footer slab) in the same paper, not the old tan sand */
+  --ground-bg: #EAE1CE; --ground-surface: #F2EBDC; --ground-ink: #1B1A18; --ground-muted: #6E675C; --ground-accent: #D9381E;
+  /* more air: sections breathe further apart, headings stand further from their content */
+  --section: 72px; --head-gap: 64px; --card-gap: 20px;
   --font-display: "Host Grotesk", "Vazirmatn", system-ui, sans-serif;
   --font-text: "Host Grotesk", "Vazirmatn", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
@@ -81,7 +88,7 @@
   .tg__key .on { color: #146c2e; }
   .tg__key .off { color: var(--tg-muted); }
   .tg__key.wide { grid-column: 1 / -1; }
-  .tg__key.hot { border-color: rgba(194,80,27,.5); }
+  .tg__key.hot { border-color: rgba(217,56,30,.5); }
   /* App-frame: the bot's panel, list + open item (sections-library.md, app-frame). */
   .app.ui { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); margin-top: var(--s-7);
     background: var(--u-bg); border: 1px solid var(--u-border); border-radius: var(--u-r);
@@ -153,14 +160,14 @@
   .diff { font-size: 14px; line-height: 1.7; }
   .diff__old { background: #fbe9e7; padding: 10px 12px; border-radius: var(--r-md); }
   .diff__new { background: #e8f5e9; padding: 10px 12px; border-radius: var(--r-md); margin-top: 8px; }
-  .diff__old s { text-decoration-color: #c2501b; }
+  .diff__old s { text-decoration-color: #D9381E; }
   .diff__tag { font-size: 12px; font-weight: 700; color: var(--p-muted); display: block; margin-bottom: 4px; }
   .ladder { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .ladder__step { border: 1px solid color-mix(in srgb, var(--p-ink) 14%, transparent); border-radius: var(--r-md);
     padding: 14px; font-size: 14px; line-height: 1.5; }
   .ladder__step .t { font-weight: 700; display: block; margin-bottom: 4px; }
   .ladder__step--y { border-color: #d4a017; background: #fdf6e3; }
-  .ladder__step--r { border-color: #c2501b; background: #fbe9e7; }
+  .ladder__step--r { border-color: #D9381E; background: #FDECE8; }
   .rep { font-size: 14px; line-height: 1.6; }
   .rep__head { font-weight: 700; margin-bottom: 6px; }
   .rep__meta { color: var(--p-ink); font-size: 13px; }
@@ -174,6 +181,8 @@
   /* feature-card panels: the kit's 264-340px stage leaves a big empty sand area under a
      small fragment; shrink the stage so the fragment is the visual, not the empty ground */
   #locks .card > .panel, #ladder .card > .panel, #manage .card > .panel, #reports .card > .panel { --p-h: 190px; }
+  /* the manage list is a long read: give each row room to breathe */
+  #manage .rows > li { padding-block: var(--s-5); }
   /* the hero float card is absolute over the panel's empty foot on desktop;
      on a phone the panel fills the media box, so the card flows below it instead of covering the locks */
   @media (max-width: 639px) {
@@ -609,8 +618,8 @@ const I18N = {
 fa: {
 skip:"پرش به محتوا", navV:"نسخه‌ها", navL:"قفل‌ها", navR:"گزارش‌ها", navQ:"پرسش‌ها",
 nv1:"tgcloud Serverless", nv1s:"لایو · rev 12", nv2:"Cloudflare Worker", nv2s:"بکاپ · v5.2", nv3:"Deploy", nv3s:"یک دقیقه · رایگان",
-notice:"نسخهٔ tgcloud لایو است · rev 12", h1:"ربات نگهبان کانال تلگرام",
-sub:"هر ادیت یا ارسالِ غیرمجاز را در میلی‌ثانیه حذف می‌کند، حتی اگر پیام چند روز پیش باشد. ۲۰ قفل و ۶۴۱ تست سبز.",
+notice:"نسخهٔ tgcloud لایو است · rev 12", h1:"کانالت را نگه می‌دارد — حتی وقتی خوابیده‌ای",
+sub:"هر ادیت یا پست غیرمجاز را در میلی‌ثانیه حذف می‌کند، حتی اگر پیام چند روز پیش باشد. ۲۰ قفل، ۶۴۱ تست سبز — رایگان و متن‌باز.",
 cta2:"دیدن کد", tgBot:"ربات", tgTitle:"K!NG MENTÆFIL", tgLocks:"قفل‌های فعال: ۵ از ۲۰", tgMode:"وضعیت: زرد",
 tgK1:"ادیت متن", on:"روشن", tgK2:"ادیت مدیا", on2:"روشن", tgK3:"پست ناشناس", on3:"روشن", tgK4:"فوروارد", off:"خاموش",
 tgK5:"قفل آنی", off2:"خاموش", tgRep:"ادیت حذف شد", tgRepM:"K!NG MENTÆFIL · ادیت مدیا", flLive:"زنده", flMeta:"ادیت مدیا", flTitle:"ادیت حذف شد",
@@ -674,16 +683,16 @@ q7:"امنیت و حریم خصوصی چطور است؟", a7:"توکن‌ها ف
 depH:"ربات را در یک دقیقه دیپلوی کن.", depP:"دو راه هست: دکمهٔ Cloudflare یا دستور tgcloud. هر دو رایگان‌اند.",
 dep1h:"Cloudflare Worker", dep1p:"دکمه را بزن، BOT_TOKEN و OWNER_ID را به‌عنوان Secret ثبت کن، و آدرس ?setup= را باز کن.", dep1b:"Deploy to Cloudflare",
 dep2h:"tgcloud Serverless", dep2p:"ریپو را کلون کن، توکن را بگذار، و پوش کن. نسخهٔ لایو، rev 12.", dep2l:"دیدن پوشهٔ tgcloud",
-closeH:"ربات را دیپلوی کن.", closeP:"رایگان، متن‌باز (MIT)، در یک دقیقه.",
-footLede:"ربات نگهبان کانال تلگرام، متن‌باز تحت MIT.",
+closeH:"کانالت منتظر است.", closeP:"یک دقیقه تا دیپلوی. رایگان، متن‌باز، بدون کارت.",
+footLede:"ساخته‌شده برای کانال‌هایی که دوست‌شان داری — متن‌باز تحت MIT.",
 ft1:"نسخه‌ها", ft1a:"Cloudflare Worker", ft1b:"tgcloud Serverless", ft2:"قابلیت‌ها", ft2a:"قفل‌ها", ft2b:"نردبان", ft2c:"گزارش‌ها",
 ft3:"مستندات", ft3a:"گیت‌هاب", ft3b:"پرسش‌ها", ft4:"استقرار", ft4a:"Deploy", ft4b:"بالا"
 },
 en: {
 skip:"Skip to content", navV:"Versions", navL:"Locks", navR:"Reports", navQ:"Questions",
 nv1:"tgcloud Serverless", nv1s:"Live · rev 12", nv2:"Cloudflare Worker", nv2s:"Backup · v5.2", nv3:"Deploy", nv3s:"One minute · free",
-notice:"The tgcloud version is live · rev 12", h1:"Telegram channel guard bot",
-sub:"It deletes any unauthorized edit or post in milliseconds, even if the message is days old. 20 locks and 641 tests green.",
+notice:"The tgcloud version is live · rev 12", h1:"It guards your channel — even while you sleep.",
+sub:"It deletes any unauthorized edit or post in milliseconds, even if the message is days old. 20 locks, 641 tests green — free and open source.",
 cta2:"See the code", tgBot:"bot", tgTitle:"K!NG MENTÆFIL", tgLocks:"Locks on: 5 of 20", tgMode:"Mode: yellow",
 tgK1:"Text edit", on:"on", tgK2:"Media edit", on2:"on", tgK3:"Anonymous post", on3:"on", tgK4:"Forward", off:"off",
 tgK5:"Instant lock", off2:"off", tgRep:"Edit deleted", tgRepM:"K!NG MENTÆFIL · media edit", flLive:"Live", flMeta:"media edit", flTitle:"Edit deleted",
@@ -747,8 +756,8 @@ q7:"What about security and privacy?", a7:"Tokens live only as secrets, never in
 depH:"Deploy the bot in a minute.", depP:"Two ways: the Cloudflare button or the tgcloud command. Both are free.",
 dep1h:"Cloudflare Worker", dep1p:"Press the button, set BOT_TOKEN and OWNER_ID as Secrets, then open ?setup=.", dep1b:"Deploy to Cloudflare",
 dep2h:"tgcloud Serverless", dep2p:"Clone the repo, set the token, and push. The live version, rev 12.", dep2l:"See the tgcloud folder",
-closeH:"Deploy the bot.", closeP:"Free, open source (MIT), in a minute.",
-footLede:"Telegram channel guard bot, open source under MIT.",
+closeH:"Your channel is waiting.", closeP:"One minute to deploy. Free, open source, no card.",
+footLede:"Built for channels you care about — open source under MIT.",
 ft1:"Versions", ft1a:"Cloudflare Worker", ft1b:"tgcloud Serverless", ft2:"Features", ft2a:"Locks", ft2b:"Ladder", ft2c:"Reports",
 ft3:"Docs", ft3a:"GitHub", ft3b:"Questions", ft4:"Deploy", ft4a:"Deploy", ft4b:"Top"
 }
