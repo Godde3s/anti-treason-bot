@@ -9,7 +9,7 @@
 
 A self-hosted **anti-cheat guard for Telegram channels**. It catches edits and unauthorized posts within milliseconds — even if the message was sent days ago and edited *right now* (Telegram bots normally cannot touch anything older than 48 hours; the Cloudflare version pairs with an optional userbot helper to close that gap).
 
-Everything is managed from a clean Persian panel in the bot's private chat. No commands to memorize, no database to babysit.
+The live bot is **AntiCh34t** — it runs on tgcloud (rev 12). Everything is managed from a clean Persian panel in the bot's private chat. No commands to memorize, no database to babysit.
 
 > 🌐 Documentation is bilingual: **English (this file)** · [فارسی (README-FA.md)](README-FA.md)
 
